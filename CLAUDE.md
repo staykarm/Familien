@@ -1,0 +1,48 @@
+@AGENTS.md
+
+# Familien – prosjektkonvensjoner
+
+Familieapp for planlegging (kalender, Outlook-synk, vær, oppgaver, handleliste, filinnlesning og Oda).
+Arkitektur og faser står i README. Marius godkjenner hver fase før den startes.
+
+## Stack
+- Next.js 16 (App Router, `src/`), React 19, TypeScript strict, Tailwind CSS 4 og Vitest. Samme oppsett som BacalaoCup.
+- Supabase via `@supabase/ssr`. Hosting og cron på Vercel.
+- Next 16 har brudd mot eldre versjoner, så les `node_modules/next/dist/docs/` ved tvil. `middleware` heter nå `proxy` (`src/proxy.ts`). `cookies()`, `headers()`, `params` og `searchParams` er async. `PageProps`/`LayoutProps` er globale typer som `next typegen` genererer.
+
+## Språk og tid
+- **All tekst i UI skal være på norsk (bokmål).** Kommentarer skrives på norsk.
+- Tidssonen er alltid `Europe/Oslo` (`TIME_ZONE` i `src/lib/time.ts`). Tidspunkt lagres som `timestamptz` og formateres med `Intl` og `timeZone`. Ikke stol på serverens lokale tid, fordi Vercel kjører i UTC.
+
+## Supabase og sikkerhet
+- Det finnes tre klienter:
+  - `lib/supabase/server.ts`: innlogget bruker, RLS gjelder.
+  - `lib/supabase/client.ts`: nettleseren.
+  - `lib/supabase/admin.ts`: service role, kun for webhooks, cron og hemmelige tabeller.
+- Kode som bruker `SUPABASE_SECRET_KEY` skal ha `import "server-only"`.
+- Alle tabeller har RLS. Familietabeller har policy med `public.is_family()`. Tabeller med hemmeligheter (tokens o.l.) har **ingen** policyer.
+- Ingen hemmeligheter i koden. Nye miljøvariabler legges i `.env.example` med kommentar og leses med `serverEnv()` fra `lib/env.ts`.
+- Skjemaendringer legges som nye filer `supabase/migrations/NNNN_beskrivelse.sql`. Endre aldri en migrasjon som er kjørt. Oppdater `src/lib/database.types.ts` samtidig.
+- Sider i `(app)` kaller `requireFamily()` fra `lib/session.ts`. Server actions gjør det samme før de skriver.
+
+## Validering
+- All input til server actions og API-ruter valideres med Zod (`src/lib/validation/`), med vennlige feilmeldinger på norsk.
+- Server actions returnerer `{ ok, message }` i stedet for å kaste feil til UI.
+
+## UI og design
+- Stilen er lys, varm og barnevennlig. Bruk tokenene i `globals.css` (`bg-card`, `text-ink`, `bg-primary` …) og klassene i `components/ui/styles.ts`.
+- Trykkflater skal være minst 48 px (`min-h-12`), med avrundede former (`rounded-2xl`/`rounded-3xl`).
+- Medlemsfarge og avatar (`components/ui/Avatar.tsx`) brukes konsekvent overalt der en person vises.
+- Mobil først: `AppShell` gir bunnmeny på mobil og sidemeny fra `md:`.
+
+## Mappestruktur
+- `src/app/(auth)`: offentlige sider.
+- `src/app/(app)`: krever familieinnlogging.
+- `src/app/api`: webhooks, cron og ruter med egen autentisering.
+- `src/actions/`: server actions per domene.
+- `src/lib/`: rene hjelpefunksjoner, med tester i `*.test.ts` ved siden av.
+- `src/components/`: komponenter.
+
+## Før commit
+`npm run lint && npm run typecheck && npm test && npm run build` skal være grønt.
+Commit ofte, med tydelige meldinger som starter med fasen, f.eks. `Fase 2: per-person-visning i kalenderen`.

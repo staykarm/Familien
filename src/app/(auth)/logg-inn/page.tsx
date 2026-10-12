@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { AUTH_ENABLED } from "@/lib/env";
 import { safeNextPath } from "@/lib/safeRedirect";
 import { card } from "@/components/ui/styles";
 import { appIconElement } from "@/lib/appIcon";
@@ -6,6 +8,7 @@ import { LoginForms } from "./LoginForms";
 export const metadata = { title: "Logg inn – Familien" };
 
 export default async function LoginPage({ searchParams }: PageProps<"/logg-inn">) {
+  if (!AUTH_ENABLED) redirect("/");
   const params = await searchParams;
   const next = safeNextPath(typeof params.neste === "string" ? params.neste : "/");
   const failed = params.feil === "lenke";

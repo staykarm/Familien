@@ -3,14 +3,14 @@ import { Avatar } from "@/components/ui/Avatar";
 import { card } from "@/components/ui/styles";
 import { signAvatarUrls } from "@/lib/avatars";
 import { requireFamily } from "@/lib/session";
-import { createClient } from "@/lib/supabase/server";
+import { getDb } from "@/lib/supabase/db";
 import { parseDetails } from "@/lib/validation/profile";
 
 export const metadata = { title: "Familien" };
 
 export default async function ProfilesPage() {
   const session = await requireFamily();
-  const urls = await signAvatarUrls(await createClient(), session.members.map((m) => m.avatar_path));
+  const urls = await signAvatarUrls(await getDb(), session.members.map((m) => m.avatar_path));
 
   return (
     <div className="flex flex-col gap-6">

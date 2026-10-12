@@ -3,12 +3,12 @@ import { AppShell } from "@/components/AppShell";
 import { Avatar } from "@/components/ui/Avatar";
 import { signAvatarUrls } from "@/lib/avatars";
 import { requireFamily } from "@/lib/session";
-import { createClient } from "@/lib/supabase/server";
+import { getDb } from "@/lib/supabase/db";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const session = await requireFamily();
   const me = session.activeMember;
-  const urls = me ? await signAvatarUrls(await createClient(), [me.avatar_path]) : {};
+  const urls = me ? await signAvatarUrls(await getDb(), [me.avatar_path]) : {};
 
   const meLink = (
     <Link href="/hvem-er-jeg" className="flex min-h-12 items-center" aria-label="Bytt person">

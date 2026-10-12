@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { getDb } from "@/lib/supabase/db";
 import { requireFamily } from "@/lib/session";
 import { isAllowedAvatar, profileSchema } from "@/lib/validation/profile";
 
@@ -28,7 +28,7 @@ export async function updateProfile(_prev: ActionResult | null, formData: FormDa
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
 
   const { id, ...fields } = parsed.data;
-  const supabase = await createClient();
+  const supabase = await getDb();
   const { error, count } = await supabase.from("members").update(fields, { count: "exact" }).eq("id", id);
   if (error || count === 0) return { ok: false, message: "Kunne ikke lagre profilen" };
 
@@ -43,7 +43,7 @@ export async function uploadAvatar(memberId: string, formData: FormData): Promis
   const problem = isAllowedAvatar(file);
   if (problem) return { ok: false, message: problem };
 
-  const supabase = await createClient();
+  const supabase = await getDb();
   const { data: member } = await supabase.from("members").select("id, avatar_path").eq("id", memberId).maybeSingle();
   if (!member) return { ok: false, message: "Fant ikke medlemmet" };
 
@@ -65,7 +65,7 @@ export async function uploadAvatar(memberId: string, formData: FormData): Promis
 
 export async function removeAvatar(memberId: string): Promise<ActionResult> {
   await requireFamily();
-  const supabase = await createClient();
+  const supabase = await getDb();
   const { data: member } = await supabase.from("members").select("id, avatar_path").eq("id", memberId).maybeSingle();
   if (!member?.avatar_path) return { ok: true };
   await supabase.from("members").update({ avatar_path: null }).eq("id", member.id);

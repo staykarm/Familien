@@ -5,7 +5,7 @@ import { ProfileForm } from "@/components/profile/ProfileForm";
 import { buttonGhost } from "@/components/ui/styles";
 import { signAvatarUrls } from "@/lib/avatars";
 import { requireFamily } from "@/lib/session";
-import { createClient } from "@/lib/supabase/server";
+import { getDb } from "@/lib/supabase/db";
 import { parseDetails } from "@/lib/validation/profile";
 
 export default async function ProfilePage({ params }: PageProps<"/profiler/[id]">) {
@@ -13,7 +13,7 @@ export default async function ProfilePage({ params }: PageProps<"/profiler/[id]"
   const session = await requireFamily();
   const member = session.members.find((m) => m.id === id);
   if (!member) notFound();
-  const urls = await signAvatarUrls(await createClient(), [member.avatar_path]);
+  const urls = await signAvatarUrls(await getDb(), [member.avatar_path]);
 
   return (
     <div className="flex flex-col gap-4">

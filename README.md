@@ -77,6 +77,11 @@ Sjekker: `npm run lint`, `npm run typecheck`, `npm test` og `npm run build`.
 - `ANTHROPIC_API_KEY` (fase 7): fra [console.anthropic.com](https://console.anthropic.com).
 
 ## Innlogging og tilgang
+> **Nå:** innlogging er slått av (`AUTH_ENABLED=false`, standard). Appen åpnes rett inn, og man velger «Hvem er du?». Serveren bruker service role-nøkkelen, så databasen er fortsatt stengt for den offentlige nøkkelen, men **alle som har lenken kan bruke appen**. Stegene om brukere, e-postmal og `link_users.sql` i Supabase-oppsettet kan vente til innlogging skrus på.
+>
+> **Skru på innlogging senere:** gjør stegene 4–8 i Supabase-oppsettet, sett `AUTH_ENABLED=true` i Vercel og redeploy.
+
+Når innlogging er på:
 - **Voksne** logger inn med e-post og får en kode eller lenke.
 - **Familie-nettbrett/telefon** logger inn med den delte familiebrukeren (e-post og passord).
 - Etter innlogging velger man **«Hvem er du?»**. Valget lagres per enhet og kan byttes ved å trykke på avataren øverst.

@@ -2,14 +2,14 @@ import { chooseActiveMember } from "@/actions/me";
 import { Avatar } from "@/components/ui/Avatar";
 import { signAvatarUrls } from "@/lib/avatars";
 import { requireFamily } from "@/lib/session";
-import { createClient } from "@/lib/supabase/server";
+import { getDb } from "@/lib/supabase/db";
 
 export const metadata = { title: "Hvem er du? – Familien" };
 
 export default async function WhoAmIPage() {
   const session = await requireFamily();
   const people = session.members.filter((m) => !m.is_shared);
-  const urls = await signAvatarUrls(await createClient(), people.map((m) => m.avatar_path));
+  const urls = await signAvatarUrls(await getDb(), people.map((m) => m.avatar_path));
 
   return (
     <div className="flex flex-col items-center gap-8 py-6">

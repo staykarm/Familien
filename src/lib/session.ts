@@ -2,6 +2,9 @@ import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
+import { AUTH_ENABLED } from "@/lib/env";
+import { getDb } from "@/lib/supabase/db";
 import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/database.types";
 
@@ -10,7 +13,8 @@ export const ACTIVE_MEMBER_COOKIE = "familien_meg";
 export type Member = Tables<"members">;
 
 export interface FamilySession {
-  userId: string;
+  /** Null når innlogging er av. */
+  userId: string | null;
   email: string | null;
   role: "adult" | "shared";
   displayName: string | null;
@@ -25,6 +29,10 @@ export interface FamilySession {
  * Bufret per request slik at layout og side kan kalle den begge.
  */
 export const requireFamily = cache(async (): Promise<FamilySession> => {
+  // Familiedata er alltid ferske: aldri forhåndsbygg disse sidene ved deploy.
+  await connection();
+  if (!AUTH_ENABLED) return openSession();
+
   const supabase = await createClient();
   const { data: claimsData } = await supabase.auth.getClaims();
   const claims = claimsData?.claims;
@@ -37,9 +45,7 @@ export const requireFamily = cache(async (): Promise<FamilySession> => {
   if (!appUser) redirect("/ingen-tilgang");
 
   const memberList = members ?? [];
-  const cookieStore = await cookies();
-  const chosenId = cookieStore.get(ACTIVE_MEMBER_COOKIE)?.value ?? appUser.member_id;
-  const activeMember = memberList.find((m) => m.id === chosenId && !m.is_shared) ?? null;
+  const activeMember = await pickActiveMember(memberList, appUser.member_id);
 
   return {
     userId: claims.sub,
@@ -50,3 +56,24 @@ export const requireFamily = cache(async (): Promise<FamilySession> => {
     members: memberList,
   };
 });
+
+async function pickActiveMember(members: Member[], fallbackId: string | null): Promise<Member | null> {
+  const cookieStore = await cookies();
+  const chosenId = cookieStore.get(ACTIVE_MEMBER_COOKIE)?.value ?? fallbackId;
+  return members.find((m) => m.id === chosenId && !m.is_shared) ?? null;
+}
+
+/** Uten innlogging: alle er «familien», og hvem som bruker appen velges med «Hvem er jeg?». */
+async function openSession(): Promise<FamilySession> {
+  const supabase = await getDb();
+  const { data: members } = await supabase.from("members").select("*").order("sort_order");
+  const memberList = members ?? [];
+  return {
+    userId: null,
+    email: null,
+    role: "shared",
+    displayName: null,
+    activeMember: await pickActiveMember(memberList, null),
+    members: memberList,
+  };
+}

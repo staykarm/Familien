@@ -1,5 +1,11 @@
 // Offentlige variabler må refereres bokstavelig (process.env.NEXT_PUBLIC_…) for at Next skal bake dem inn i klientkoden.
 
+/**
+ * Innlogging er av inntil videre: appen åpnes rett inn, og serveren bruker service role-nøkkelen.
+ * Sett AUTH_ENABLED=true (og redeploy) for å kreve innlogging og la RLS gjelde per bruker.
+ */
+export const AUTH_ENABLED = process.env.AUTH_ENABLED === "true";
+
 // Vercel sin Supabase-integrasjon legger inn de eldre navnene (ANON_KEY / SERVICE_ROLE_KEY),
 // så begge variantene godtas.
 export function publicSupabaseEnv() {

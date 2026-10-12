@@ -19,7 +19,7 @@ Arkitektur og faser står i README. Marius godkjenner hver fase før den startes
   - `lib/supabase/server.ts`: innlogget bruker, RLS gjelder.
   - `lib/supabase/client.ts`: nettleseren.
   - `lib/supabase/admin.ts`: service role, kun for webhooks, cron og hemmelige tabeller.
-- Kode som bruker `SUPABASE_SECRET_KEY` skal ha `import "server-only"`.
+- Kode som bruker service role-nøkkelen (`supabaseSecretKey()`) skal ha `import "server-only"`.
 - Alle tabeller har RLS. Familietabeller har policy med `public.is_family()`. Tabeller med hemmeligheter (tokens o.l.) har **ingen** policyer.
 - Ingen hemmeligheter i koden. Nye miljøvariabler legges i `.env.example` med kommentar og leses med `serverEnv()` fra `lib/env.ts`.
 - Skjemaendringer legges som nye filer `supabase/migrations/NNNN_beskrivelse.sql`. Endre aldri en migrasjon som er kjørt. Oppdater `src/lib/database.types.ts` samtidig.

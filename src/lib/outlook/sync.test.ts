@@ -226,6 +226,30 @@ describe("Outlook-synk", () => {
     expect(events()[0].title).toBe("Svømming");
   });
 
+  it("ny changeKey uten endret innhold gir verken logg, oppdatering eller konflikt", async () => {
+    events().push({ id: "e1", title: "Svømming", start_at: new Date(Date.now() + 86_400_000).toISOString(), end_at: new Date(Date.now() + 90_000_000).toISOString(), all_day: false, location: null, notes: null, category_id: null, deleted_at: null, origin: "app", outlook_id: null, outlook_change_key: null, sync_status: "local" });
+    tables.event_participants.push({ event_id: "e1", member_id: OLAV });
+    await pushEvent("e1");
+    const o = [...outlook.values()][0];
+
+    // Outlook bytter changeKey av seg selv rett etter opprettelsen.
+    o.changeKey = "ck-av-seg-selv";
+    tables.outlook_connection[0].delta_link = "https://graph.microsoft.com/v1.0/neste-delta";
+    tables.outlook_connection[0].delta_window_start = new Date().toISOString();
+    pendingDelta = [o];
+    const logBefore = tables.sync_log.length;
+    await syncAll();
+    expect(tables.sync_log.length).toBe(logBefore);
+    expect(events()[0].outlook_change_key).toBe("ck-av-seg-selv");
+
+    // Endres den så i appen, er det ingen konflikt.
+    Object.assign(events()[0], { title: "Svømming kl. 18", sync_status: "pending" });
+    o.changeKey = "ck-igjen";
+    await pushEvent("e1");
+    expect(events()[0].sync_status).toBe("synced");
+    expect(o.subject).toBe("Svømming kl. 18 (Olav)");
+  });
+
   it("endret begge steder gir konflikt i stedet for å overskrive", async () => {
     events().push({ id: "e1", title: "Middag", start_at: new Date(Date.now() + 86_400_000).toISOString(), end_at: new Date(Date.now() + 90_000_000).toISOString(), all_day: false, location: null, notes: null, category_id: null, deleted_at: null, origin: "app", outlook_id: null, outlook_change_key: null, sync_status: "local" });
     tables.event_participants.push({ event_id: "e1", member_id: FELLES });

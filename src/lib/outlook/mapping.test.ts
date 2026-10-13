@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { categoryFromOutlook, fromGraphEvent, outlookTitle, parseOutlookTitle, presetForColor, toGraphEvent, type CategoryRef, type MemberRef } from "./mapping";
+import { categoryFromOutlook, fromGraphEvent, outlookFingerprint, outlookTitle, parseOutlookTitle, presetForColor, toGraphEvent, type CategoryRef, type MemberRef } from "./mapping";
 
 const members: MemberRef[] = [
   { id: "i", name: "Ingvild", isShared: false },
@@ -152,5 +152,36 @@ describe("felt Outlook ikke sender med", () => {
       { members, categories, current: { participantIds: ["f"], categoryId: null, notes: "Ta med kake", location: "Hjemme" } }
     );
     expect(ev).toMatchObject({ notes: "Ta med kake", location: "Hjemme" });
+  });
+});
+
+describe("outlookFingerprint", () => {
+  const sent = toGraphEvent(
+    { id: "a", title: "Fotball", start: "2026-10-14T15:00:00.000Z", end: "2026-10-14T16:00:00.000Z", allDay: false, location: "Banen", notes: "Ta med  drikke", categoryId: "trening", participantIds: ["o"] },
+    members,
+    categories
+  );
+
+  it("er likt for det vi sender og det Outlook sender tilbake", () => {
+    const back = {
+      subject: "Fotball (Olav)",
+      start: { dateTime: "2026-10-14T15:00:00.0000000", timeZone: "UTC" },
+      end: { dateTime: "2026-10-14T16:00:00.0000000", timeZone: "UTC" },
+      isAllDay: false,
+      location: { displayName: "Banen" },
+      body: { contentType: "html", content: "<html><body><p>Ta med drikke</p></body></html>" },
+      categories: ["Trening"],
+    };
+    expect(outlookFingerprint(back)).toBe(outlookFingerprint(sent));
+  });
+
+  it("endrer seg når noe synlig endres", () => {
+    expect(outlookFingerprint({ ...sent, subject: "Håndball (Olav)" })).not.toBe(outlookFingerprint(sent));
+  });
+
+  it("heldag: flytende midnatt og omregnet midnatt gir samme avtrykk", () => {
+    const a = { subject: "Ferie", isAllDay: true, start: { dateTime: "2026-10-05T00:00:00", timeZone: "Europe/Oslo" }, end: { dateTime: "2026-10-10T00:00:00", timeZone: "Europe/Oslo" } };
+    const b = { subject: "Ferie", isAllDay: true, start: { dateTime: "2026-10-04T22:00:00", timeZone: "UTC" }, end: { dateTime: "2026-10-09T22:00:00", timeZone: "UTC" } };
+    expect(outlookFingerprint(a)).toBe(outlookFingerprint(b));
   });
 });

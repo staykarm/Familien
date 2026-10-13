@@ -347,8 +347,14 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
           members={visibleMembers}
           categories={categories}
           onOpen={openExisting}
-          onCreateAt={(memberId, hour) =>
-            setDraft(newDraft({ participantIds: [memberId], startTime: `${String(hour).padStart(2, "0")}:00` }))
+          onCreateAt={(memberId, hour, minute) =>
+            setDraft(
+              newDraft({
+                participantIds: [memberId],
+                startTime: `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`,
+                durationMinutes: 60,
+              })
+            )
           }
         />
       ) : showPersonView && view === "week" ? (
@@ -384,7 +390,7 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
 
       {!loading && visibleEvents.length === 0 && (
         <p className="text-center text-ink-light">
-          Ingenting planlagt her ennå. Trykk på <strong>Ny</strong> eller i kalenderen for å legge til.
+          Ingenting planlagt her ennå. Trykk på et tidspunkt i kalenderen, eller på <strong>+</strong>, for å legge til.
         </p>
       )}
 

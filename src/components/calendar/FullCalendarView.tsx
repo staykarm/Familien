@@ -155,8 +155,12 @@ export function FullCalendarView({ view, date, events, members, categories, onCr
           onCreate(info.start, info.end, info.allDay);
           info.view.calendar.unselect();
         }}
+        // Klikk/trykk på et ledig tidspunkt (eller «Hele dagen»-feltet) lager en ny aktivitet der.
+        // Dra over flere felt for å velge lengden. I månedsvisning åpner trykket dagen.
+        selectMinDistance={8}
         dateClick={(info) => {
           if (info.view.type === "dayGridMonth") onDayClick(info.dateStr.slice(0, 10));
+          else onCreate(info.date, new Date(info.date.getTime() + (info.allDay ? 86_400_000 : 30 * 60_000)), info.allDay);
         }}
         eventClick={(info) => onOpen(info.event.id)}
         eventDrop={(info) =>

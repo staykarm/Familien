@@ -1,17 +1,12 @@
-import { card } from "@/components/ui/styles";
+import { getShopping } from "@/actions/shopping";
+import { ShoppingList } from "@/components/shopping/ShoppingList";
+import { loadFamilyUi } from "@/lib/familyUi";
+import { requireFamily } from "@/lib/session";
 
 export const metadata = { title: "Handleliste – Familien" };
 
-export default function Page() {
-  return (
-    <div className="flex flex-col gap-6">
-      <h1 className="font-display text-4xl font-bold">Handleliste</h1>
-      <section className={`${card} flex flex-col items-center gap-2 py-12 text-center`}>
-        <span className="text-5xl" aria-hidden>
-          🛒
-        </span>
-        <p className="text-ink-light">Kommer i en senere fase.</p>
-      </section>
-    </div>
-  );
+export default async function ShoppingPage() {
+  const session = await requireFamily();
+  const [{ categories }, data] = await Promise.all([loadFamilyUi(session), getShopping()]);
+  return <ShoppingList initial={data} categories={categories.shopping} />;
 }

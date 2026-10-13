@@ -159,6 +159,41 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["weather_cache"]["Insert"]>;
         Relationships: [];
       };
+      shopping_items: {
+        Row: {
+          id: string;
+          name: string;
+          quantity: string | null;
+          category_id: string | null;
+          checked: boolean;
+          checked_at: string | null;
+          added_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          quantity?: string | null;
+          category_id?: string | null;
+          checked?: boolean;
+          checked_at?: string | null;
+          added_by?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["shopping_items"]["Insert"]>;
+        Relationships: [];
+      };
+      shopping_templates: {
+        Row: { id: string; name: string; icon: string; sort_order: number; created_at: string };
+        Insert: { id?: string; name: string; icon?: string; sort_order?: number };
+        Update: Partial<Database["public"]["Tables"]["shopping_templates"]["Insert"]>;
+        Relationships: [];
+      };
+      shopping_template_items: {
+        Row: { id: string; template_id: string; name: string; quantity: string | null; category_id: string | null; sort_order: number };
+        Insert: { id?: string; template_id: string; name: string; quantity?: string | null; category_id?: string | null; sort_order?: number };
+        Update: Partial<Database["public"]["Tables"]["shopping_template_items"]["Insert"]>;
+        Relationships: [];
+      };
       settings: {
         Row: { key: string; value: Json; updated_at: string };
         Insert: { key: string; value: Json };

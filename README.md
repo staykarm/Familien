@@ -13,7 +13,7 @@ Familieapp for planlegging for Ingvild, Marius, Edvard og Olav (+ Felles): kalen
 | 3 | Synk med delt Outlook-kalender (Microsoft Graph) | ⏳ |
 | 4 | Oppgaver | ✅ |
 | 5 | Værvarsel fra Yr / MET Norway | ✅ |
-| 6 | Handleliste i sanntid og faste lister | ⏳ |
+| 6 | Handleliste i sanntid og faste lister | ✅ |
 | 7 | Filinnlesning med forslag (Claude API) | ⏳ |
 | 8 | Oda-handlekurv | ⏳ |
 
@@ -123,3 +123,9 @@ Oda har ikke noe hostet MCP-endepunkt. De kjente MCP-serverne kjører lokalt ove
 - Data fra MET Norway sitt Locationforecast 2.0 (`compact`), samme kilde som Yr. Serveren henter varselet og bufrer det i `weather_cache` etter `Expires`/`Last-Modified`. Nettleseren spør aldri MET direkte.
 - Stedet lagres i `settings.weather_location`. Første gang slås «Vardeveien, Oslo» opp hos Kartverket (ws.geonorge.no). Det kan endres under **Innstillinger → Sted for værvarsel**.
 - Værsymbolene er Yr sine offisielle (metno/weathericons, MIT-lisens) og ligger i `public/weather/`.
+
+## Handleliste og sanntid
+- Etter hver endring sender serveren et lite «endret»-signal på Supabase Realtime-kanalen `familien-handleliste` (broadcast via REST med service-nøkkelen). Åpne skjermer henter da listen på nytt via en server action. Selve listen går aldri over den åpne kanalen, så dette virker både med og uten innlogging.
+- Reserve: listen hentes også når appen kommer i forgrunnen og hvert 30. sekund.
+- Krever at **Realtime → Settings → «Allow public access»** er på i Supabase. Det er standard. Står det «Kobler til» i stedet for «Live» på handlelisten, er det den innstillingen du bør sjekke.
+- Varer får butikkavdeling automatisk ut fra navnet (`src/lib/shopping/categorize.ts`), og det kan endres per vare.

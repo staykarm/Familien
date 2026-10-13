@@ -54,6 +54,9 @@ export function FullCalendarView({ view, date, events, members, categories, onCr
           backgroundColor: tint(color, 0.18),
           borderColor: color,
           textColor: "#3a3350",
+          // Oppgaver flyttes ved å endre fristen i oppgavedialogen, ikke ved å dra.
+          editable: e.kind !== "task",
+          classNames: e.kind === "task" ? ["familien-task", ...(e.done ? ["familien-task-done"] : [])] : [],
           extendedProps: { event: e },
         };
       }),

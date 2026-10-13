@@ -5,6 +5,8 @@ import dynamic from "next/dynamic";
 import { DateTime } from "luxon";
 import { ChevronLeft, ChevronRight, Plus, Users } from "lucide-react";
 import { listEvents, moveEvent } from "@/actions/events";
+import { listTasksDue } from "@/actions/tasks";
+import { TaskDialog, draftFromTask, type TaskDraft } from "@/components/tasks/TaskDialog";
 import { Avatar } from "@/components/ui/Avatar";
 import { buttonPrimary, buttonSecondary } from "@/components/ui/styles";
 import {
@@ -18,6 +20,8 @@ import {
   type CalendarViewKind,
 } from "@/lib/calendar/dates";
 import type { CalendarCategory, CalendarEvent, CalendarMember } from "@/lib/calendar/types";
+import { isTaskItemId, TASK_PREFIX, taskToCalendarItem } from "@/lib/tasks/calendar";
+import type { Task } from "@/lib/tasks/types";
 import { TIME_ZONE } from "@/lib/time";
 import { EventDialog, type EventDraft } from "./EventDialog";
 import { PersonDayView } from "./PersonDayView";
@@ -62,16 +66,19 @@ function writePrefs(prefs: Prefs) {
 interface Props {
   members: CalendarMember[];
   categories: CalendarCategory[];
+  taskCategories: CalendarCategory[];
   activeMemberId: string | null;
 }
 
-export function CalendarApp({ members, categories, activeMemberId }: Props) {
+export function CalendarApp({ members, categories, taskCategories, activeMemberId }: Props) {
   const [view, setView] = useState<CalendarViewKind>("week");
   const [perPerson, setPerPerson] = useState(false);
   const [hidden, setHidden] = useState<string[]>([]);
   const [date, setDate] = useState(() => osloToday());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [draft, setDraft] = useState<EventDraft | null>(null);
+  const [taskDraft, setTaskDraft] = useState<TaskDraft | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const requestId = useRef(0);
 
@@ -97,10 +104,14 @@ export function CalendarApp({ members, categories, activeMemberId }: Props) {
   const reload = useCallback(() => {
     const id = ++requestId.current;
     const key = rangeKey;
-    void listEvents({ start: range.start.toUTC().toISO()!, end: range.end.toUTC().toISO()! }).then((result) => {
+    void Promise.all([
+      listEvents({ start: range.start.toUTC().toISO()!, end: range.end.toUTC().toISO()! }),
+      listTasksDue({ from: range.days[0], to: range.days[range.days.length - 1] }),
+    ]).then(([eventResult, taskResult]) => {
       // Ignorer svar på eldre forespørsler hvis brukeren har bladd videre.
       if (id !== requestId.current) return;
-      setEvents(result);
+      setEvents(eventResult);
+      setTasks(taskResult);
       setLoadedKey(key);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- rangeKey dekker range
@@ -117,10 +128,11 @@ export function CalendarApp({ members, categories, activeMemberId }: Props) {
   }, [toast]);
 
   const visibleMembers = members.filter((m) => !hidden.includes(m.id));
-  const visibleEvents = useMemo(
-    () => events.filter((e) => e.participantIds.some((id) => !hidden.includes(id))),
-    [events, hidden]
-  );
+  const fellesId = members.find((m) => m.isShared)?.id ?? null;
+  const visibleEvents = useMemo(() => {
+    const taskItems = tasks.map((t) => taskToCalendarItem(t, fellesId)).filter((t): t is CalendarEvent => t !== null);
+    return [...events, ...taskItems].filter((e) => e.participantIds.some((id) => !hidden.includes(id)));
+  }, [events, tasks, hidden, fellesId]);
 
   // --- Åpne dialog -------------------------------------------------------------------
 
@@ -156,6 +168,11 @@ export function CalendarApp({ members, categories, activeMemberId }: Props) {
   }
 
   function openExisting(id: string) {
+    if (isTaskItemId(id)) {
+      const task = tasks.find((t) => t.id === id.slice(TASK_PREFIX.length));
+      if (task) setTaskDraft(draftFromTask(task));
+      return;
+    }
     const e = events.find((x) => x.id === id);
     if (!e) return;
     const s = utcToOsloParts(e.start);
@@ -336,6 +353,21 @@ export function CalendarApp({ members, categories, activeMemberId }: Props) {
           onClose={() => setDraft(null)}
           onSaved={(message) => {
             setDraft(null);
+            setToast(message);
+            reload();
+          }}
+        />
+      )}
+
+      {taskDraft && (
+        <TaskDialog
+          key={taskDraft.id ?? "ny"}
+          draft={taskDraft}
+          members={members}
+          categories={taskCategories}
+          onClose={() => setTaskDraft(null)}
+          onSaved={(message) => {
+            setTaskDraft(null);
             setToast(message);
             reload();
           }}

@@ -109,3 +109,10 @@ body {
 .familien-fc a {
   color: inherit;
 }
+.familien-fc .familien-task {
+  border-style: dashed;
+  border-width: 2px 2px 2px 4px;
+}
+.familien-fc .familien-task-done {
+  opacity: 0.55;
+}

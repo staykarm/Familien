@@ -11,6 +11,9 @@ export interface CalendarEvent {
   participantIds: string[];
   syncStatus: "local" | "pending" | "synced" | "conflict" | "error";
   origin: "app" | "outlook";
+  /** Satt for oppgaver med frist som vises i kalenderen. id er da «task:<oppgave-id>». */
+  kind?: "task";
+  done?: boolean;
 }
 
 export interface CalendarMember {

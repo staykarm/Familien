@@ -11,7 +11,7 @@ Familieapp for planlegging for Ingvild, Marius, Edvard og Olav (+ Felles): kalen
 | 1 | Oppsett, innlogging, «Hvem er jeg?», profiler med bilde | ✅ |
 | 2 | Kalender (dag/uke/måned, per person) med lokal data | ✅ |
 | 3 | Synk med delt Outlook-kalender (Microsoft Graph) | ⏳ |
-| 4 | Oppgaver | ⏳ |
+| 4 | Oppgaver | ✅ |
 | 5 | Værvarsel fra Yr / MET Norway | ⏳ |
 | 6 | Handleliste i sanntid og faste lister | ⏳ |
 | 7 | Filinnlesning med forslag (Claude API) | ⏳ |

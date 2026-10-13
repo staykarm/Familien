@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { DateTime } from "luxon";
-import { Clock, MapPin, StickyNote, Trash2, X } from "lucide-react";
+import { Clock, MapPin, StickyNote } from "lucide-react";
 import { deleteEvent, saveEvent } from "@/actions/events";
 import { Avatar } from "@/components/ui/Avatar";
-import { buttonGhost, buttonPrimary, buttonSecondary, input, label } from "@/components/ui/styles";
+import { DeleteButton, Sheet } from "@/components/ui/Sheet";
+import { buttonPrimary, input, label } from "@/components/ui/styles";
 import { formatDuration } from "@/lib/calendar/dates";
 import type { CalendarCategory, CalendarMember } from "@/lib/calendar/types";
 
@@ -55,12 +56,6 @@ export function EventDialog({ draft: initial, members, categories, onClose, onSa
   const set = <K extends keyof EventDraft>(key: K, value: EventDraft[K]) => setDraft((d) => ({ ...d, [key]: value }));
   const endTime = useMemo(() => endTimeOf(draft.startTime, draft.durationMinutes), [draft.startTime, draft.durationMinutes]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   function toggleParticipant(id: string) {
     set(
       "participantIds",
@@ -68,8 +63,7 @@ export function EventDialog({ draft: initial, members, categories, onClose, onSa
     );
   }
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
+  function submit() {
     setError(null);
     startTransition(async () => {
       const res = await saveEvent({
@@ -92,238 +86,217 @@ export function EventDialog({ draft: initial, members, categories, onClose, onSa
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 sm:items-center sm:p-4" onClick={onClose}>
-      <form
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="event-dialog-title"
-        onSubmit={submit}
-        onClick={(e) => e.stopPropagation()}
-        className="pb-safe flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-card shadow-xl sm:rounded-3xl"
-      >
-        <header className="flex items-center justify-between border-b-2 border-line px-5 py-3">
-          <h2 id="event-dialog-title" className="font-display text-2xl font-bold">
-            {isNew ? "Ny aktivitet" : "Endre aktivitet"}
-          </h2>
-          <button type="button" onClick={onClose} className={buttonGhost} aria-label="Lukk">
-            <X size={24} aria-hidden />
-          </button>
-        </header>
-
-        <div className="flex flex-col gap-5 overflow-y-auto px-5 py-4">
-          <div>
-            <label htmlFor="ev-title" className={label}>
-              Hva skal skje?
-            </label>
-            <input
-              id="ev-title"
-              value={draft.title}
-              onChange={(e) => set("title", e.target.value)}
-              placeholder="F.eks. Fotballtrening"
-              className={`${input} text-lg font-bold`}
-              autoFocus={isNew}
-              required
+    <Sheet
+      title={isNew ? "Ny aktivitet" : "Endre aktivitet"}
+      onClose={onClose}
+      onSubmit={submit}
+      footer={
+        <>
+          {!isNew && (
+            <DeleteButton
+              confirming={confirmDelete}
+              onAsk={() => setConfirmDelete(true)}
+              onCancel={() => setConfirmDelete(false)}
+              onConfirm={remove}
+              pending={pending}
+              label="🗑️ Slett"
             />
-          </div>
-
-          <fieldset>
-            <legend className={label}>Hvem skal være med?</legend>
-            <div className="flex flex-wrap gap-2">
-              {members.map((m) => {
-                const on = draft.participantIds.includes(m.id);
-                return (
-                  <button
-                    key={m.id}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => toggleParticipant(m.id)}
-                    className="flex min-h-12 items-center gap-2 rounded-full border-2 py-1 pl-1 pr-4 font-bold transition active:scale-95"
-                    style={{
-                      borderColor: on ? m.color : "var(--color-line)",
-                      background: on ? `${m.color}26` : "var(--color-card)",
-                    }}
-                  >
-                    <Avatar name={m.name} color={m.color} icon={m.icon} url={m.avatarUrl} size={36} ring={on} />
-                    {m.name}
-                  </button>
-                );
-              })}
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend className={label}>Kategori</legend>
-            <div className="flex flex-wrap gap-2">
-              {categories.map((c) => {
-                const on = draft.categoryId === c.id;
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => set("categoryId", on ? null : c.id)}
-                    className="min-h-11 rounded-full border-2 px-3 text-sm font-bold transition active:scale-95"
-                    style={{
-                      borderColor: on ? c.color : "var(--color-line)",
-                      background: on ? `${c.color}26` : "var(--color-card)",
-                    }}
-                  >
-                    <span aria-hidden>{c.icon}</span> {c.name}
-                  </button>
-                );
-              })}
-            </div>
-          </fieldset>
-
-          <div className="flex flex-col gap-3 rounded-2xl bg-card-soft p-4">
-            <label className="flex min-h-12 cursor-pointer items-center justify-between font-bold">
-              <span>Hele dagen</span>
-              <input
-                type="checkbox"
-                checked={draft.allDay}
-                onChange={(e) => set("allDay", e.target.checked)}
-                className="h-7 w-7 accent-[var(--color-primary)]"
-              />
-            </label>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label htmlFor="ev-date" className={label}>
-                  {draft.allDay ? "Fra dato" : "Dato"}
-                </label>
-                <input
-                  id="ev-date"
-                  type="date"
-                  value={draft.date}
-                  onChange={(e) => {
-                    const date = e.target.value;
-                    setDraft((d) => ({ ...d, date, endDate: d.endDate < date ? date : d.endDate }));
-                  }}
-                  className={input}
-                  required
-                />
-              </div>
-              {draft.allDay ? (
-                <div>
-                  <label htmlFor="ev-enddate" className={label}>
-                    Til og med
-                  </label>
-                  <input
-                    id="ev-enddate"
-                    type="date"
-                    min={draft.date}
-                    value={draft.endDate}
-                    onChange={(e) => set("endDate", e.target.value)}
-                    className={input}
-                    required
-                  />
-                </div>
-              ) : (
-                <div>
-                  <label htmlFor="ev-start" className={label}>
-                    Starter kl.
-                  </label>
-                  <input
-                    id="ev-start"
-                    type="time"
-                    value={draft.startTime}
-                    onChange={(e) => set("startTime", e.target.value)}
-                    className={input}
-                    required
-                  />
-                </div>
-              )}
-            </div>
-
-            {!draft.allDay && (
-              <div>
-                <span className={label}>
-                  <Clock size={14} className="mr-1 inline" aria-hidden />
-                  Varighet: {formatDuration(draft.durationMinutes)} (slutter {endTime})
-                </span>
-                <div className="flex flex-wrap items-center gap-2">
-                  {DURATIONS.map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      aria-pressed={draft.durationMinutes === m}
-                      onClick={() => set("durationMinutes", m)}
-                      className={`min-h-11 rounded-full px-3 text-sm font-bold transition active:scale-95 ${
-                        draft.durationMinutes === m ? "bg-primary text-white" : "bg-card text-ink"
-                      }`}
-                    >
-                      {formatDuration(m)}
-                    </button>
-                  ))}
-                  <label className="flex items-center gap-2 text-sm font-bold text-ink-light">
-                    Slutt
-                    <input
-                      type="time"
-                      aria-label="Slutter kl."
-                      value={endTime}
-                      onChange={(e) => e.target.value && set("durationMinutes", minutesUntil(draft.startTime, e.target.value))}
-                      className={`${input} w-32`}
-                    />
-                  </label>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label htmlFor="ev-location" className={label}>
-              <MapPin size={14} className="mr-1 inline" aria-hidden />
-              Sted
-            </label>
-            <input
-              id="ev-location"
-              value={draft.location}
-              onChange={(e) => set("location", e.target.value)}
-              placeholder="Valgfritt"
-              className={input}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="ev-notes" className={label}>
-              <StickyNote size={14} className="mr-1 inline" aria-hidden />
-              Notat
-            </label>
-            <textarea
-              id="ev-notes"
-              value={draft.notes}
-              onChange={(e) => set("notes", e.target.value)}
-              rows={3}
-              placeholder="Valgfritt – f.eks. hva som skal være med"
-              className={`${input} py-3`}
-            />
-          </div>
-
-          {error && <p className="rounded-2xl bg-primary-soft p-3 font-semibold text-danger">{error}</p>}
-        </div>
-
-        <footer className="flex flex-wrap items-center gap-3 border-t-2 border-line px-5 py-3">
-          {!isNew &&
-            (confirmDelete ? (
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-danger">Slette?</span>
-                <button type="button" className={`${buttonSecondary} border-danger text-danger`} onClick={remove} disabled={pending}>
-                  Ja, slett
-                </button>
-                <button type="button" className={buttonGhost} onClick={() => setConfirmDelete(false)}>
-                  Nei
-                </button>
-              </div>
-            ) : (
-              <button type="button" className={buttonGhost} onClick={() => setConfirmDelete(true)} aria-label="Slett aktiviteten">
-                <Trash2 size={20} aria-hidden /> Slett
-              </button>
-            ))}
+          )}
           <button className={`${buttonPrimary} ml-auto`} disabled={pending}>
             {pending ? "Lagrer …" : isNew ? "Legg til" : "Lagre"}
           </button>
-        </footer>
-      </form>
-    </div>
+        </>
+      }
+    >
+      <div>
+        <label htmlFor="ev-title" className={label}>
+          Hva skal skje?
+        </label>
+        <input
+          id="ev-title"
+          value={draft.title}
+          onChange={(e) => set("title", e.target.value)}
+          placeholder="F.eks. Fotballtrening"
+          className={`${input} text-lg font-bold`}
+          autoFocus={isNew}
+          required
+        />
+      </div>
+
+      <fieldset>
+        <legend className={label}>Hvem skal være med?</legend>
+        <div className="flex flex-wrap gap-2">
+          {members.map((m) => {
+            const on = draft.participantIds.includes(m.id);
+            return (
+              <button
+                key={m.id}
+                type="button"
+                aria-pressed={on}
+                onClick={() => toggleParticipant(m.id)}
+                className="flex min-h-12 items-center gap-2 rounded-full border-2 py-1 pl-1 pr-4 font-bold transition active:scale-95"
+                style={{
+                  borderColor: on ? m.color : "var(--color-line)",
+                  background: on ? `${m.color}26` : "var(--color-card)",
+                }}
+              >
+                <Avatar name={m.name} color={m.color} icon={m.icon} url={m.avatarUrl} size={36} ring={on} />
+                {m.name}
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend className={label}>Kategori</legend>
+        <div className="flex flex-wrap gap-2">
+          {categories.map((c) => {
+            const on = draft.categoryId === c.id;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                aria-pressed={on}
+                onClick={() => set("categoryId", on ? null : c.id)}
+                className="min-h-11 rounded-full border-2 px-3 text-sm font-bold transition active:scale-95"
+                style={{
+                  borderColor: on ? c.color : "var(--color-line)",
+                  background: on ? `${c.color}26` : "var(--color-card)",
+                }}
+              >
+                <span aria-hidden>{c.icon}</span> {c.name}
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
+
+      <div className="flex flex-col gap-3 rounded-2xl bg-card-soft p-4">
+        <label className="flex min-h-12 cursor-pointer items-center justify-between font-bold">
+          <span>Hele dagen</span>
+          <input
+            type="checkbox"
+            checked={draft.allDay}
+            onChange={(e) => set("allDay", e.target.checked)}
+            className="h-7 w-7 accent-[var(--color-primary)]"
+          />
+        </label>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="ev-date" className={label}>
+              {draft.allDay ? "Fra dato" : "Dato"}
+            </label>
+            <input
+              id="ev-date"
+              type="date"
+              value={draft.date}
+              onChange={(e) => {
+                const date = e.target.value;
+                setDraft((d) => ({ ...d, date, endDate: d.endDate < date ? date : d.endDate }));
+              }}
+              className={input}
+              required
+            />
+          </div>
+          {draft.allDay ? (
+            <div>
+              <label htmlFor="ev-enddate" className={label}>
+                Til og med
+              </label>
+              <input
+                id="ev-enddate"
+                type="date"
+                min={draft.date}
+                value={draft.endDate}
+                onChange={(e) => set("endDate", e.target.value)}
+                className={input}
+                required
+              />
+            </div>
+          ) : (
+            <div>
+              <label htmlFor="ev-start" className={label}>
+                Starter kl.
+              </label>
+              <input
+                id="ev-start"
+                type="time"
+                value={draft.startTime}
+                onChange={(e) => set("startTime", e.target.value)}
+                className={input}
+                required
+              />
+            </div>
+          )}
+        </div>
+
+        {!draft.allDay && (
+          <div>
+            <span className={label}>
+              <Clock size={14} className="mr-1 inline" aria-hidden />
+              Varighet: {formatDuration(draft.durationMinutes)} (slutter {endTime})
+            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              {DURATIONS.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  aria-pressed={draft.durationMinutes === m}
+                  onClick={() => set("durationMinutes", m)}
+                  className={`min-h-11 rounded-full px-3 text-sm font-bold transition active:scale-95 ${
+                    draft.durationMinutes === m ? "bg-primary text-white" : "bg-card text-ink"
+                  }`}
+                >
+                  {formatDuration(m)}
+                </button>
+              ))}
+              <label className="flex items-center gap-2 text-sm font-bold text-ink-light">
+                Slutt
+                <input
+                  type="time"
+                  aria-label="Slutter kl."
+                  value={endTime}
+                  onChange={(e) => e.target.value && set("durationMinutes", minutesUntil(draft.startTime, e.target.value))}
+                  className={`${input} w-32`}
+                />
+              </label>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <label htmlFor="ev-location" className={label}>
+          <MapPin size={14} className="mr-1 inline" aria-hidden />
+          Sted
+        </label>
+        <input
+          id="ev-location"
+          value={draft.location}
+          onChange={(e) => set("location", e.target.value)}
+          placeholder="Valgfritt"
+          className={input}
+        />
+      </div>
+
+      <div>
+        <label htmlFor="ev-notes" className={label}>
+          <StickyNote size={14} className="mr-1 inline" aria-hidden />
+          Notat
+        </label>
+        <textarea
+          id="ev-notes"
+          value={draft.notes}
+          onChange={(e) => set("notes", e.target.value)}
+          rows={3}
+          placeholder="Valgfritt – f.eks. hva som skal være med"
+          className={`${input} py-3`}
+        />
+      </div>
+
+      {error && <p className="rounded-2xl bg-primary-soft p-3 font-semibold text-danger">{error}</p>}
+    </Sheet>
   );
 }

@@ -125,6 +125,34 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["event_participants"]["Insert"]>;
         Relationships: [];
       };
+      tasks: {
+        Row: {
+          id: string;
+          title: string;
+          notes: string | null;
+          assignee_id: string | null;
+          category_id: string | null;
+          due_date: string | null;
+          due_time: string | null;
+          status: "todo" | "doing" | "done";
+          completed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          notes?: string | null;
+          assignee_id?: string | null;
+          category_id?: string | null;
+          due_date?: string | null;
+          due_time?: string | null;
+          status?: "todo" | "doing" | "done";
+          completed_at?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["tasks"]["Insert"]>;
+        Relationships: [];
+      };
       settings: {
         Row: { key: string; value: Json; updated_at: string };
         Insert: { key: string; value: Json };

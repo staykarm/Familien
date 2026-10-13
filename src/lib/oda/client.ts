@@ -1,5 +1,5 @@
 import "server-only";
-import { applySetCookies, cookieHeader, countPurchases, parseSearchHtml, type OdaProduct } from "./parse";
+import { applySetCookies, cookieHeader, countPurchases, parseLoggedInEmail, parseSearchHtml, type OdaProduct } from "./parse";
 
 const BASE = "https://oda.com";
 // Oda svarer ofte uten data til «nakne» klienter, så vi oppgir en vanlig nettleser.
@@ -64,7 +64,18 @@ export class OdaClient {
     return res;
   }
 
-  /** Logger inn med e-post og passord. Passordet brukes bare her og lagres ikke. */
+  /**
+   * Sjekker om økten fortsatt er innlogget. Oda gir en tom gjestekurv i stedet for en feil når økten
+   * har gått ut, så vi må spørre. `undefined` = klarte ikke å avgjøre det (antar da at alt er i orden).
+   */
+  async isLoggedIn(): Promise<boolean | undefined> {
+    const res = await this.request("/no/", { accept: "text/html,application/xhtml+xml" });
+    if (!res.ok) return undefined;
+    const email = parseLoggedInEmail(await res.text());
+    return email === undefined ? undefined : email !== null;
+  }
+
+  /** Logger inn med e-post og passord. */
   async login(email: string, password: string): Promise<void> {
     await this.request("/no/user/login/", { accept: "text/html" });
     if (!this.jar.csrftoken) throw new OdaError("Fikk ikke startet innlogging hos Oda.", "network");

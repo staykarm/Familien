@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { AgentError, proposeOdaCart, type WantedItem } from "@/lib/oda/agent";
 import { OdaError } from "@/lib/oda/client";
-import { loadOdaClient, saveOdaSession } from "@/lib/oda/session";
+import { withOda } from "@/lib/oda/session";
 import { requireFamily } from "@/lib/session";
 import { getDb } from "@/lib/supabase/db";
 
@@ -34,13 +34,12 @@ export async function POST(req: Request) {
   if (items.length > 60) return NextResponse.json({ ok: false, message: "Maks 60 varer om gangen." });
 
   try {
-    const session = await loadOdaClient();
-    if (!session) return NextResponse.json({ ok: false, needsLogin: true, message: "Koble til Oda først." });
-    const proposal = await proposeOdaCart(
-      session.client,
-      items.map(({ name, quantity }) => ({ name, quantity }))
+    const proposal = await withOda((oda) =>
+      proposeOdaCart(
+        oda,
+        items.map(({ name, quantity }) => ({ name, quantity }))
+      )
     );
-    await saveOdaSession(session.client, session.email);
     return NextResponse.json({ ok: true, proposal, itemIds: items.map((i) => i.id ?? null) });
   } catch (e) {
     if (e instanceof OdaError) return NextResponse.json({ ok: false, needsLogin: e.kind === "auth", message: e.message });

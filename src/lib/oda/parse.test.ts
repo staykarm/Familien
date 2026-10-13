@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applySetCookies, cookieHeader, countPurchases, parseSearchHtml } from "./parse";
+import { applySetCookies, cookieHeader, countPurchases, parseLoggedInEmail, parseSearchHtml } from "./parse";
 
 /** Lager en side slik Oda leverer den: React Query-tilstand delt over flere __next_f-biter. */
 function fakeSearchPage(items: unknown[]): string {
@@ -49,6 +49,26 @@ describe("parseSearchHtml", () => {
 
   it("tom side gir ingen produkter", () => {
     expect(parseSearchHtml("<html></html>")).toEqual([]);
+  });
+});
+
+describe("parseLoggedInEmail", () => {
+  /** Side med bare «user»-spørringen, slik Oda har den i toppen av hver side. */
+  const page = (user: unknown) => {
+    const row = `1:["$","$L2",null,{"state":{"queries":[{"queryKey":["user"],"state":{"data":${JSON.stringify(user)}}}]}}]\n`;
+    return `<script>self.__next_f.push(${JSON.stringify([1, row])})</script>`;
+  };
+
+  it("finner e-posten når noen er innlogget", () => {
+    expect(parseLoggedInEmail(page({ email: "marius@example.com", firstName: "Marius" }))).toBe("marius@example.com");
+  });
+
+  it("gir null for gjest", () => {
+    expect(parseLoggedInEmail(page(null))).toBeNull();
+  });
+
+  it("gir undefined når siden ikke har dataene (ukjent)", () => {
+    expect(parseLoggedInEmail("<html></html>")).toBeUndefined();
   });
 });
 

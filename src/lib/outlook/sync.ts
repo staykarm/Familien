@@ -138,7 +138,9 @@ async function pushOne(ctx: Ctx, id: string): Promise<boolean> {
           await markConflict(ctx, id, g, participantIds, row.category_id, row.title);
           return false;
         }
-        const updated = await graph.json<GraphEvent>(`/me/events/${encodeURIComponent(row.outlook_id)}`, { method: "PATCH", body });
+        // transactionId kan bare settes når hendelsen lages; Graph avviser den ved endring (400 ErrorInvalidRequest).
+        const patch = { ...body, transactionId: undefined };
+        const updated = await graph.json<GraphEvent>(`/me/events/${encodeURIComponent(row.outlook_id)}`, { method: "PATCH", body: patch });
         await db
           .from("events")
           .update({ ...outlookFields(updated), outlook_synced_hash: contentHash(body), sync_status: "synced", sync_error: null })

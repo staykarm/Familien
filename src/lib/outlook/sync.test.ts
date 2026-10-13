@@ -139,6 +139,8 @@ vi.stubGlobal("fetch", async (input: string, init: { method?: string; body?: str
     }
     if (method === "PATCH") {
       const b = JSON.parse(init.body!);
+      // Som ekte Graph: transactionId kan bare settes når hendelsen lages.
+      if ("transactionId" in b) return json({ error: { code: "ErrorInvalidRequest" } }, 400);
       Object.assign(ev, { subject: b.subject, start: toUtcParts(b.start), end: toUtcParts(b.end), changeKey: ck() });
       return json(ev);
     }

@@ -59,7 +59,7 @@ Sjekker: `npm run lint`, `npm run typecheck`, `npm test` og `npm run build`.
 1. Gå til [vercel.com/new](https://vercel.com/new) og importer `staykarm/familien`. Framework: Next.js, standardinnstillinger.
 2. Under **Settings → Environment Variables** legger du inn variablene fra `.env.example` (Production og Preview). `NEXT_PUBLIC_SITE_URL` = `https://<vercel-domenet>`.
 3. Deploy, og oppdater Site URL og Redirect URLs i Supabase hvis domenet endret seg.
-4. Serverkoden kjører i Stockholm (`"regions": ["arn1"]` i `vercel.json`), ved siden av Supabase-databasen. Uten dette kjører Vercel i USA, og hvert databasekall må over Atlanteren. Flyttes databasen, må regionen følge etter.
+4. Serverkoden kjører i Frankfurt (`"regions": ["fra1"]` i `vercel.json`), samme sted som Supabase-databasen (eu-central-1). Uten dette kjører Vercel i USA, og hvert databasekall må over Atlanteren. Flyttes databasen, må regionen følge etter.
 5. Fase 3 legger inn cron i `vercel.json`. Da må `CRON_SECRET` være satt. På Hobby-planen kjører cron maks én gang i døgnet, og det holder for å fornye Outlook-abonnementet.
 
 ### 3. Microsoft Entra / Azure (fase 3)

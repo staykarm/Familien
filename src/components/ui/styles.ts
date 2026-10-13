@@ -7,5 +7,5 @@ export const buttonGhost =
   "inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl px-4 font-semibold text-ink-light transition hover:bg-card-soft";
 export const input =
   "min-h-12 w-full rounded-2xl border-2 border-line bg-card px-4 text-base text-ink outline-none transition focus:border-primary";
-export const card = "rounded-3xl bg-card p-5 shadow-[0_2px_12px_rgba(120,90,60,0.08)]";
+export const card = "rounded-3xl bg-card p-4 sm:p-5 shadow-[0_2px_12px_rgba(120,90,60,0.08)]";
 export const label = "mb-1 block text-sm font-bold text-ink-light";

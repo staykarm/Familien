@@ -105,7 +105,7 @@ export function NotesApp({ initialNotes, members, activeMemberId, selected: init
   const list = (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="font-display text-4xl font-bold">Notater</h1>
+        <h1 className="font-display text-2xl font-bold sm:text-3xl lg:text-4xl">Notater</h1>
         <div className="flex items-center gap-2">
           <LiveBadge live={live} />
           <button className={`${buttonPrimary} px-4`} onClick={newNote} disabled={pending} aria-label="Nytt notat">
@@ -126,7 +126,7 @@ export function NotesApp({ initialNotes, members, activeMemberId, selected: init
         />
       </label>
 
-      <div className="flex flex-wrap gap-2" aria-label="Vis notater for">
+      <div className="chip-row" aria-label="Vis notater for">
         {[{ id: ALL, label: "Alle" }, ...members.map((m) => ({ id: m.id, label: m.name, m }))].map((f) => {
           const on = filter === f.id;
           const m = "m" in f ? f.m : undefined;

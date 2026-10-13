@@ -14,7 +14,7 @@ export default async function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="font-display text-4xl font-bold">Innstillinger</h1>
+      <h1 className="font-display text-2xl font-bold sm:text-3xl lg:text-4xl">Innstillinger</h1>
 
       <section className={`${card} flex flex-col gap-3`}>
         <h2 className="font-display text-xl font-bold">Konto</h2>

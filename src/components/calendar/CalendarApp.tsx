@@ -13,7 +13,7 @@ import { symbolLabel } from "@/lib/weather/symbols";
 import type { DailyWeather } from "@/lib/weather/yr";
 import { TaskDialog, draftFromTask, type TaskDraft } from "@/components/tasks/TaskDialog";
 import { Avatar } from "@/components/ui/Avatar";
-import { buttonPrimary, buttonSecondary } from "@/components/ui/styles";
+import { buttonPrimary } from "@/components/ui/styles";
 import {
   allDayLastDay,
   minutesBetween,
@@ -45,6 +45,11 @@ const VIEWS: { value: CalendarViewKind; label: string }[] = [
 ];
 
 const PREFS_KEY = "familien.kalender";
+
+/** Blaknapper: 40px høye på telefon, 48px fra sm. */
+const NAV_BASE =
+  "flex h-10 shrink-0 items-center justify-center rounded-2xl border-2 border-line bg-card text-ink transition hover:bg-card-soft active:scale-95 sm:h-12";
+const NAV_BTN = `${NAV_BASE} w-10 sm:w-12`;
 
 interface Prefs {
   view?: CalendarViewKind;
@@ -244,24 +249,28 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Verktøylinje */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 items-center gap-2">
-          <button className={`${buttonSecondary} shrink-0 px-3`} onClick={() => setDate(shiftDate(view, date, -1))} aria-label="Forrige">
-            <ChevronLeft size={24} aria-hidden />
-          </button>
-          <button className={`${buttonSecondary} shrink-0 whitespace-nowrap px-4`} onClick={() => setDate(today)}>
-            I dag
-          </button>
-          <button className={`${buttonSecondary} shrink-0 px-3`} onClick={() => setDate(shiftDate(view, date, 1))} aria-label="Neste">
-            <ChevronRight size={24} aria-hidden />
-          </button>
-          <h2 className="ml-1 min-w-0 font-display text-xl font-bold leading-tight first-letter:uppercase sm:text-2xl">{viewTitle(view, date)}</h2>
-          {loading && <span className="h-3 w-3 animate-ping rounded-full bg-primary" aria-label="Laster" />}
+      {/* Verktøylinje: to kompakte rader på telefon, én rad på store skjermer */}
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+        <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <button className={NAV_BTN} onClick={() => setDate(shiftDate(view, date, -1))} aria-label="Forrige">
+              <ChevronLeft size={22} aria-hidden />
+            </button>
+            <button className={`${NAV_BASE} px-3 font-bold`} onClick={() => setDate(today)}>
+              I dag
+            </button>
+            <button className={NAV_BTN} onClick={() => setDate(shiftDate(view, date, 1))} aria-label="Neste">
+              <ChevronRight size={22} aria-hidden />
+            </button>
+          </div>
+          <h2 className="ml-1 min-w-0 flex-1 truncate font-display text-lg font-bold first-letter:uppercase sm:text-2xl">
+            {viewTitle(view, date)}
+            {loading && <span className="ml-2 inline-block h-2.5 w-2.5 animate-ping rounded-full bg-primary align-middle" aria-label="Laster" />}
+          </h2>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-2xl bg-card-soft p-1" role="tablist" aria-label="Visning">
+        <div className="flex items-center gap-2">
+          <div className="flex flex-1 rounded-2xl bg-card-soft p-1 sm:flex-none" role="tablist" aria-label="Visning">
             {VIEWS.map((v) => (
               <button
                 key={v.value}
@@ -271,7 +280,7 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
                   setView(v.value);
                   updatePrefs({ view: v.value });
                 }}
-                className={`min-h-11 rounded-xl px-4 font-bold transition ${
+                className={`min-h-10 flex-1 rounded-xl px-3 font-bold transition sm:min-h-11 sm:px-4 ${
                   view === v.value ? "bg-card text-primary-dark shadow-sm" : "text-ink-light"
                 }`}
               >
@@ -282,25 +291,27 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
           {view !== "month" && (
             <button
               aria-pressed={perPerson}
+              aria-label="Per person"
+              title="Per person"
               onClick={() => {
                 setPerPerson(!perPerson);
                 updatePrefs({ perPerson: !perPerson });
               }}
-              className={`inline-flex min-h-12 items-center gap-2 rounded-2xl px-4 font-bold transition ${
+              className={`inline-flex h-12 min-w-12 shrink-0 items-center justify-center gap-2 rounded-2xl px-3 font-bold transition sm:px-4 ${
                 perPerson ? "bg-primary text-white" : "bg-card-soft text-ink"
               }`}
             >
-              <Users size={20} aria-hidden /> Per person
+              <Users size={20} aria-hidden /> <span className="hidden sm:inline">Per person</span>
             </button>
           )}
-          <button className={buttonPrimary} onClick={() => setDraft(newDraft({}))}>
-            <Plus size={22} aria-hidden /> Ny
+          <button className={`${buttonPrimary} h-12 shrink-0 px-3 sm:px-5`} onClick={() => setDraft(newDraft({}))} aria-label="Ny aktivitet">
+            <Plus size={22} aria-hidden /> <span className="hidden sm:inline">Ny</span>
           </button>
         </div>
       </div>
 
       {/* Hvem vises */}
-      <div className="flex flex-wrap gap-2" aria-label="Vis familiemedlemmer">
+      <div className="chip-row" aria-label="Vis familiemedlemmer">
         {members.map((m) => {
           const on = !hidden.includes(m.id);
           return (
@@ -308,12 +319,12 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
               key={m.id}
               aria-pressed={on}
               onClick={() => toggleMember(m.id)}
-              className={`flex min-h-12 items-center gap-2 rounded-full border-2 py-1 pl-1 pr-4 text-sm font-bold transition ${
+              className={`flex min-h-10 items-center gap-1.5 rounded-full border-2 py-0.5 pl-0.5 pr-3 text-sm font-bold transition sm:min-h-12 sm:gap-2 sm:pr-4 ${
                 on ? "" : "opacity-45 grayscale"
               }`}
               style={{ borderColor: on ? m.color : "var(--color-line)", background: on ? `${m.color}1f` : "transparent" }}
             >
-              <Avatar name={m.name} color={m.color} icon={m.icon} url={m.avatarUrl} size={32} ring={false} />
+              <Avatar name={m.name} color={m.color} icon={m.icon} url={m.avatarUrl} size={30} ring={false} />
               {m.name}
             </button>
           );

@@ -44,6 +44,60 @@
   --font-display: var(--font-fredoka);
 }
 
+/*
+ * Responsiv grunnstørrelse: alt i Tailwind er i rem, så tekst, luft og knapper skalerer sammen.
+ * Telefon 14px · nettbrett 15px · PC 16px. Store trykkflater (min-h-12) blir fortsatt ≥ 42px på telefon.
+ */
+html {
+  font-size: 14px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+@media (min-width: 640px) {
+  html {
+    font-size: 15px;
+  }
+}
+@media (min-width: 1024px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+/* iOS Safari zoomer inn når et felt med skrift under 16px får fokus – hold feltene på 16px på berøringsskjermer. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    font-size: max(16px, 1em);
+  }
+}
+
+/* Rad med filterknapper: én linje som kan rulles sidelengs på telefon, brytes på større skjermer. */
+.chip-row {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin-inline: -1rem;
+  padding-inline: 1rem;
+  padding-block: 0.125rem;
+}
+.chip-row::-webkit-scrollbar {
+  display: none;
+}
+.chip-row > * {
+  flex-shrink: 0;
+}
+@media (min-width: 640px) {
+  .chip-row {
+    flex-wrap: wrap;
+    overflow: visible;
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -64,6 +118,19 @@ body {
   --fc-page-bg-color: var(--color-card);
   --fc-highlight-color: color-mix(in srgb, var(--color-primary) 18%, transparent);
   --fc-event-border-color: transparent;
+}
+.familien-fc {
+  font-size: 0.9rem;
+}
+@media (max-width: 639px) {
+  .familien-fc .fc-col-header-cell-cushion {
+    padding: 0.35rem 0.1rem;
+    font-size: 0.8rem;
+  }
+  .familien-fc .fc-timegrid-axis-cushion,
+  .familien-fc .fc-timegrid-slot-label-cushion {
+    font-size: 0.7rem;
+  }
 }
 .familien-fc .fc-scrollgrid {
   border-radius: 1rem;

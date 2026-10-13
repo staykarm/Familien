@@ -10,8 +10,8 @@ export default async function CalendarPage() {
   const name = session.activeMember?.name;
 
   return (
-    <div className="flex flex-col gap-4">
-      <p className="font-semibold text-ink-light">
+    <div className="flex flex-col gap-3 sm:gap-4">
+      <p className="text-sm font-semibold text-ink-light sm:text-base">
         <span className="capitalize">{formatLongDate(now)}</span> · {greeting(now)}
         {name ? `, ${name}` : ""}! 👋
       </p>

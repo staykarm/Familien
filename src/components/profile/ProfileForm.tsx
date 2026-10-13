@@ -61,7 +61,7 @@ export function ProfileForm({ member, avatarUrl }: Props) {
       <section className={`${card} flex flex-col items-center gap-4 sm:flex-row`}>
         <Avatar name={name} color={color} icon={icon} url={avatarUrl} size={120} />
         <div className="flex flex-col items-center gap-2 sm:items-start">
-          <h1 className="font-display text-4xl font-bold">{name || member.name}</h1>
+          <h1 className="font-display text-2xl font-bold sm:text-3xl lg:text-4xl">{name || member.name}</h1>
           <div className="flex flex-wrap gap-2">
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPickFile} />
             <button type="button" className={buttonSecondary} disabled={uploading} onClick={() => fileRef.current?.click()}>

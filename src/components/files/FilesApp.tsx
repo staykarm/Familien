@@ -161,10 +161,10 @@ export function FilesApp({ initialUploads, members, eventCategories, taskCategor
 
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="font-display text-4xl font-bold">Les inn fil</h1>
+      <h1 className="font-display text-2xl font-bold sm:text-3xl lg:text-4xl">Les inn fil</h1>
 
       <section
-        className={`${card} flex flex-col items-center gap-4 border-4 border-dashed py-8 text-center transition ${
+        className={`${card} flex flex-col items-center gap-3 border-4 border-dashed py-5 text-center sm:gap-4 sm:py-8 transition ${
           dragging ? "border-primary bg-primary-soft" : "border-line"
         }`}
         onDragOver={(e) => {
@@ -182,7 +182,7 @@ export function FilesApp({ initialUploads, members, eventCategories, taskCategor
         {busy ? (
           <>
             <Sparkles size={48} className="animate-pulse text-primary" aria-hidden />
-            <p className="font-display text-2xl font-bold">
+            <p className="font-display text-xl font-bold sm:text-2xl">
               {progress.step === "upload" ? "Laster opp …" : "Claude leser dokumentet …"}
             </p>
             <p className="text-ink-light">
@@ -196,7 +196,7 @@ export function FilesApp({ initialUploads, members, eventCategories, taskCategor
               📄
             </span>
             <div>
-              <p className="font-display text-2xl font-bold">Ukeplan, invitasjon eller skriv?</p>
+              <p className="font-display text-xl font-bold sm:text-2xl">Ukeplan, invitasjon eller skriv?</p>
               <p className="text-ink-light">
                 Ta bilde eller velg en fil (PDF, bilde, Word). Du får forslag til aktiviteter, oppgaver og handleliste – ingenting
                 lagres før du godkjenner.

@@ -98,7 +98,7 @@ export function TaskBoard({ initialTasks, members, categories, activeMemberId }:
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-4xl font-bold">Oppgaver</h1>
+        <h1 className="font-display text-2xl font-bold sm:text-3xl lg:text-4xl">Oppgaver</h1>
         <button className={buttonPrimary} onClick={() => setDraft(newDraft())}>
           <Plus size={22} aria-hidden /> Ny oppgave
         </button>
@@ -117,7 +117,7 @@ export function TaskBoard({ initialTasks, members, categories, activeMemberId }:
         </button>
       </form>
 
-      <div className="flex flex-wrap gap-2" aria-label="Vis oppgaver for">
+      <div className="chip-row" aria-label="Vis oppgaver for">
         <button
           aria-pressed={filter === ALL}
           onClick={() => setFilter(ALL)}

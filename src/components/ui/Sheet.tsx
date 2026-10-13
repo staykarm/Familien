@@ -36,7 +36,7 @@ export function Sheet({ title, onClose, onSubmit, children, footer }: SheetProps
         className="pb-safe flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-card shadow-xl sm:rounded-3xl"
       >
         <header className="flex items-center justify-between border-b-2 border-line px-5 py-3">
-          <h2 id={titleId} className="font-display text-2xl font-bold">
+          <h2 id={titleId} className="font-display text-xl font-bold sm:text-2xl">
             {title}
           </h2>
           <button type="button" onClick={onClose} className={buttonGhost} aria-label="Lukk">

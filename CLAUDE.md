@@ -35,7 +35,14 @@ Arkitektur og faser står i README. Marius godkjenner hver fase før den startes
 - Stilen er lys, varm og barnevennlig. Bruk tokenene i `globals.css` (`bg-card`, `text-ink`, `bg-primary` …) og klassene i `components/ui/styles.ts`.
 - Trykkflater skal være minst 48 px (`min-h-12`), med avrundede former (`rounded-2xl`/`rounded-3xl`).
 - Medlemsfarge og avatar (`components/ui/Avatar.tsx`) brukes konsekvent overalt der en person vises.
-- Mobil først: `AppShell` gir bunnmeny på mobil og sidemeny fra `md:`.
+- **Responsivt oppsett:**
+  - Grunnstørrelsen settes på `html` i `globals.css`: 14 px på telefon, 15 px fra `sm` og 16 px fra `lg`. Alt i Tailwind er `rem` og skalerer med, så ikke hardkod `px` for tekst.
+  - `AppShell` har tre oppsett: bunnmeny + kompakt topplinje (< `md`), smal ikonmeny (`md`–`lg`, iPad på høykant) og full sidemeny (≥ `lg`).
+  - Sidetitler bruker `font-display text-2xl font-bold sm:text-3xl lg:text-4xl`, og seksjonstitler `text-xl sm:text-2xl`.
+  - Rader med filterknapper bruker klassen `chip-row`. Den gir én linje som kan rulles sidelengs på telefon, og bryter linjen fra `sm`.
+  - På telefon vises sekundære knapper bare som ikon (`<span className="hidden sm:inline">tekst</span>`) med `aria-label`.
+  - Skrivefelt holdes på minst 16 px på berøringsskjerm (ellers zoomer iOS), og det er allerede ordnet globalt.
+  - Test på 390 px (telefon), 820 px (iPad høykant) og 1180/1440 px før commit.
 
 ## Mappestruktur
 - `src/app/(auth)`: offentlige sider.

@@ -83,7 +83,7 @@ export function ShoppingList({ initial, categories }: Props) {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-4xl font-bold">Handleliste</h1>
+        <h1 className="font-display text-2xl font-bold sm:text-3xl lg:text-4xl">Handleliste</h1>
         <LiveBadge live={live} />
       </div>
 

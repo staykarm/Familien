@@ -52,6 +52,14 @@ Arkitektur og faser står i README. Marius godkjenner hver fase før den startes
 - `src/lib/`: rene hjelpefunksjoner, med tester i `*.test.ts` ved siden av.
 - `src/components/`: komponenter.
 
+## Arbeidsflyt med PR
+- **Ingen push rett til `main`.** Alt arbeid gjøres på en egen gren med én PR per fase eller oppgave. Små rettelser kan samles i samme PR.
+- Grenenavn: `fase-N-kort-navn`, `fiks/kort-navn` eller `oppsett/kort-navn`.
+- PR-beskrivelsen følger `.github/pull_request_template.md`, med SQL-blokker som må kjøres før merge.
+- GitHub Actions (`.github/workflows/ci.yml`) kjører lint, typesjekk, tester og bygg på hver PR.
+- Vercel lager en testversjon (Preview) per PR. Marius tester den og merger.
+- Migrasjoner kjøres i Supabase **før** merge. Skriv dem bakoverkompatible (nye tabeller/kolonner), slik at koden som allerede er i produksjon tåler dem.
+
 ## Før commit
 `npm run lint && npm run typecheck && npm test && npm run build` skal være grønt.
 Commit ofte, med tydelige meldinger som starter med fasen, f.eks. `Fase 2: per-person-visning i kalenderen`.

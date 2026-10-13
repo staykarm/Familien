@@ -24,4 +24,4 @@ export async function broadcastChange(topic: string, payload: Record<string, unk
   }
 }
 
-export const SHOPPING_TOPIC = "familien-handleliste";
+export { NOTES_TOPIC, SHOPPING_TOPIC } from "@/lib/realtimeTopics";

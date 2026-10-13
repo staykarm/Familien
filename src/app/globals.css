@@ -117,3 +117,71 @@ body {
 .familien-fc .familien-task-done {
   opacity: 0.55;
 }
+
+/* --- Notater (Tiptap) -------------------------------------------------------------- */
+.familien-note {
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+.familien-note > * + * {
+  margin-top: 0.4em;
+}
+.familien-note h1 {
+  font-family: var(--font-fredoka);
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.familien-note h2 {
+  font-family: var(--font-fredoka);
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+/* Første linje er tittelen, som i iOS Notater. */
+.familien-note > :first-child {
+  font-family: var(--font-fredoka);
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.familien-note ul:not([data-type="taskList"]) {
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+.familien-note ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+.familien-note ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0.1rem;
+}
+.familien-note ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+.familien-note ul[data-type="taskList"] li > label {
+  flex-shrink: 0;
+  margin-top: 0.2em;
+}
+.familien-note ul[data-type="taskList"] li > label input {
+  width: 1.5rem;
+  height: 1.5rem;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+.familien-note ul[data-type="taskList"] li > div {
+  flex: 1;
+}
+.familien-note ul[data-type="taskList"] li[data-checked="true"] > div {
+  color: var(--color-ink-faint);
+  text-decoration: line-through;
+}
+.familien-note p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--color-ink-faint);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

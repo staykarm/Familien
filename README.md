@@ -14,6 +14,7 @@ Familieapp for planlegging for Ingvild, Marius, Edvard og Olav (+ Felles): kalen
 | 4 | Oppgaver | ✅ |
 | 5 | Værvarsel fra Yr / MET Norway | ✅ |
 | 6 | Handleliste i sanntid og faste lister | ✅ |
+| 6b | Notater (som iOS Notater) | ✅ |
 | 7 | Filinnlesning med forslag (Claude API) | ⏳ |
 | 8 | Oda-handlekurv | ⏳ |
 
@@ -129,3 +130,10 @@ Oda har ikke noe hostet MCP-endepunkt. De kjente MCP-serverne kjører lokalt ove
 - Reserve: listen hentes også når appen kommer i forgrunnen og hvert 30. sekund.
 - Krever at **Realtime → Settings → «Allow public access»** er på i Supabase. Det er standard. Står det «Kobler til» i stedet for «Live» på handlelisten, er det den innstillingen du bør sjekke.
 - Varer får butikkavdeling automatisk ut fra navnet (`src/lib/shopping/categorize.ts`), og det kan endres per vare.
+
+## Notater
+- Fungerer som iOS Notater. Første linje blir tittel, og notatet lagres automatisk mens man skriver. Det har sjekklister, punktlister, nummererte lister, overskrift, fet og kursiv tekst, og angre/gjør om.
+- Notater kan festes øverst og høre til én person (eller Felles). De gjenfinnes med søk og filter per person.
+- «Nylig slettet» beholder notater i 30 dager, og de kan gjenopprettes.
+- Innholdet lagres som Tiptap-JSON i `notes.content`, med ren tekst i `plain_text` for søk og forhåndsvisning.
+- Hvis to skjermer skriver i samme notat samtidig, avsløres det av `version`. Den som taper får beskjed og kan laste inn nyeste versjon. Endringer vises live via Realtime-kanalen `familien-notater`.

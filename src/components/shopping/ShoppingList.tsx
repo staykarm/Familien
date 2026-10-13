@@ -8,7 +8,8 @@ import type { CalendarCategory } from "@/lib/calendar/types";
 import { checkedItems, groupOpenItems } from "@/lib/shopping/group";
 import type { ShoppingItem, ShoppingTemplate } from "@/lib/shopping/types";
 import { ItemDialog, TemplateDialog } from "./ShoppingDialogs";
-import { useShoppingSync } from "./useShoppingSync";
+import { LiveBadge, useRealtimeRefresh } from "@/components/useRealtimeRefresh";
+import { SHOPPING_TOPIC } from "@/lib/realtimeTopics";
 
 interface Props {
   initial: ShoppingData;
@@ -31,7 +32,7 @@ export function ShoppingList({ initial, categories }: Props) {
   const refetch = useCallback(() => {
     void getShopping().then(setData);
   }, []);
-  const { live } = useShoppingSync(refetch);
+  const { live } = useRealtimeRefresh(SHOPPING_TOPIC, refetch);
 
   useEffect(() => {
     if (!toast) return;
@@ -83,15 +84,7 @@ export function ShoppingList({ initial, categories }: Props) {
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-4xl font-bold">Handleliste</h1>
-        <span
-          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${
-            live ? "bg-mint text-ink" : "bg-card-soft text-ink-light"
-          }`}
-          title={live ? "Endringer vises med en gang på alle skjermer" : "Kobler til … listen oppdateres likevel jevnlig"}
-        >
-          <span className={`h-2 w-2 rounded-full ${live ? "bg-[#2e9e5b]" : "bg-ink-faint"}`} />
-          {live ? "Live" : "Kobler til"}
-        </span>
+        <LiveBadge live={live} />
       </div>
 
       <div className="grid grid-cols-2 gap-1 rounded-2xl bg-card-soft p-1" role="tablist">

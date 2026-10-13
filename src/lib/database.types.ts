@@ -194,6 +194,32 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["shopping_template_items"]["Insert"]>;
         Relationships: [];
       };
+      notes: {
+        Row: {
+          id: string;
+          owner_id: string | null;
+          content: Json;
+          title: string;
+          plain_text: string;
+          pinned: boolean;
+          version: number;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          owner_id?: string | null;
+          content?: Json;
+          title?: string;
+          plain_text?: string;
+          pinned?: boolean;
+          version?: number;
+          deleted_at?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["notes"]["Insert"]>;
+        Relationships: [];
+      };
       settings: {
         Row: { key: string; value: Json; updated_at: string };
         Insert: { key: string; value: Json };

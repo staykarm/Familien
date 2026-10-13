@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, ListChecks, Settings, ShoppingBasket, Users } from "lucide-react";
+import { CalendarDays, ListChecks, NotebookPen, Settings, ShoppingBasket, Users } from "lucide-react";
 import type { ReactNode } from "react";
 
 const NAV = [
   { href: "/", label: "Kalender", icon: CalendarDays },
   { href: "/oppgaver", label: "Oppgaver", icon: ListChecks },
   { href: "/handleliste", label: "Handleliste", icon: ShoppingBasket },
+  { href: "/notater", label: "Notater", icon: NotebookPen },
   { href: "/profiler", label: "Familien", icon: Users },
-  { href: "/innstillinger", label: "Innstillinger", icon: Settings },
 ];
+
+const SETTINGS = { href: "/innstillinger", label: "Innstillinger", icon: Settings };
 
 function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -28,13 +30,13 @@ export function AppShell({ children, me }: { children: ReactNode; me: ReactNode 
           <span className="font-display text-2xl font-bold text-primary-dark">Familien</span>
           {me}
         </div>
-        {NAV.map(({ href, label, icon: Icon }) => (
+        {[...NAV, SETTINGS].map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
             href={href}
             className={`flex min-h-12 items-center gap-3 rounded-2xl px-4 text-lg font-bold transition ${
-              isActive(pathname, href) ? "bg-primary text-white shadow-sm" : "text-ink hover:bg-primary-soft"
-            }`}
+              href === SETTINGS.href ? "mt-auto" : ""
+            } ${isActive(pathname, href) ? "bg-primary text-white shadow-sm" : "text-ink hover:bg-primary-soft"}`}
           >
             <Icon size={24} aria-hidden />
             {label}
@@ -45,7 +47,18 @@ export function AppShell({ children, me }: { children: ReactNode; me: ReactNode 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex items-center justify-between bg-background/90 px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur md:hidden">
           <span className="font-display text-2xl font-bold text-primary-dark">Familien</span>
-          {me}
+          <span className="flex items-center gap-1">
+            <Link
+              href={SETTINGS.href}
+              aria-label="Innstillinger"
+              className={`flex h-12 w-12 items-center justify-center rounded-full ${
+                isActive(pathname, SETTINGS.href) ? "bg-primary-soft text-primary-dark" : "text-ink-light"
+              }`}
+            >
+              <Settings size={24} aria-hidden />
+            </Link>
+            {me}
+          </span>
         </header>
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-2 md:px-8 md:pb-10 md:pt-8">{children}</main>
       </div>

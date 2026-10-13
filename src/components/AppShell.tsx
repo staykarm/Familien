@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, ListChecks, NotebookPen, Settings, ShoppingBasket, Users } from "lucide-react";
+import { CalendarDays, FileUp, ListChecks, NotebookPen, Settings, ShoppingBasket, Users } from "lucide-react";
 import type { ReactNode } from "react";
 
 const NAV = [
@@ -14,6 +14,8 @@ const NAV = [
 ];
 
 const SETTINGS = { href: "/innstillinger", label: "Innstillinger", icon: Settings };
+/** Sekundære sider: nederst i sidemenyen og som ikoner i toppen på mobil. */
+const EXTRA = [{ href: "/filer", label: "Les inn fil", icon: FileUp }, SETTINGS];
 
 function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -30,12 +32,12 @@ export function AppShell({ children, me }: { children: ReactNode; me: ReactNode 
           <span className="font-display text-2xl font-bold text-primary-dark">Familien</span>
           {me}
         </div>
-        {[...NAV, SETTINGS].map(({ href, label, icon: Icon }) => (
+        {[...NAV, ...EXTRA].map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
             href={href}
             className={`flex min-h-12 items-center gap-3 rounded-2xl px-4 text-lg font-bold transition ${
-              href === SETTINGS.href ? "mt-auto" : ""
+              href === EXTRA[0].href ? "mt-auto" : ""
             } ${isActive(pathname, href) ? "bg-primary text-white shadow-sm" : "text-ink hover:bg-primary-soft"}`}
           >
             <Icon size={24} aria-hidden />
@@ -48,15 +50,18 @@ export function AppShell({ children, me }: { children: ReactNode; me: ReactNode 
         <header className="sticky top-0 z-20 flex items-center justify-between bg-background/90 px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur md:hidden">
           <span className="font-display text-2xl font-bold text-primary-dark">Familien</span>
           <span className="flex items-center gap-1">
-            <Link
-              href={SETTINGS.href}
-              aria-label="Innstillinger"
-              className={`flex h-12 w-12 items-center justify-center rounded-full ${
-                isActive(pathname, SETTINGS.href) ? "bg-primary-soft text-primary-dark" : "text-ink-light"
-              }`}
-            >
-              <Settings size={24} aria-hidden />
-            </Link>
+            {EXTRA.map(({ href, label, icon: Icon }) => (
+              <Link
+                key={href}
+                href={href}
+                aria-label={label}
+                className={`flex h-12 w-12 items-center justify-center rounded-full ${
+                  isActive(pathname, href) ? "bg-primary-soft text-primary-dark" : "text-ink-light"
+                }`}
+              >
+                <Icon size={24} aria-hidden />
+              </Link>
+            ))}
             {me}
           </span>
         </header>

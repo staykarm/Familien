@@ -15,7 +15,7 @@ Familieapp for planlegging for Ingvild, Marius, Edvard og Olav (+ Felles): kalen
 | 5 | Værvarsel fra Yr / MET Norway | ✅ |
 | 6 | Handleliste i sanntid og faste lister | ✅ |
 | 6b | Notater (som iOS Notater) | ✅ |
-| 7 | Filinnlesning med forslag (Claude API) | ⏳ |
+| 7 | Filinnlesning med forslag (Claude API) | ✅ |
 | 8 | Oda-handlekurv | ⏳ |
 
 ## Kom i gang lokalt
@@ -137,3 +137,10 @@ Oda har ikke noe hostet MCP-endepunkt. De kjente MCP-serverne kjører lokalt ove
 - «Nylig slettet» beholder notater i 30 dager, og de kan gjenopprettes.
 - Innholdet lagres som Tiptap-JSON i `notes.content`, med ren tekst i `plain_text` for søk og forhåndsvisning.
 - Hvis to skjermer skriver i samme notat samtidig, avsløres det av `version`. Den som taper får beskjed og kan laste inn nyeste versjon. Endringer vises live via Realtime-kanalen `familien-notater`.
+
+## Les inn fil (AI-forslag)
+- Siden **Les inn fil** (📄-ikonet øverst på mobil, nederst i sidemenyen på PC) tar imot bilde (kamera), PDF, Word (.docx) eller tekst, opptil 20 MB. Store bilder krympes i nettleseren før opplasting.
+- Filen lastes rett til den private bucketen `uploads` via en signert opplastingslenke. Vercel slipper ikke store filer gjennom serveren.
+- `/api/uploads/[id]/analyze` sender filen til Claude (`claude-opus-5-5`, kan overstyres med `ANTHROPIC_MODEL`). Svaret kommer som strukturert JSON med sammendrag, aktiviteter, oppgaver og handlevarer. Prompten får dagens dato, Oslo-tid, familiemedlemmene med profildetaljer (skole/klasse o.l.) og kategoriene. Hvis forespørselen avvises av sikkerhetsfiltrene, tar en annen modell automatisk over (server-side fallback).
+- Forslagene lagres i `suggestions` med status `pending`. **Ingenting legges i kalender, oppgaver eller handleliste før noen trykker ✓**, eventuelt etter å ha endret forslaget. «Godkjenn alle» finnes også.
+- Krever `ANTHROPIC_API_KEY` i Vercel.

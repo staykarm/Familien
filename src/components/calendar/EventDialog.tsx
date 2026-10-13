@@ -43,7 +43,8 @@ interface Props {
   members: CalendarMember[];
   categories: CalendarCategory[];
   onClose: () => void;
-  onSaved: (message: string) => void;
+  /** id er satt når en aktivitet ble lagret (ikke ved sletting). */
+  onSaved: (message: string, id?: string) => void;
 }
 
 export function EventDialog({ draft: initial, members, categories, onClose, onSaved }: Props) {
@@ -70,7 +71,7 @@ export function EventDialog({ draft: initial, members, categories, onClose, onSa
         ...draft,
         endDate: draft.allDay ? draft.endDate : draft.date,
       });
-      if (res.ok) onSaved(res.message ?? "Lagret");
+      if (res.ok) onSaved(res.message ?? "Lagret", res.id);
       else setError(res.message ?? "Noe gikk galt");
     });
   }

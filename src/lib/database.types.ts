@@ -220,6 +220,58 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["notes"]["Insert"]>;
         Relationships: [];
       };
+      uploads: {
+        Row: {
+          id: string;
+          storage_path: string;
+          filename: string;
+          mime: string;
+          size_bytes: number;
+          uploaded_by: string | null;
+          status: "uploaded" | "analyzing" | "done" | "failed";
+          error: string | null;
+          summary: string | null;
+          created_at: string;
+          analyzed_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          storage_path: string;
+          filename: string;
+          mime: string;
+          size_bytes?: number;
+          uploaded_by?: string | null;
+          status?: "uploaded" | "analyzing" | "done" | "failed";
+          error?: string | null;
+          summary?: string | null;
+          analyzed_at?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["uploads"]["Insert"]>;
+        Relationships: [];
+      };
+      suggestions: {
+        Row: {
+          id: string;
+          upload_id: string;
+          kind: "event" | "task" | "shopping";
+          payload: Json;
+          status: "pending" | "approved" | "rejected";
+          created_ref: string | null;
+          created_at: string;
+          decided_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          upload_id: string;
+          kind: "event" | "task" | "shopping";
+          payload: Json;
+          status?: "pending" | "approved" | "rejected";
+          created_ref?: string | null;
+          decided_at?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["suggestions"]["Insert"]>;
+        Relationships: [];
+      };
       settings: {
         Row: { key: string; value: Json; updated_at: string };
         Insert: { key: string; value: Json };

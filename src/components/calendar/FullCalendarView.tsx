@@ -7,7 +7,10 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import luxonPlugin from "@fullcalendar/luxon3";
 import nbLocale from "@fullcalendar/core/locales/nb";
-import type { EventContentArg, EventInput } from "@fullcalendar/core";
+import type { DayCellContentArg, DayHeaderContentArg, EventContentArg, EventInput } from "@fullcalendar/core";
+import { DateTime } from "luxon";
+import { WeatherBadge } from "@/components/weather/WeatherBadge";
+import type { DailyWeather } from "@/lib/weather/yr";
 import { eventColor, tint } from "@/lib/calendar/colors";
 import type { CalendarViewKind } from "@/lib/calendar/dates";
 import type { CalendarCategory, CalendarEvent, CalendarMember } from "@/lib/calendar/types";
@@ -30,10 +33,14 @@ interface Props {
   onOpen: (id: string) => void;
   onMove: (id: string, start: Date, end: Date, allDay: boolean, revert: () => void) => void;
   onDayClick: (date: string) => void;
+  weather: Record<string, DailyWeather>;
+  onWeather: (date: string) => void;
 }
 
+const osloIsoDate = (d: Date) => DateTime.fromJSDate(d).setZone(TIME_ZONE).toISODate()!;
+
 /** Vanlig dag-/uke-/månedsvisning med FullCalendar (gratisversjonen). */
-export function FullCalendarView({ view, date, events, members, categories, onCreate, onOpen, onMove, onDayClick }: Props) {
+export function FullCalendarView({ view, date, events, members, categories, onCreate, onOpen, onMove, onDayClick, weather, onWeather }: Props) {
   const ref = useRef<FullCalendar>(null);
 
   // Navigasjonen styres av appen (egne knapper), ikke av FullCalendar sin verktøylinje.
@@ -81,6 +88,27 @@ export function FullCalendarView({ view, date, events, members, categories, onCr
     );
   };
 
+  // Værsymbol og maks-temperatur i dagshodene (dag/uke) og i rutene (måned).
+  const renderDayHeader = (arg: DayHeaderContentArg) => {
+    const day = weather[osloIsoDate(arg.date)];
+    return (
+      <span className="flex flex-wrap items-center justify-center gap-x-1">
+        <span>{arg.text}</span>
+        {day && arg.view.type === "timeGridWeek" && <WeatherBadge day={day} size={22} onClick={() => onWeather(day.date)} />}
+      </span>
+    );
+  };
+
+  const renderDayCell = (arg: DayCellContentArg) => {
+    const day = arg.view.type === "dayGridMonth" ? weather[osloIsoDate(arg.date)] : undefined;
+    return (
+      <span className="flex items-center gap-1">
+        {day && <WeatherBadge day={day} size={18} onClick={() => onWeather(day.date)} />}
+        <span className="familien-daynum">{arg.dayNumberText}</span>
+      </span>
+    );
+  };
+
   return (
     <div className="familien-fc">
       <FullCalendar
@@ -106,6 +134,8 @@ export function FullCalendarView({ view, date, events, members, categories, onCr
         moreLinkText={(n) => `+${n} til`}
         events={fcEvents}
         eventContent={renderEvent}
+        dayHeaderContent={renderDayHeader}
+        dayCellContent={renderDayCell}
         editable
         // I månedsvisning åpner et trykk dagen i stedet for å lage en ny aktivitet.
         selectable={view !== "month"}

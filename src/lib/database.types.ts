@@ -153,6 +153,12 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["tasks"]["Insert"]>;
         Relationships: [];
       };
+      weather_cache: {
+        Row: { lat: number; lon: number; payload: Json; expires_at: string; last_modified: string | null; fetched_at: string };
+        Insert: { lat: number; lon: number; payload: Json; expires_at: string; last_modified?: string | null; fetched_at?: string };
+        Update: Partial<Database["public"]["Tables"]["weather_cache"]["Insert"]>;
+        Relationships: [];
+      };
       settings: {
         Row: { key: string; value: Json; updated_at: string };
         Insert: { key: string; value: Json };

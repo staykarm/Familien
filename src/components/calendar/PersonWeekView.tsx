@@ -7,6 +7,8 @@ import { tint } from "@/lib/calendar/colors";
 import { osloDate } from "@/lib/calendar/dates";
 import type { CalendarCategory, CalendarEvent, CalendarMember } from "@/lib/calendar/types";
 import { TIME_ZONE } from "@/lib/time";
+import { WeatherBadge } from "@/components/weather/WeatherBadge";
+import type { DailyWeather } from "@/lib/weather/yr";
 import { EventChipContent } from "./EventChip";
 
 interface Props {
@@ -18,6 +20,8 @@ interface Props {
   onCreateOn: (memberId: string, date: string) => void;
   onOpen: (id: string) => void;
   onDayClick: (date: string) => void;
+  weather: Record<string, DailyWeather>;
+  onWeather: (date: string) => void;
 }
 
 function touchesDay(e: CalendarEvent, day: string): boolean {
@@ -30,7 +34,7 @@ function touchesDay(e: CalendarEvent, day: string): boolean {
 }
 
 /** Én rad per familiemedlem, én kolonne per ukedag. */
-export function PersonWeekView({ days, today, events, members, categories, onCreateOn, onOpen, onDayClick }: Props) {
+export function PersonWeekView({ days, today, events, members, categories, onCreateOn, onOpen, onDayClick, weather, onWeather }: Props) {
   return (
     <div className="overflow-x-auto rounded-3xl bg-card shadow-[0_2px_12px_rgba(120,90,60,0.08)]">
       <div className="grid min-w-[760px]" style={{ gridTemplateColumns: `6.5rem repeat(${days.length}, minmax(0, 1fr))` }}>
@@ -39,10 +43,13 @@ export function PersonWeekView({ days, today, events, members, categories, onCre
           const dt = osloDate(d).setLocale("nb");
           const isToday = d === today;
           return (
-            <button
+            <div
               key={d}
+              role="button"
+              tabIndex={0}
               onClick={() => onDayClick(d)}
-              className="flex flex-col items-center border-b-2 border-line py-2 hover:bg-card-soft"
+              onKeyDown={(e) => e.key === "Enter" && onDayClick(d)}
+              className="flex cursor-pointer flex-col items-center border-b-2 border-line py-2 hover:bg-card-soft"
             >
               <span className="text-xs font-bold uppercase text-ink-light">{dt.toFormat("ccc")}</span>
               <span
@@ -52,7 +59,8 @@ export function PersonWeekView({ days, today, events, members, categories, onCre
               >
                 {dt.day}
               </span>
-            </button>
+              {weather[d] && <WeatherBadge day={weather[d]} size={22} onClick={() => onWeather(d)} />}
+            </div>
           );
         })}
 

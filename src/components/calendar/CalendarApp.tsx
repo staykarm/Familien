@@ -6,6 +6,11 @@ import { DateTime } from "luxon";
 import { ChevronLeft, ChevronRight, Plus, Users } from "lucide-react";
 import { listEvents, moveEvent } from "@/actions/events";
 import { listTasksDue } from "@/actions/tasks";
+import { getWeather, type WeatherData } from "@/actions/weather";
+import { formatTemp, WeatherIcon, YrCredit } from "@/components/weather/WeatherBadge";
+import { WeatherDialog } from "@/components/weather/WeatherDialog";
+import { symbolLabel } from "@/lib/weather/symbols";
+import type { DailyWeather } from "@/lib/weather/yr";
 import { TaskDialog, draftFromTask, type TaskDraft } from "@/components/tasks/TaskDialog";
 import { Avatar } from "@/components/ui/Avatar";
 import { buttonPrimary, buttonSecondary } from "@/components/ui/styles";
@@ -79,6 +84,8 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
   const [tasks, setTasks] = useState<Task[]>([]);
   const [draft, setDraft] = useState<EventDraft | null>(null);
   const [taskDraft, setTaskDraft] = useState<TaskDraft | null>(null);
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [weatherDate, setWeatherDate] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const requestId = useRef(0);
 
@@ -120,6 +127,19 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
   useEffect(() => {
     reload();
   }, [reload]);
+
+  // Værvarselet hentes én gang; serveren bufrer det etter MET sine regler.
+  useEffect(() => {
+    void getWeather()
+      .then(setWeather)
+      .catch(() => setWeather(null));
+  }, []);
+
+  const weatherByDate = useMemo(() => {
+    const map: Record<string, DailyWeather> = {};
+    for (const d of weather?.forecast?.daily ?? []) map[d.date] = d;
+    return map;
+  }, [weather]);
 
   useEffect(() => {
     if (!toast) return;
@@ -300,6 +320,10 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
         })}
       </div>
 
+      {view === "day" && weatherByDate[date] && (
+        <DayWeatherStrip day={weatherByDate[date]} onOpen={() => setWeatherDate(date)} />
+      )}
+
       {showPersonView && view === "day" ? (
         <PersonDayView
           date={date}
@@ -321,6 +345,8 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
           onOpen={openExisting}
           onDayClick={goToDay}
           onCreateOn={(memberId, d) => setDraft(newDraft({ participantIds: [memberId], date: d }))}
+          weather={weatherByDate}
+          onWeather={setWeatherDate}
         />
       ) : (
         <div className="rounded-3xl bg-card p-2 shadow-[0_2px_12px_rgba(120,90,60,0.08)] sm:p-4">
@@ -334,6 +360,8 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
             onOpen={openExisting}
             onMove={handleMove}
             onDayClick={goToDay}
+            weather={weatherByDate}
+            onWeather={setWeatherDate}
           />
         </div>
       )}
@@ -356,6 +384,17 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
             setToast(message);
             reload();
           }}
+        />
+      )}
+
+      {weather?.forecast && <YrCredit />}
+
+      {weatherDate && weatherByDate[weatherDate] && (
+        <WeatherDialog
+          day={weatherByDate[weatherDate]}
+          hours={(weather?.forecast?.hourly ?? []).filter((h) => h.date === weatherDate)}
+          locationLabel={weather?.location.label ?? ""}
+          onClose={() => setWeatherDate(null)}
         />
       )}
 
@@ -383,5 +422,27 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
         </div>
       )}
     </div>
+  );
+}
+
+/** Dagens vær over dagsvisningen. Trykk for time-for-time. */
+function DayWeatherStrip({ day, onOpen }: { day: DailyWeather; onOpen: () => void }) {
+  return (
+    <button
+      onClick={onOpen}
+      className="flex min-h-14 items-center gap-3 rounded-3xl bg-sky/50 px-4 py-2 text-left transition hover:bg-sky"
+    >
+      <WeatherIcon code={day.symbolCode} size={44} />
+      <span className="flex flex-col leading-tight">
+        <span className="font-display text-xl font-bold">
+          {formatTemp(day.tempMax)} <span className="text-base text-ink-light">/ {formatTemp(day.tempMin)}</span>
+        </span>
+        <span className="text-sm text-ink-light">
+          {symbolLabel(day.symbolCode) ?? ""}
+          {day.precipitationMm ? ` · ${day.precipitationMm} mm` : ""}
+        </span>
+      </span>
+      <span className="ml-auto text-sm font-bold text-primary-dark">Time for time ›</span>
+    </button>
   );
 }

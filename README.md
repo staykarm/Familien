@@ -12,7 +12,7 @@ Familieapp for planlegging for Ingvild, Marius, Edvard og Olav (+ Felles): kalen
 | 2 | Kalender (dag/uke/måned, per person) med lokal data | ✅ |
 | 3 | Synk med delt Outlook-kalender (Microsoft Graph) | ⏳ |
 | 4 | Oppgaver | ✅ |
-| 5 | Værvarsel fra Yr / MET Norway | ⏳ |
+| 5 | Værvarsel fra Yr / MET Norway | ✅ |
 | 6 | Handleliste i sanntid og faste lister | ⏳ |
 | 7 | Filinnlesning med forslag (Claude API) | ⏳ |
 | 8 | Oda-handlekurv | ⏳ |
@@ -73,7 +73,7 @@ Sjekker: `npm run lint`, `npm run typecheck`, `npm test` og `npm run build`.
 7. Eieren av den delte kalenderen (outlook.com-kontoen) logger inn én gang via **Innstillinger → Koble til Outlook** og velger kalenderen.
 
 ### 4. Øvrig
-- `MET_CONTACT_EMAIL` (fase 5): e-postadressen som sendes i User-Agent til api.met.no.
+- `MET_CONTACT_EMAIL` (fase 5, valgfri): legges til i User-Agent mot api.met.no. Uten den brukes GitHub-lenken som kontaktinfo.
 - `ANTHROPIC_API_KEY` (fase 7): fra [console.anthropic.com](https://console.anthropic.com).
 
 ## Innlogging og tilgang
@@ -118,3 +118,8 @@ Senere faser legger til `events`, `event_participants`, `tasks`, `shopping_*`, `
 
 ### Oda (fase 8)
 Oda har ikke noe hostet MCP-endepunkt. De kjente MCP-serverne kjører lokalt over stdio med Oda-innlogging. Løsningen velges i fase 8, og bestilling skal alltid bekreftes av brukeren.
+
+## Værvarsel
+- Data fra MET Norway sitt Locationforecast 2.0 (`compact`), samme kilde som Yr. Serveren henter varselet og bufrer det i `weather_cache` etter `Expires`/`Last-Modified`. Nettleseren spør aldri MET direkte.
+- Stedet lagres i `settings.weather_location`. Første gang slås «Vardeveien, Oslo» opp hos Kartverket (ws.geonorge.no). Det kan endres under **Innstillinger → Sted for værvarsel**.
+- Værsymbolene er Yr sine offisielle (metno/weathericons, MIT-lisens) og ligger i `public/weather/`.

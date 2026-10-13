@@ -16,7 +16,7 @@ Familieapp for planlegging for Ingvild, Marius, Edvard og Olav (+ Felles): kalen
 | 6 | Handleliste i sanntid og faste lister | ✅ |
 | 6b | Notater (som iOS Notater) | ✅ |
 | 7 | Filinnlesning med forslag (Claude API) | ✅ |
-| 8 | Oda-handlekurv | ⏳ |
+| 8 | Oda-handlekurv med Claude-agent | ✅ |
 
 ## Kom i gang lokalt
 
@@ -75,7 +75,8 @@ Sjekker: `npm run lint`, `npm run typecheck`, `npm test` og `npm run build`.
 
 ### 4. Øvrig
 - `MET_CONTACT_EMAIL` (fase 5, valgfri): legges til i User-Agent mot api.met.no. Uten den brukes GitHub-lenken som kontaktinfo.
-- `ANTHROPIC_API_KEY` (fase 7): fra [console.anthropic.com](https://console.anthropic.com).
+- `ANTHROPIC_API_KEY` (fase 7 og 8): fra [console.anthropic.com](https://console.anthropic.com).
+- `TOKEN_ENCRYPTION_KEY` (fase 3 og 8): `openssl rand -base64 32`. Krypterer Oda-innloggingen (og senere Outlook-tokenet).
 
 ## Innlogging og tilgang
 > **Nå:** innlogging er slått av (`AUTH_ENABLED=false`, standard). Appen åpnes rett inn, og man velger «Hvem er du?». Serveren bruker service role-nøkkelen, så databasen er fortsatt stengt for den offentlige nøkkelen, men **alle som har lenken kan bruke appen**. Stegene om brukere, e-postmal og `link_users.sql` i Supabase-oppsettet kan vente til innlogging skrus på.
@@ -118,7 +119,7 @@ Senere faser legger til `events`, `event_participants`, `tasks`, `shopping_*`, `
 - Konflikter oppdages med `If-Match`/changeKey og løses i appen. Hendelser som er laget direkte i Outlook importeres og tolkes (deltakere fra tittelen, ellers Felles).
 
 ### Oda (fase 8)
-Oda har ikke noe hostet MCP-endepunkt. De kjente MCP-serverne kjører lokalt over stdio med Oda-innlogging. Løsningen velges i fase 8, og bestilling skal alltid bekreftes av brukeren.
+Oda har ikke noe hostet MCP-endepunkt, så appen har en egen Oda-klient på serveren (`src/lib/oda/`) og en Claude-agent som velger varer. Se «Oda» under.
 
 ## Værvarsel
 - Data fra MET Norway sitt Locationforecast 2.0 (`compact`), samme kilde som Yr. Serveren henter varselet og bufrer det i `weather_cache` etter `Expires`/`Last-Modified`. Nettleseren spør aldri MET direkte.
@@ -144,3 +145,11 @@ Oda har ikke noe hostet MCP-endepunkt. De kjente MCP-serverne kjører lokalt ove
 - `/api/uploads/[id]/analyze` sender filen til Claude (`claude-opus-5-5`, kan overstyres med `ANTHROPIC_MODEL`). Svaret kommer som strukturert JSON med sammendrag, aktiviteter, oppgaver og handlevarer. Prompten får dagens dato, Oslo-tid, familiemedlemmene med profildetaljer (skole/klasse o.l.) og kategoriene. Hvis forespørselen avvises av sikkerhetsfiltrene, tar en annen modell automatisk over (server-side fallback).
 - Forslagene lagres i `suggestions` med status `pending`. **Ingenting legges i kalender, oppgaver eller handleliste før noen trykker ✓**, eventuelt etter å ha endret forslaget. «Godkjenn alle» finnes også.
 - Krever `ANTHROPIC_API_KEY` i Vercel.
+
+## Oda
+- På **Handleliste** finnes «Send til Oda» (hele den åpne listen), og hver fast liste har «Til Oda».
+- Første gang logger man inn med Oda-e-post og passord. **Passordet lagres ikke.** Bare øktinformasjonen (cookies) lagres AES-256-GCM-kryptert med `TOKEN_ENCRYPTION_KEY` i tabellen `oda_connection`, som ikke har RLS-policyer (kun service role). «Koble fra» sletter den.
+- `/api/oda/forslag` søker opp hver vare hos Oda og henter kjøpshistorikken. Deretter velger en Claude-agent (`src/lib/oda/agent.ts`) én vare per linje. Den foretrekker varer familien har kjøpt før, og kan søke selv med bedre søkeord. Agenten legger **aldri** noe i kurven, og bare produkt-id-er som faktisk kom fra Oda godtas.
+- Forslaget vises for godkjenning: man kan endre antall, velge alternativ eller fjerne linjer. Først ved «Legg i handlekurven» legges varene i Oda-kurven. **Ingenting bestilles.** Man fullfører kjøpet selv i Oda-appen eller på oda.com. Varene kan hukes av på handlelisten samtidig.
+- **Risiko:** Oda har ikke noe offentlig API. Klienten bruker de samme kallene som nettsiden, og kan slutte å virke hvis Oda endrer noe. Da får man en feilmelding, og handlelisten fungerer som før.
+- Krever `ANTHROPIC_API_KEY` og `TOKEN_ENCRYPTION_KEY` i Vercel, og migrasjon `0011_oda.sql`.

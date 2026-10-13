@@ -272,6 +272,12 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["suggestions"]["Insert"]>;
         Relationships: [];
       };
+      oda_connection: {
+        Row: { id: number; email: string; cookies_encrypted: string; connected_at: string; last_used_at: string | null };
+        Insert: { id?: number; email: string; cookies_encrypted: string; connected_at?: string; last_used_at?: string | null };
+        Update: Partial<Database["public"]["Tables"]["oda_connection"]["Insert"]>;
+        Relationships: [];
+      };
       settings: {
         Row: { key: string; value: Json; updated_at: string };
         Insert: { key: string; value: Json };

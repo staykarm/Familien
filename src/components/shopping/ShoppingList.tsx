@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState, useTransition } from "react";
-import { Check, ChevronDown, Pencil, Plus } from "lucide-react";
+import { Check, ChevronDown, Pencil, Plus, ShoppingCart } from "lucide-react";
 import { addItem, addTemplateToList, clearChecked, getShopping, toggleItem, type ShoppingData } from "@/actions/shopping";
 import { buttonGhost, buttonPrimary, buttonSecondary, card, input } from "@/components/ui/styles";
 import type { CalendarCategory } from "@/lib/calendar/types";
 import { checkedItems, groupOpenItems } from "@/lib/shopping/group";
 import type { ShoppingItem, ShoppingTemplate } from "@/lib/shopping/types";
 import { ItemDialog, TemplateDialog } from "./ShoppingDialogs";
+import { OdaDialog } from "./OdaDialog";
 import { LiveBadge, useRealtimeRefresh } from "@/components/useRealtimeRefresh";
 import { SHOPPING_TOPIC } from "@/lib/realtimeTopics";
 
@@ -27,6 +28,8 @@ export function ShoppingList({ initial, categories }: Props) {
   const [editing, setEditing] = useState<ShoppingItem | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<ShoppingTemplate | "new" | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  // null = lukket, "" = handlelisten, ellers id til en fast liste
+  const [oda, setOda] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   const refetch = useCallback(() => {
@@ -221,6 +224,14 @@ export function ShoppingList({ initial, categories }: Props) {
                   <button className={buttonGhost} onClick={() => setEditingTemplate(t)}>
                     <Pencil size={18} aria-hidden /> Endre
                   </button>
+                  <button
+                    className={buttonGhost}
+                    disabled={t.items.length === 0}
+                    onClick={() => setOda(t.id)}
+                    aria-label={`Send ${t.name} til Oda`}
+                  >
+                    <ShoppingCart size={18} aria-hidden /> <span className="hidden sm:inline">Til Oda</span>
+                  </button>
                 </div>
               </li>
             ))}
@@ -231,7 +242,21 @@ export function ShoppingList({ initial, categories }: Props) {
         </>
       )}
 
-      <p className="text-center text-xs text-ink-faint">🛒 Sende listen til Oda kommer i en senere fase.</p>
+      {tab === "list" && openCount > 0 && (
+        <button className={`${buttonSecondary} self-center`} onClick={() => setOda("")}>
+          <ShoppingCart size={20} aria-hidden /> Send til Oda
+        </button>
+      )}
+
+      {oda !== null && (
+        <OdaDialog
+          openCount={openCount}
+          templates={data.templates}
+          initialTemplateId={oda || null}
+          onClose={() => setOda(null)}
+          onDone={refetch}
+        />
+      )}
 
       {editing && (
         <ItemDialog

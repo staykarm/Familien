@@ -10,7 +10,7 @@ Familieapp for planlegging for Ingvild, Marius, Edvard og Olav (+ Felles): kalen
 |---|---|---|
 | 1 | Oppsett, innlogging, «Hvem er jeg?», profiler med bilde | ✅ |
 | 2 | Kalender (dag/uke/måned, per person) med lokal data | ✅ |
-| 3 | Synk med delt Outlook-kalender (Microsoft Graph) | ⏳ |
+| 3 | Synk med delt Outlook-kalender (Microsoft Graph) | ✅ |
 | 4 | Oppgaver | ✅ |
 | 5 | Værvarsel fra Yr / MET Norway | ✅ |
 | 6 | Handleliste i sanntid og faste lister | ✅ |
@@ -71,7 +71,10 @@ Sjekker: `npm run lint`, `npm run typecheck`, `npm test` og `npm run build`.
 4. Under **API permissions → Add → Microsoft Graph → Delegated** legger du til `Calendars.ReadWrite`, `offline_access`, `User.Read` og `MailboxSettings.ReadWrite` (det siste for fargede Outlook-kategorier).
 5. Kopier **Application (client) ID** til `MS_CLIENT_ID`. `MS_AUTHORITY` er `https://login.microsoftonline.com/consumers`.
 6. Generer `TOKEN_ENCRYPTION_KEY` (`openssl rand -base64 32`) og `OUTLOOK_WEBHOOK_CLIENT_STATE` (`openssl rand -hex 32`).
-7. Eieren av den delte kalenderen (outlook.com-kontoen) logger inn én gang via **Innstillinger → Koble til Outlook** og velger kalenderen.
+7. Legg `MS_CLIENT_ID`, `MS_CLIENT_SECRET`, `MS_AUTHORITY`, `OUTLOOK_WEBHOOK_CLIENT_STATE` og `CRON_SECRET` inn i Vercel (Production).
+8. Eieren av den delte kalenderen (outlook.com-kontoen) logger inn én gang via **Innstillinger → Outlook-kalender → Koble til Outlook** og velger kalenderen.
+
+> Jobb-PC-er som er meldt inn i Intune kan stoppe innlogging med private Microsoft-kontoer. Gjør registreringen fra en privat enhet (det går fint fra mobilen via portal.azure.com).
 
 ### 4. Øvrig
 - `MET_CONTACT_EMAIL` (fase 5, valgfri): legges til i User-Agent mot api.met.no. Uten den brukes GitHub-lenken som kontaktinfo.
@@ -112,11 +115,15 @@ supabase/scripts/          engangsskript (koble brukere, RLS-sjekk)
 
 Senere faser legger til `events`, `event_participants`, `tasks`, `shopping_*`, `outlook_connection`, `weather_cache`, `uploads` og `suggestions`. Hele arkitektur- og faseplanen står i [docs/plan.md](docs/plan.md).
 
-### Planlagt Outlook-synk (fase 3)
-- Microsoft Graph med delegated OAuth (MSAL). Refresh-token lagres AES-GCM-kryptert i Supabase.
-- Graph change notifications til `/api/outlook/webhook`, med delta query som reserve. Abonnementet fornyes daglig av Vercel Cron.
-- I Outlook vises aktivitetene som «Tittel (Edvard, Olav)» med appkategorien som Outlook-kategori. Appens egne felt ligger i extended properties.
-- Konflikter oppdages med `If-Match`/changeKey og løses i appen. Hendelser som er laget direkte i Outlook importeres og tolkes (deltakere fra tittelen, ellers Felles).
+### Outlook-synk (fase 3)
+Koden ligger i `src/lib/outlook/`. Synken går begge veier mot én delt kalender.
+- **Innlogging:** OAuth-kodeflyt mot Microsoft (`/api/outlook/connect` → `/api/outlook/callback`), uten MSAL. Access- og refresh-token lagres AES-256-GCM-kryptert i `outlook_connection`, som ikke har RLS-policyer. Eieren av kalenderen logger inn én gang under **Innstillinger → Outlook-kalender** og velger kalenderen.
+- **App → Outlook:** etter hver lagring, flytting eller sletting sendes aktiviteten i bakgrunnen (`after()`). Appens id sendes som `transactionId`, så vi kjenner igjen våre egne hendelser og unngår duplikater. Tittelen blir «Fotball (Edvard, Olav)», kategorien blir Outlook-kategorien med samme navn, og fargede kategorier opprettes i Outlook ved oppstart.
+- **Outlook → app:** Graph sender varsel til `/api/outlook/webhook`, som kjører en delta-spørring (`calendarView/delta`, fra 3 måneder bakover til 12 fremover). Hendelser laget i Outlook importeres. Deltakerne leses fra navnene i parentes, ellers blir det Felles. Våre egne endringer som kommer tilbake (samme `changeKey`) ignoreres.
+- **Konflikter:** før vi endrer en hendelse i Outlook, sjekker vi at `changeKey` er den vi sist så. Er den endret begge steder, får aktiviteten ⚠️ i kalenderen, og familien velger «Behold min» eller «Bruk Outlook sin».
+- **Reserve:** Vercel Cron (`/api/cron/outlook`, daglig kl. 03:17 UTC) fornyer varslene (de varer maks 7 døgn, vi ber om 4) og kjører en full synk i tilfelle et varsel har gått tapt. «Synk nå» i Innstillinger gjør det samme.
+- **Gjentakende hendelser:** hver forekomst vises og kan endres eller slettes enkeltvis. Selve serien endres i Outlook.
+- Synkloggen (`sync_log`) vises under Innstillinger.
 
 ### Oda (fase 8)
 Oda har ikke noe hostet MCP-endepunkt, så appen har en egen Oda-klient på serveren (`src/lib/oda/`) og en Claude-agent som velger varer. Se «Oda» under.

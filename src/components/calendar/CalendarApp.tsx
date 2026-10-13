@@ -13,6 +13,8 @@ import { symbolLabel } from "@/lib/weather/symbols";
 import type { DailyWeather } from "@/lib/weather/yr";
 import { TaskDialog, draftFromTask, type TaskDraft } from "@/components/tasks/TaskDialog";
 import { Avatar } from "@/components/ui/Avatar";
+import { useRealtimeRefresh } from "@/components/useRealtimeRefresh";
+import { CALENDAR_TOPIC } from "@/lib/realtimeTopics";
 import { buttonPrimary } from "@/components/ui/styles";
 import {
   allDayLastDay,
@@ -132,6 +134,9 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
   useEffect(() => {
     reload();
   }, [reload]);
+
+  // Endringer fra Outlook eller andre skjermer.
+  useRealtimeRefresh(CALENDAR_TOPIC, reload);
 
   // Værvarselet hentes én gang; serveren bufrer det etter MET sine regler.
   useEffect(() => {
@@ -387,6 +392,7 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
         <EventDialog
           key={draft.id ?? "ny"}
           draft={draft}
+          sync={draft.id ? events.find((e) => e.id === draft.id) : undefined}
           members={members}
           categories={categories}
           onClose={() => setDraft(null)}

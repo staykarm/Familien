@@ -36,7 +36,7 @@ export function EventChipContent({ event, members, category, timeLabel, showPart
     <span className="flex min-w-0 flex-col gap-0.5 leading-tight">
       <span className="flex min-w-0 items-center gap-1">
         {category && <span aria-hidden>{category.icon}</span>}
-        <span className={`truncate font-bold ${compact ? "text-xs" : "text-sm"}`}>{event.title}</span>
+        <span className={`truncate font-bold ${compact ? "text-xs" : "text-sm"}`}>{event.syncStatus === "conflict" ? "⚠️ " : ""}{event.title}</span>
       </span>
       {(timeLabel || showParticipants) && (
         <span className="flex items-center gap-1.5 text-xs text-ink-light">

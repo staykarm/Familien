@@ -1,6 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { pushEvent } from "@/lib/outlook/sync";
+import { broadcastChange } from "@/lib/realtime";
+import { CALENDAR_TOPIC } from "@/lib/realtimeTopics";
 import { requireFamily } from "@/lib/session";
 import { getDb } from "@/lib/supabase/db";
 import { eventFormSchema, moveEventSchema, rangeSchema, type EventFormInput } from "@/lib/validation/event";
@@ -12,6 +16,13 @@ export interface EventResult {
   id?: string;
 }
 
+function conflictSummary(raw: unknown): CalendarEvent["conflict"] {
+  if (!raw || typeof raw !== "object") return null;
+  const c = raw as { title?: unknown; start?: unknown; end?: unknown; allDay?: unknown };
+  if (typeof c.title !== "string" || typeof c.start !== "string" || typeof c.end !== "string") return null;
+  return { title: c.title, start: c.start, end: c.end, allDay: c.allDay === true };
+}
+
 /** Aktiviteter som overlapper perioden [start, end). */
 export async function listEvents(range: { start: string; end: string }): Promise<CalendarEvent[]> {
   await requireFamily();
@@ -21,7 +32,7 @@ export async function listEvents(range: { start: string; end: string }): Promise
   const db = await getDb();
   const { data: events, error } = await db
     .from("events")
-    .select("id, title, start_at, end_at, all_day, location, notes, category_id, sync_status, origin")
+    .select("id, title, start_at, end_at, all_day, location, notes, category_id, sync_status, sync_error, origin, outlook_conflict")
     .is("deleted_at", null)
     .lt("start_at", parsed.data.end)
     .gt("end_at", parsed.data.start)
@@ -52,7 +63,17 @@ export async function listEvents(range: { start: string; end: string }): Promise
     participantIds: byEvent.get(e.id) ?? [],
     syncStatus: e.sync_status,
     origin: e.origin,
+    syncError: e.sync_error,
+    conflict: conflictSummary(e.outlook_conflict),
   }));
+}
+
+/** Etter en endring: send til Outlook i bakgrunnen (hvis koblet til) og be andre skjermer hente på nytt. */
+function afterChange(id: string) {
+  after(async () => {
+    await pushEvent(id);
+    await broadcastChange(CALENDAR_TOPIC);
+  });
 }
 
 export async function saveEvent(input: EventFormInput): Promise<EventResult> {
@@ -75,6 +96,7 @@ export async function saveEvent(input: EventFormInput): Promise<EventResult> {
   });
   if (error) return { ok: false, message: "Kunne ikke lagre aktiviteten" };
 
+  afterChange(data);
   revalidatePath("/");
   return { ok: true, message: v.id ? "Endringene er lagret" : "Aktiviteten er lagt til", id: data };
 }
@@ -99,6 +121,7 @@ export async function moveEvent(input: { id: string; start: string; end: string;
     .eq("id", id)
     .is("deleted_at", null);
   if (error) return { ok: false, message: "Kunne ikke flytte aktiviteten" };
+  afterChange(id);
   return { ok: true, message: "Flyttet" };
 }
 
@@ -116,6 +139,7 @@ export async function deleteEvent(id: string): Promise<EventResult> {
     : await db.from("events").delete().eq("id", id);
   if (error) return { ok: false, message: "Kunne ikke slette aktiviteten" };
 
+  afterChange(id);
   revalidatePath("/");
   return { ok: true, message: "Aktiviteten er slettet" };
 }

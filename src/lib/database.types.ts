@@ -96,6 +96,7 @@ export type Database = {
           outlook_last_modified: string | null;
           sync_status: "local" | "pending" | "synced" | "conflict" | "error";
           sync_error: string | null;
+          outlook_conflict: Json | null;
         };
         Insert: {
           id?: string;
@@ -115,6 +116,7 @@ export type Database = {
           outlook_last_modified?: string | null;
           sync_status?: "local" | "pending" | "synced" | "conflict" | "error";
           sync_error?: string | null;
+          outlook_conflict?: Json | null;
         };
         Update: Partial<Database["public"]["Tables"]["events"]["Insert"]>;
         Relationships: [];
@@ -290,6 +292,52 @@ export type Database = {
           last_used_at?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["oda_connection"]["Insert"]>;
+        Relationships: [];
+      };
+      outlook_connection: {
+        Row: {
+          id: number;
+          account_email: string;
+          account_name: string | null;
+          tokens_encrypted: string;
+          calendar_id: string | null;
+          calendar_name: string | null;
+          delta_link: string | null;
+          delta_window_start: string | null;
+          subscription_id: string | null;
+          subscription_expires_at: string | null;
+          site_url: string | null;
+          sync_lock_until: string | null;
+          resync_requested: boolean;
+          last_sync_at: string | null;
+          last_error: string | null;
+          connected_at: string;
+        };
+        Insert: {
+          id?: number;
+          account_email: string;
+          account_name?: string | null;
+          tokens_encrypted: string;
+          calendar_id?: string | null;
+          calendar_name?: string | null;
+          delta_link?: string | null;
+          delta_window_start?: string | null;
+          subscription_id?: string | null;
+          subscription_expires_at?: string | null;
+          site_url?: string | null;
+          sync_lock_until?: string | null;
+          resync_requested?: boolean;
+          last_sync_at?: string | null;
+          last_error?: string | null;
+          connected_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["outlook_connection"]["Insert"]>;
+        Relationships: [];
+      };
+      sync_log: {
+        Row: { id: number; created_at: string; direction: "in" | "out" | "system"; ok: boolean; message: string; event_id: string | null };
+        Insert: { direction: "in" | "out" | "system"; ok?: boolean; message: string; event_id?: string | null };
+        Update: Partial<Database["public"]["Tables"]["sync_log"]["Insert"]>;
         Relationships: [];
       };
       settings: {

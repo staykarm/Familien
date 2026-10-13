@@ -4,11 +4,13 @@ import { useMemo, useState, useTransition } from "react";
 import { DateTime } from "luxon";
 import { Clock, MapPin, StickyNote } from "lucide-react";
 import { deleteEvent, saveEvent } from "@/actions/events";
+import { resolveOutlookConflict } from "@/actions/outlook";
 import { Avatar } from "@/components/ui/Avatar";
 import { DeleteButton, Sheet } from "@/components/ui/Sheet";
-import { buttonPrimary, input, label } from "@/components/ui/styles";
+import { buttonPrimary, buttonSecondary, input, label } from "@/components/ui/styles";
 import { formatDuration } from "@/lib/calendar/dates";
-import type { CalendarCategory, CalendarMember } from "@/lib/calendar/types";
+import type { CalendarCategory, CalendarEvent, CalendarMember } from "@/lib/calendar/types";
+import { TIME_ZONE } from "@/lib/time";
 
 export interface EventDraft {
   id: string | null;
@@ -26,6 +28,13 @@ export interface EventDraft {
 
 const DURATIONS = [30, 45, 60, 90, 120, 180];
 
+function formatWhen(c: { start: string; end: string; allDay: boolean }): string {
+  const s = DateTime.fromISO(c.start).setZone(TIME_ZONE).setLocale("nb");
+  if (c.allDay) return s.toFormat("cccc d. LLL") + " (hele dagen)";
+  const e = DateTime.fromISO(c.end).setZone(TIME_ZONE);
+  return `${s.toFormat("cccc d. LLL 'kl.' HH:mm")}–${e.toFormat("HH:mm")}`;
+}
+
 function endTimeOf(startTime: string, minutes: number): string {
   return DateTime.fromFormat(startTime, "HH:mm").plus({ minutes }).toFormat("HH:mm");
 }
@@ -40,6 +49,8 @@ function minutesUntil(startTime: string, endTime: string): number {
 
 interface Props {
   draft: EventDraft;
+  /** Aktiviteten slik den er lagret, for synkstatus mot Outlook. */
+  sync?: Pick<CalendarEvent, "syncStatus" | "syncError" | "conflict" | "origin">;
   members: CalendarMember[];
   categories: CalendarCategory[];
   onClose: () => void;
@@ -47,7 +58,7 @@ interface Props {
   onSaved: (message: string, id?: string) => void;
 }
 
-export function EventDialog({ draft: initial, members, categories, onClose, onSaved }: Props) {
+export function EventDialog({ draft: initial, sync, members, categories, onClose, onSaved }: Props) {
   const [draft, setDraft] = useState<EventDraft>(initial);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -86,6 +97,16 @@ export function EventDialog({ draft: initial, members, categories, onClose, onSa
     });
   }
 
+  function resolve(keep: "mine" | "outlook") {
+    if (!draft.id) return;
+    const id = draft.id;
+    startTransition(async () => {
+      const res = await resolveOutlookConflict({ id, keep });
+      if (res.ok) onSaved(res.message ?? "Løst");
+      else setError(res.message ?? "Noe gikk galt");
+    });
+  }
+
   return (
     <Sheet
       title={isNew ? "Ny aktivitet" : "Endre aktivitet"}
@@ -109,6 +130,28 @@ export function EventDialog({ draft: initial, members, categories, onClose, onSa
         </>
       }
     >
+      {sync?.syncStatus === "conflict" && sync.conflict && (
+        <div className="flex flex-col gap-2 rounded-2xl bg-sun p-3">
+          <p className="font-bold">⚠️ Endret både her og i Outlook</p>
+          <p className="text-sm">
+            Outlook sier: <strong>{sync.conflict.title}</strong>, {formatWhen(sync.conflict)}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className={buttonSecondary} disabled={pending} onClick={() => resolve("mine")}>
+              Behold min
+            </button>
+            <button type="button" className={buttonSecondary} disabled={pending} onClick={() => resolve("outlook")}>
+              Bruk Outlook sin
+            </button>
+          </div>
+        </div>
+      )}
+      {sync?.syncStatus === "error" && (
+        <p className="rounded-2xl bg-primary-soft p-3 text-sm font-semibold text-danger">
+          Ikke synket til Outlook: {sync.syncError ?? "ukjent feil"}. Prøves igjen automatisk.
+        </p>
+      )}
+
       <div>
         <label htmlFor="ev-title" className={label}>
           Hva skal skje?

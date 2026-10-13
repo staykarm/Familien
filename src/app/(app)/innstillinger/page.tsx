@@ -7,12 +7,17 @@ import { requireFamily } from "@/lib/session";
 import { getWeatherLocation } from "@/lib/weather/service";
 import { OdaSettings } from "@/components/settings/OdaSettings";
 import { odaStatus } from "@/lib/oda/session";
+import { OutlookSettings } from "@/components/settings/OutlookSettings";
+import { getOutlookStatus } from "@/actions/outlook";
 
 export const metadata = { title: "Innstillinger – Familien" };
+// Første synk med Outlook kjører i bakgrunnen etter at kalenderen er valgt, og kan ta litt tid.
+export const maxDuration = 300;
 
-export default async function SettingsPage() {
+export default async function SettingsPage({ searchParams }: PageProps<"/innstillinger">) {
   const session = await requireFamily();
-  const [weatherLocation, oda] = await Promise.all([getWeatherLocation(), odaStatus()]);
+  const [weatherLocation, oda, outlook, params] = await Promise.all([getWeatherLocation(), odaStatus(), getOutlookStatus(), searchParams]);
+  const outlookReturn = typeof params.outlook === "string" ? params.outlook : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -49,9 +54,9 @@ export default async function SettingsPage() {
         <OdaSettings initial={oda} />
       </section>
 
-      <section className={`${card} flex flex-col gap-2`}>
-        <h2 className="font-display text-xl font-bold">Kommer senere</h2>
-        <p className="text-ink-light">Kobling til Outlook-kalenderen.</p>
+      <section id="outlook" className={`${card} flex flex-col gap-3`}>
+        <h2 className="font-display text-xl font-bold">📅 Outlook-kalender</h2>
+        <OutlookSettings initial={outlook} returnStatus={outlookReturn} />
       </section>
     </div>
   );

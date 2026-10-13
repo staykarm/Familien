@@ -11,6 +11,10 @@ export interface CalendarEvent {
   participantIds: string[];
   syncStatus: "local" | "pending" | "synced" | "conflict" | "error";
   origin: "app" | "outlook";
+  /** Feilmelding fra Outlook-synken, hvis den feilet. */
+  syncError?: string | null;
+  /** Outlook sin versjon når aktiviteten er endret begge steder. */
+  conflict?: { title: string; start: string; end: string; allDay: boolean } | null;
   /** Satt for oppgaver med frist som vises i kalenderen. id er da «task:<oppgave-id>». */
   kind?: "task";
   done?: boolean;

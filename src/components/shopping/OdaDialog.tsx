@@ -3,9 +3,10 @@
 /* eslint-disable @next/next/no-img-element -- produktbilder fra Oda sin CDN */
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { ExternalLink, Minus, Plus, Sparkles } from "lucide-react";
-import { addToOdaCart, connectOda, disconnectOda, getOdaStatus } from "@/actions/oda";
+import Link from "next/link";
+import { addToOdaCart, getOdaStatus } from "@/actions/oda";
 import { Sheet } from "@/components/ui/Sheet";
-import { buttonGhost, buttonPrimary, buttonSecondary, input, label } from "@/components/ui/styles";
+import { buttonGhost, buttonPrimary, buttonSecondary } from "@/components/ui/styles";
 import type { OdaProposal, ProposalLine } from "@/lib/oda/agent";
 import type { OdaProduct } from "@/lib/oda/parse";
 import type { ShoppingTemplate } from "@/lib/shopping/types";
@@ -30,8 +31,6 @@ const kr = (n: number) => n.toLocaleString("nb-NO", { minimumFractionDigits: 2, 
 
 export function OdaDialog({ openCount, templates, initialTemplateId, onClose, onDone }: Props) {
   const [step, setStep] = useState<Step>("loading");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [connectedAs, setConnectedAs] = useState<string | null>(null);
   const [lines, setLines] = useState<ReviewLine[]>([]);
   const [note, setNote] = useState<string | null>(null);
@@ -114,7 +113,7 @@ export function OdaDialog({ openCount, templates, initialTemplateId, onClose, on
 
   const titles: Record<Step, string> = {
     loading: "Send til Oda",
-    login: "Koble til Oda",
+    login: "Oda er ikke koblet til",
     choose: "Send til Oda",
     working: "Finner varer …",
     review: "Sjekk varene",
@@ -128,9 +127,9 @@ export function OdaDialog({ openCount, templates, initialTemplateId, onClose, on
   );
   if (step === "login") {
     footer = (
-      <button className={`${buttonPrimary} ml-auto`} disabled={pending}>
-        {pending ? "Logger inn …" : "Koble til"}
-      </button>
+      <Link href="/innstillinger#oda" className={`${buttonPrimary} ml-auto`}>
+        Gå til Innstillinger
+      </Link>
     );
   } else if (step === "review") {
     footer = (
@@ -164,50 +163,16 @@ export function OdaDialog({ openCount, templates, initialTemplateId, onClose, on
       title={titles[step]}
       onClose={onClose}
       onSubmit={() => {
-        if (step === "login") {
-          setError(null);
-          start(async () => {
-            const res = await connectOda({ email, password });
-            setPassword("");
-            if (res.ok) {
-              setConnectedAs(email);
-              if (initialTemplateId) void propose({ source: "template", templateId: initialTemplateId });
-              else setStep("choose");
-            } else setError(res.message ?? "Kunne ikke logge inn");
-          });
-        } else if (step === "review") confirm();
+        if (step === "review") confirm();
       }}
       footer={footer}
     >
       {step === "loading" && <div className="h-24 animate-pulse rounded-2xl bg-card-soft" />}
 
       {step === "login" && (
-        <>
-          <p className="text-ink-light">
-            Logg inn med Oda-kontoen deres. Passordet brukes bare til å logge inn – appen lagrer kun en kryptert innlogging, og
-            legger aldri inn en bestilling.
-          </p>
-          <div>
-            <label htmlFor="oda-email" className={label}>
-              E-post hos Oda
-            </label>
-            <input id="oda-email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} className={input} required />
-          </div>
-          <div>
-            <label htmlFor="oda-pw" className={label}>
-              Passord
-            </label>
-            <input
-              id="oda-pw"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className={input}
-              required
-            />
-          </div>
-        </>
+        <p className="text-ink-light">
+          Oda må kobles til én gang under Innstillinger før handlelisten kan sendes dit. Det tar et halvt minutt.
+        </p>
       )}
 
       {step === "choose" && (
@@ -230,24 +195,7 @@ export function OdaDialog({ openCount, templates, initialTemplateId, onClose, on
               {t.icon} {t.name} ({t.items.length} varer)
             </button>
           ))}
-          {connectedAs && (
-            <p className="flex flex-wrap items-center gap-2 text-sm text-ink-light">
-              Koblet til Oda som {connectedAs}.
-              <button
-                type="button"
-                className="font-bold underline underline-offset-2"
-                onClick={() =>
-                  start(async () => {
-                    await disconnectOda();
-                    setConnectedAs(null);
-                    setStep("login");
-                  })
-                }
-              >
-                Koble fra
-              </button>
-            </p>
-          )}
+          {connectedAs && <p className="text-sm text-ink-light">Koblet til Oda som {connectedAs}.</p>}
         </>
       )}
 

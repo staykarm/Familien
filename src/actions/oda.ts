@@ -3,8 +3,9 @@
 import { z } from "zod";
 import { broadcastChange, SHOPPING_TOPIC } from "@/lib/realtime";
 import { OdaClient, OdaError } from "@/lib/oda/client";
-import { deleteOdaSession, loadOdaClient, odaStatus, saveOdaSession } from "@/lib/oda/session";
+import { deleteOdaSession, odaStatus, saveOdaSession, withOda } from "@/lib/oda/session";
 import { requireFamily } from "@/lib/session";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getDb } from "@/lib/supabase/db";
 
 export interface OdaResult {
@@ -18,18 +19,25 @@ export async function getOdaStatus() {
   return odaStatus();
 }
 
-/** Logger inn hos Oda én gang. Passordet brukes bare til innloggingen; vi lagrer kun den krypterte økten. */
-export async function connectOda(input: { email: string; password: string }): Promise<OdaResult> {
+const connectSchema = z.object({
+  email: z.email("Skriv inn e-posten du bruker hos Oda"),
+  password: z.string().min(1, "Skriv inn passordet").max(200),
+  remember: z.boolean(),
+});
+
+/**
+ * Logger inn hos Oda. Økten lagres kryptert og deles av hele familien. Med «Husk passordet» lagres også
+ * passordet kryptert, slik at appen kan logge inn på nytt av seg selv når Oda avslutter økten.
+ */
+export async function connectOda(input: z.input<typeof connectSchema>): Promise<OdaResult> {
   await requireFamily();
-  const parsed = z
-    .object({ email: z.email("Skriv inn e-posten du bruker hos Oda"), password: z.string().min(1, "Skriv inn passordet") })
-    .safeParse(input);
+  const parsed = connectSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
   try {
     const client = new OdaClient();
     await client.login(parsed.data.email, parsed.data.password);
     await client.cart(); // bekrefter at økten virker
-    await saveOdaSession(client, parsed.data.email);
+    await saveOdaSession(client, parsed.data.email, parsed.data.remember ? parsed.data.password : null);
     return { ok: true, message: "Koblet til Oda 🎉" };
   } catch (e) {
     if (e instanceof OdaError) return { ok: false, message: e.message };
@@ -38,6 +46,14 @@ export async function connectOda(input: { email: string; password: string }): Pr
     }
     return { ok: false, message: "Noe gikk galt under innloggingen hos Oda." };
   }
+}
+
+/** Slår «Husk passordet» av (glemmer passordet). Å slå det på krever ny innlogging med passord. */
+export async function forgetOdaPassword(): Promise<OdaResult> {
+  await requireFamily();
+  const db = createAdminClient();
+  await db.from("oda_connection").update({ password_encrypted: null }).eq("id", 1);
+  return { ok: true, message: "Passordet er glemt" };
 }
 
 export async function disconnectOda(): Promise<OdaResult> {
@@ -64,13 +80,10 @@ export async function addToOdaCart(input: z.input<typeof addSchema>): Promise<Od
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
 
   try {
-    const session = await loadOdaClient();
-    if (!session) return { ok: false, needsLogin: true, message: "Koble til Oda først." };
     // Samme produkt flere ganger slås sammen.
     const merged = new Map<number, number>();
     for (const l of parsed.data.lines) merged.set(l.productId, (merged.get(l.productId) ?? 0) + l.quantity);
-    const cart = await session.client.addToCart([...merged].map(([productId, quantity]) => ({ productId, quantity })));
-    await saveOdaSession(session.client, session.email);
+    const cart = await withOda((oda) => oda.addToCart([...merged].map(([productId, quantity]) => ({ productId, quantity }))));
 
     if (parsed.data.checkItemIds.length) {
       const db = await getDb();

@@ -95,6 +95,18 @@ export function findQueryData(queries: DehydratedQuery[], name: string): unknown
   return null;
 }
 
+/**
+ * Hvem er innlogget, ut fra «user»-dataene Oda legger på hver side.
+ * `null` = siden ble lest, men ingen er innlogget. `undefined` = fant ikke dataene i det hele tatt
+ * (Oda har endret siden), og da vet vi ikke.
+ */
+export function parseLoggedInEmail(html: string): string | null | undefined {
+  const queries = dehydratedQueries(html);
+  if (queries.length === 0) return undefined;
+  const user = findQueryData(queries, "user") as { email?: unknown } | null;
+  return user && typeof user.email === "string" && user.email ? user.email : null;
+}
+
 function num(v: unknown): number | null {
   const n = typeof v === "string" ? Number(v) : typeof v === "number" ? v : NaN;
   return Number.isFinite(n) ? n : null;

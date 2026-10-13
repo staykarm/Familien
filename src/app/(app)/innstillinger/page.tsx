@@ -5,12 +5,14 @@ import { AUTH_ENABLED } from "@/lib/env";
 import { WeatherLocationForm } from "@/components/weather/WeatherLocationForm";
 import { requireFamily } from "@/lib/session";
 import { getWeatherLocation } from "@/lib/weather/service";
+import { OdaSettings } from "@/components/settings/OdaSettings";
+import { odaStatus } from "@/lib/oda/session";
 
 export const metadata = { title: "Innstillinger – Familien" };
 
 export default async function SettingsPage() {
   const session = await requireFamily();
-  const weatherLocation = await getWeatherLocation();
+  const [weatherLocation, oda] = await Promise.all([getWeatherLocation(), odaStatus()]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -40,6 +42,11 @@ export default async function SettingsPage() {
       <section className={`${card} flex flex-col gap-3`}>
         <h2 className="font-display text-xl font-bold">Sted for værvarsel</h2>
         <WeatherLocationForm current={weatherLocation} />
+      </section>
+
+      <section id="oda" className={`${card} flex flex-col gap-3`}>
+        <h2 className="font-display text-xl font-bold">🛒 Oda</h2>
+        <OdaSettings initial={oda} />
       </section>
 
       <section className={`${card} flex flex-col gap-2`}>

@@ -148,8 +148,9 @@ Oda har ikke noe hostet MCP-endepunkt, så appen har en egen Oda-klient på serv
 
 ## Oda
 - På **Handleliste** finnes «Send til Oda» (hele den åpne listen), og hver fast liste har «Til Oda».
-- Første gang logger man inn med Oda-e-post og passord. **Passordet lagres ikke.** Bare øktinformasjonen (cookies) lagres AES-256-GCM-kryptert med `TOKEN_ENCRYPTION_KEY` i tabellen `oda_connection`, som ikke har RLS-policyer (kun service role). «Koble fra» sletter den.
+- Oda kobles til én gang under **Innstillinger → Oda** med e-post og passord. Innloggingen deles av hele familien, og lagres AES-256-GCM-kryptert med `TOKEN_ENCRYPTION_KEY` i tabellen `oda_connection`, som ikke har RLS-policyer (kun service role). «Koble fra» sletter den.
+- **Husk passordet** (valgfritt, på som standard): passordet lagres også kryptert. Før hver bruk sjekker appen at økten fortsatt er innlogget (Oda gir ellers en tom gjestekurv uten feil). Er den utløpt, logger appen inn på nytt av seg selv. Godtar ikke Oda passordet lenger, glemmes det, og man må koble til på nytt. Uten husket passord må man koble til på nytt når Oda logger appen ut.
 - `/api/oda/forslag` søker opp hver vare hos Oda og henter kjøpshistorikken. Deretter velger en Claude-agent (`src/lib/oda/agent.ts`) én vare per linje. Den foretrekker varer familien har kjøpt før, og kan søke selv med bedre søkeord. Agenten legger **aldri** noe i kurven, og bare produkt-id-er som faktisk kom fra Oda godtas.
 - Forslaget vises for godkjenning: man kan endre antall, velge alternativ eller fjerne linjer. Først ved «Legg i handlekurven» legges varene i Oda-kurven. **Ingenting bestilles.** Man fullfører kjøpet selv i Oda-appen eller på oda.com. Varene kan hukes av på handlelisten samtidig.
 - **Risiko:** Oda har ikke noe offentlig API. Klienten bruker de samme kallene som nettsiden, og kan slutte å virke hvis Oda endrer noe. Da får man en feilmelding, og handlelisten fungerer som før.
-- Krever `ANTHROPIC_API_KEY` og `TOKEN_ENCRYPTION_KEY` i Vercel, og migrasjon `0011_oda.sql`.
+- Krever `ANTHROPIC_API_KEY` og `TOKEN_ENCRYPTION_KEY` i Vercel, og migrasjonene `0011_oda.sql` og `0012_oda_password.sql`.

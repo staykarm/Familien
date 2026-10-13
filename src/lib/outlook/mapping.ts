@@ -125,6 +125,33 @@ function allDayDate(t: GraphDateTime): string {
   return graphTimeToUtc(t).setZone(TIME_ZONE).plus({ hours: 6 }).toISODate()!;
 }
 
+/**
+ * Innholdet slik det ser ut i Outlook, normalisert til én streng. Brukes til å se om en hendelse faktisk er
+ * endret, fordi Outlook ofte bytter changeKey uten at noe synlig er endret (særlig rett etter at den er laget).
+ * Samme resultat for det vi sender (Oslo-tid, ren tekst) og det Graph sender tilbake (UTC, ev. HTML).
+ */
+export function outlookFingerprint(g: {
+  subject?: string | null;
+  start?: GraphDateTime;
+  end?: GraphDateTime;
+  isAllDay?: boolean;
+  location?: { displayName?: string } | null;
+  body?: { contentType?: string; content?: string } | null;
+  categories?: string[];
+}): string {
+  const time = (t: GraphDateTime | undefined) => (!t ? "" : g.isAllDay ? allDayDate(t) : String(graphTimeToUtc(t).toMillis()));
+  const squash = (s: string | undefined | null) => (s ?? "").replace(/\s+/g, " ").trim();
+  return JSON.stringify([
+    squash(g.subject),
+    time(g.start),
+    time(g.end),
+    !!g.isAllDay,
+    squash(g.location?.displayName),
+    squash(g.body?.content ? stripHtml(g.body.content, g.body.contentType) : ""),
+    [...(g.categories ?? [])].map((c) => c.toLocaleLowerCase("nb")).sort(),
+  ]);
+}
+
 /** Finner appens kategori ut fra Outlook-kategoriene. Null hvis ingen passer. */
 export function categoryFromOutlook(names: string[] | undefined, categories: CategoryRef[]): string | null {
   for (const n of names ?? []) {

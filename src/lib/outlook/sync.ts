@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import { DateTime } from "luxon";
 import type { Json } from "@/lib/database.types";
 import { serverEnv } from "@/lib/env";
@@ -8,7 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { OutlookAuthError } from "./auth";
 import { acquireSyncLock, graphFor, loadConnection, releaseSyncLock, syncLog, updateConnection, type OutlookConnection } from "./connection";
 import { GraphError, graphError, type GraphClient } from "./graph";
-import { fromGraphEvent, outlookCategoryName, presetForColor, toGraphEvent, type AppEventData, type CategoryRef, type GraphEvent, type MemberRef } from "./mapping";
+import { fromGraphEvent, outlookCategoryName, outlookFingerprint, presetForColor, toGraphEvent, type AppEventData, type CategoryRef, type GraphEvent, type MemberRef } from "./mapping";
 
 /** Vinduet vi synker: 3 måneder bakover og 12 fremover. Delta-lenken fornyes etter 30 dager så vinduet flytter seg. */
 const WINDOW_PAST_DAYS = 90;
@@ -40,6 +41,13 @@ export interface SyncSummary {
 /** Outlook sin versjon lagret ved konflikt. */
 export interface OutlookConflict extends AppEventData {
   changeKey: string | null;
+  /** Fingeravtrykket til Outlook sin versjon, se `contentHash`. */
+  hash?: string;
+}
+
+/** Kort fingeravtrykk av innholdet i Outlook (se outlookFingerprint). */
+export function contentHash(g: Parameters<typeof outlookFingerprint>[0]): string {
+  return createHash("sha256").update(outlookFingerprint(g)).digest("base64url").slice(0, 22);
 }
 
 async function context(conn: OutlookConnection & { calendar_id: string }): Promise<Ctx> {
@@ -123,12 +131,18 @@ async function pushOne(ctx: Ctx, id: string): Promise<boolean> {
       const current = await graph.request(`/me/events/${encodeURIComponent(row.outlook_id)}`, { headers: { Prefer: READ_PREFER } });
       if (current.ok) {
         const g = (await current.json()) as GraphEvent;
-        if (row.outlook_change_key && g.changeKey && g.changeKey !== row.outlook_change_key) {
+        // Ny changeKey betyr ikke nødvendigvis en endring: Outlook bytter den av seg selv. Sammenlign innholdet.
+        const changedInOutlook =
+          !!row.outlook_change_key && !!g.changeKey && g.changeKey !== row.outlook_change_key && contentHash(g) !== row.outlook_synced_hash;
+        if (changedInOutlook) {
           await markConflict(ctx, id, g, participantIds, row.category_id, row.title);
           return false;
         }
         const updated = await graph.json<GraphEvent>(`/me/events/${encodeURIComponent(row.outlook_id)}`, { method: "PATCH", body });
-        await db.from("events").update({ ...outlookFields(updated), sync_status: "synced", sync_error: null }).eq("id", id);
+        await db
+          .from("events")
+          .update({ ...outlookFields(updated), outlook_synced_hash: contentHash(body), sync_status: "synced", sync_error: null })
+          .eq("id", id);
         await syncLog("out", `Oppdaterte «${row.title}» i Outlook`, true, id);
         return true;
       }
@@ -137,7 +151,10 @@ async function pushOne(ctx: Ctx, id: string): Promise<boolean> {
     }
 
     const created = await graph.json<GraphEvent>(`/me/calendars/${encodeURIComponent(conn.calendar_id)}/events`, { method: "POST", body });
-    await db.from("events").update({ ...outlookFields(created), sync_status: "synced", sync_error: null }).eq("id", id);
+    await db
+      .from("events")
+      .update({ ...outlookFields(created), outlook_synced_hash: contentHash(body), sync_status: "synced", sync_error: null })
+      .eq("id", id);
     await syncLog("out", `La «${row.title}» inn i Outlook`, true, id);
     return true;
   } catch (e) {
@@ -152,7 +169,7 @@ async function pushOne(ctx: Ctx, id: string): Promise<boolean> {
 async function markConflict(ctx: Ctx, id: string, g: GraphEvent, participantIds: string[], categoryId: string | null, title: string) {
   const data = fromGraphEvent(g, { members: ctx.members, categories: ctx.categories, current: { participantIds, categoryId } });
   if (!data) return;
-  const conflict: OutlookConflict = { ...data, changeKey: g.changeKey ?? null };
+  const conflict: OutlookConflict = { ...data, changeKey: g.changeKey ?? null, hash: contentHash(g) };
   await ctx.db
     .from("events")
     .update({ sync_status: "conflict", outlook_conflict: conflict as unknown as Json, sync_error: null })
@@ -259,6 +276,14 @@ async function applyItem(ctx: Ctx, g: GraphEvent): Promise<boolean> {
   // Ekko av vår egen endring: ingenting nytt.
   if (row && row.outlook_id === g.id && row.outlook_change_key && row.outlook_change_key === g.changeKey) return false;
 
+  // Samme innhold som sist synket, bare ny changeKey (Outlook gjør det av seg selv): oppdater stille.
+  // Gjelder også når appen har en endring som venter – Outlook er ikke endret, så det er ingen konflikt.
+  const hash = contentHash(g);
+  if (row && row.outlook_synced_hash === hash) {
+    await db.from("events").update(outlookFields(g)).eq("id", row.id);
+    return false;
+  }
+
   let current: { participantIds: string[]; categoryId: string | null; notes: string | null; location: string | null } | null = null;
   if (row) {
     const { data: parts } = await db.from("event_participants").select("member_id").eq("event_id", row.id);
@@ -284,6 +309,7 @@ async function applyItem(ctx: Ctx, g: GraphEvent): Promise<boolean> {
     notes: data.notes,
     category_id: data.categoryId,
     ...outlookFields(g),
+    outlook_synced_hash: hash,
     sync_status: "synced" as const,
     sync_error: null,
     outlook_conflict: null,

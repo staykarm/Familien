@@ -156,7 +156,7 @@ export async function resolveOutlookConflict(input: z.input<typeof resolveSchema
     // Godta Outlook sin nyeste versjon som utgangspunkt, og skriv vår versjon over den.
     await db
       .from("events")
-      .update({ sync_status: "pending", outlook_conflict: null, outlook_change_key: conflict.changeKey })
+      .update({ sync_status: "pending", outlook_conflict: null, outlook_change_key: conflict.changeKey, outlook_synced_hash: conflict.hash ?? null })
       .eq("id", id);
     after(() => pushEvent(id));
   } else {
@@ -171,6 +171,7 @@ export async function resolveOutlookConflict(input: z.input<typeof resolveSchema
         notes: conflict.notes,
         category_id: conflict.categoryId,
         outlook_change_key: conflict.changeKey,
+        outlook_synced_hash: conflict.hash ?? null,
         outlook_conflict: null,
         sync_status: "synced",
         sync_error: null,

@@ -97,6 +97,7 @@ export type Database = {
           sync_status: "local" | "pending" | "synced" | "conflict" | "error";
           sync_error: string | null;
           outlook_conflict: Json | null;
+          outlook_synced_hash: string | null;
         };
         Insert: {
           id?: string;
@@ -117,6 +118,7 @@ export type Database = {
           sync_status?: "local" | "pending" | "synced" | "conflict" | "error";
           sync_error?: string | null;
           outlook_conflict?: Json | null;
+          outlook_synced_hash?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["events"]["Insert"]>;
         Relationships: [];

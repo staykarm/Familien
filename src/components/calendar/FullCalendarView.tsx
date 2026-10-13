@@ -44,9 +44,12 @@ export function FullCalendarView({ view, date, events, members, categories, onCr
   const ref = useRef<FullCalendar>(null);
 
   // Navigasjonen styres av appen (egne knapper), ikke av FullCalendar sin verktøylinje.
+  // Visning: kalenderen bygges på nytt (key={view}), så den alltid starter i riktig visning – mer robust enn
+  // changeView, som i enkelte nettlesere kunne bli overstyrt når komponenten samtidig fikk nye innstillinger.
+  // Dato: flyttes med gotoDate når man blar.
   useEffect(() => {
-    ref.current?.getApi().changeView(FC_VIEW[view], date);
-  }, [view, date]);
+    ref.current?.getApi().gotoDate(date);
+  }, [date]);
 
   const fcEvents = useMemo<EventInput[]>(
     () =>
@@ -112,6 +115,7 @@ export function FullCalendarView({ view, date, events, members, categories, onCr
   return (
     <div className="familien-fc">
       <FullCalendar
+        key={view}
         ref={ref}
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, luxonPlugin]}
         initialView={FC_VIEW[view]}

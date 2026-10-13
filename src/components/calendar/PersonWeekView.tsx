@@ -95,7 +95,7 @@ export function PersonWeekView({ days, today, events, members, categories, onCre
                         event={e}
                         members={members}
                         category={categories.find((c) => c.id === e.categoryId)}
-                        timeLabel={e.allDay ? "Hele dagen" : DateTime.fromISO(e.start).setZone(TIME_ZONE).toFormat("HH:mm")}
+                        time={e.allDay ? "Hele dagen" : DateTime.fromISO(e.start).setZone(TIME_ZONE).toFormat("HH:mm")}
                         showParticipants={e.participantIds.length > 1}
                         compact
                       />

@@ -252,3 +252,131 @@ body {
   height: 0;
   pointer-events: none;
 }
+
+/* --- Aktivitetsbokser som tilpasser seg plassen ------------------------------------------
+   Når flere aktiviteter står side om side blir boksene smale. Da krymper skriften, teksten brytes
+   og tittelen byttes til en kortere variant (se lib/calendar/shorten.ts). Styrt av container queries,
+   så det virker likt i FullCalendar og i per person-visningene. */
+.ev {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+  line-height: 1.15;
+}
+.ev-box {
+  container-type: size;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+.ev-inline {
+  container-type: inline-size;
+  width: 100%;
+}
+.ev-title {
+  font-weight: 700;
+  font-size: 0.875rem;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
+}
+.ev-compact .ev-title {
+  font-size: 0.75rem;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+.ev-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--color-ink-light);
+}
+.ev-t-mid,
+.ev-t-short,
+.ev-t-tiny,
+.ev-time-short {
+  display: none;
+}
+/* Middels smal (typisk to side om side): kortere tittel, bare starttid. */
+@container (max-width: 8.5rem) {
+  .ev-t-full,
+  .ev-time-full {
+    display: none;
+  }
+  .ev-t-mid,
+  .ev-time-short {
+    display: inline;
+  }
+  .ev-title {
+    font-size: 0.8125rem;
+  }
+}
+/* Smal (tre side om side på telefon/iPad): forkortet tittel, mindre skrift, uten ikon. */
+@container (max-width: 5.5rem) {
+  .ev-t-mid {
+    display: none;
+  }
+  .ev-t-short {
+    display: inline;
+  }
+  .ev-icon {
+    display: none;
+  }
+  .ev-title {
+    font-size: 0.6875rem;
+    line-height: 1.1;
+  }
+  .ev-meta {
+    font-size: 0.625rem;
+  }
+}
+/* Svært smal (tre side om side i ukevisning på iPad): maks to korte ord. */
+@container (max-width: 3.2rem) {
+  .ev-meta,
+  .ev-t-short {
+    display: none;
+  }
+  .ev-t-tiny {
+    display: inline;
+  }
+  .ev-title {
+    font-size: 0.625rem;
+  }
+}
+/* Lav boks (kort aktivitet): tittelen får plassen, klokkeslettet ses av plasseringen. */
+@container (max-height: 3.75rem) and (max-width: 8.5rem) {
+  .ev-meta {
+    display: none;
+  }
+  .ev-title {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+}
+@container (max-height: 2.4rem) {
+  .ev-meta {
+    display: none;
+  }
+  .ev-title {
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+  }
+}
+.familien-fc .fc-timegrid-more-link {
+  background: var(--color-card);
+  border: 2px solid var(--color-line);
+  border-radius: 0.75rem;
+  color: var(--color-primary-dark);
+  font-weight: 800;
+  font-size: 0.75rem;
+}
+.familien-fc .fc-timegrid-event .fc-event-main {
+  height: 100%;
+  padding: 1px 2px;
+}

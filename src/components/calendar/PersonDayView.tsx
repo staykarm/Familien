@@ -9,6 +9,8 @@ import type { CalendarCategory, CalendarEvent, CalendarMember } from "@/lib/cale
 import { EventChipContent } from "./EventChip";
 
 const HOUR_PX = 56;
+/** Maks antall aktiviteter side om side i én kolonne. Resten samles i en «+N»-knapp. */
+const MAX_LANES = 3;
 const DEFAULT_FIRST_HOUR = 6;
 const LAST_HOUR = 24;
 
@@ -88,8 +90,12 @@ export function PersonDayView({ date, events, members, categories, onCreateAt, o
           const placed = layoutLanes(
             timed.filter((e) => e.participantIds.includes(m.id)),
             (e) => minutesIntoDay(e.start, date),
-            (e) => minutesIntoDay(e.end, date)
+            (e) => minutesIntoDay(e.end, date),
+            MAX_LANES
           );
+          // Skjulte aktiviteter per klynge, vist som «+N» ved den første av dem.
+          const hiddenByCluster = new Map<number, CalendarEvent[]>();
+          for (const p of placed) if (p.hidden) hiddenByCluster.set(p.cluster, [...(hiddenByCluster.get(p.cluster) ?? []), p.item]);
           return (
             <div key={m.id} className="relative border-l border-line" style={{ height: hours.length * HOUR_PX }}>
               {hours.map((h, i) => (
@@ -107,14 +113,23 @@ export function PersonDayView({ date, events, members, categories, onCreateAt, o
                   style={{ top: ((now - firstHour * 60) / 60) * HOUR_PX }}
                 />
               )}
-              {placed.map(({ item: e, lane, lanes }) => {
+              {[...hiddenByCluster].map(([cluster, hidden]) => (
+                <MoreButton
+                  key={`more-${cluster}`}
+                  events={hidden}
+                  top={((minutesIntoDay(hidden[0].start, date) - firstHour * 60) / 60) * HOUR_PX + 1}
+                  color={m.color}
+                  onOpen={onOpen}
+                />
+              ))}
+              {placed.filter((p) => !p.hidden).map(({ item: e, lane, lanes }) => {
                 const startMin = minutesIntoDay(e.start, date);
                 const endMin = Math.max(minutesIntoDay(e.end, date), startMin + 20);
                 return (
                   <button
                     key={e.id}
                     onClick={() => onOpen(e.id)}
-                    className="absolute z-20 overflow-hidden rounded-xl border-l-4 px-1.5 py-1 text-left shadow-sm"
+                    className={`absolute z-20 overflow-hidden rounded-xl border-l-4 text-left shadow-sm ${lanes > 2 ? "px-1 py-0.5" : "px-1.5 py-1"}`}
                     style={{
                       top: ((startMin - firstHour * 60) / 60) * HOUR_PX + 1,
                       height: ((endMin - startMin) / 60) * HOUR_PX - 2,
@@ -128,9 +143,9 @@ export function PersonDayView({ date, events, members, categories, onCreateAt, o
                       event={e}
                       members={members}
                       category={categories.find((c) => c.id === e.categoryId)}
-                      timeLabel={`${utcToOsloParts(e.start).time}–${utcToOsloParts(e.end).time}`}
+                      time={{ start: utcToOsloParts(e.start).time, end: utcToOsloParts(e.end).time }}
                       showParticipants={e.participantIds.length > 1}
-                      compact
+                      box
                     />
                   </button>
                 );
@@ -139,6 +154,46 @@ export function PersonDayView({ date, events, members, categories, onCreateAt, o
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/** «+N» for aktiviteter som ikke får plass side om side. Viser en liten liste ved trykk. */
+function MoreButton({ events, top, color, onOpen }: { events: CalendarEvent[]; top: number; color: string; onOpen: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="absolute right-0.5 z-30" style={{ top }}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-label={`${events.length} aktiviteter til`}
+        className="min-h-7 rounded-full border-2 bg-card px-2 text-xs font-extrabold shadow-sm"
+        style={{ borderColor: color }}
+      >
+        +{events.length}
+      </button>
+      {open && (
+        <ul className="absolute right-0 mt-1 flex w-48 flex-col gap-1 rounded-2xl bg-card p-2 shadow-lg ring-1 ring-line">
+          {events.map((e) => (
+            <li key={e.id}>
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  onOpen(e.id);
+                }}
+                className="flex min-h-10 w-full flex-col items-start rounded-xl px-2 py-1 text-left hover:bg-card-soft"
+              >
+                <span className="text-sm font-bold">{e.title}</span>
+                <span className="text-xs tabular-nums text-ink-light">
+                  {utcToOsloParts(e.start).time}–{utcToOsloParts(e.end).time}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

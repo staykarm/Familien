@@ -53,8 +53,8 @@ describe("app → Outlook", () => {
     );
     expect(body).toMatchObject({
       subject: "Fotball (Edvard)",
-      start: { dateTime: "2026-10-14T17:00:00", timeZone: "Europe/Oslo" },
-      end: { dateTime: "2026-10-14T18:30:00", timeZone: "Europe/Oslo" },
+      start: { dateTime: "2026-10-14T17:00:00", timeZone: "W. Europe Standard Time" },
+      end: { dateTime: "2026-10-14T18:30:00", timeZone: "W. Europe Standard Time" },
       isAllDay: false,
       location: { displayName: "Banen" },
       categories: ["Skole og SFO"],

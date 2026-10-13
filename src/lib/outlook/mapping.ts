@@ -61,6 +61,12 @@ export interface GraphEvent {
 const MAX_TITLE = 200;
 const MAX_NOTES = 2000;
 const LOCAL_FORMAT = "yyyy-MM-dd'T'HH:mm:ss";
+/**
+ * Windows-navnet på tidssonen til Oslo. Outlook lagrer hendelser med Windows-tidssoner; IANA-navnet
+ * («Europe/Oslo») godtas av Graph, men gir en egendefinert tidssone som ikke alle Outlook-klienter
+ * (bl.a. delte kalendere på mobil) håndterer like godt.
+ */
+export const OUTLOOK_TIME_ZONE = "W. Europe Standard Time";
 
 const norm = (s: string) => s.trim().toLocaleLowerCase("nb");
 
@@ -105,8 +111,8 @@ export function toGraphEvent(ev: AppEventData & { id?: string }, members: Member
   return {
     subject: outlookTitle(ev.title, ev.participantIds, members),
     body: { contentType: "text", content: ev.notes ?? "" },
-    start: { dateTime: toOsloLocal(ev.start), timeZone: TIME_ZONE },
-    end: { dateTime: toOsloLocal(ev.end), timeZone: TIME_ZONE },
+    start: { dateTime: toOsloLocal(ev.start), timeZone: OUTLOOK_TIME_ZONE },
+    end: { dateTime: toOsloLocal(ev.end), timeZone: OUTLOOK_TIME_ZONE },
     isAllDay: ev.allDay,
     location: { displayName: ev.location ?? "" },
     categories: category ? [outlookCategoryName(category)] : [],

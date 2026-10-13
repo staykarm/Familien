@@ -57,6 +57,7 @@ export function EventChipContent({ event, members, category, time, showParticipa
         <span className="ev-t-mid">{v.medium}</span>
         <span className="ev-t-short">{v.short}</span>
         <span className="ev-t-tiny">{v.tiny}</span>
+        <span className="ev-t-one">{v.one}</span>
       </span>
       {(t || showParticipants) && (
         <span className="ev-meta" aria-hidden>

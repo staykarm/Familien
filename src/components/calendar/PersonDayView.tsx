@@ -1,0 +1,158 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { Avatar } from "@/components/ui/Avatar";
+import { tint } from "@/lib/calendar/colors";
+import { minutesIntoDay, utcToOsloParts } from "@/lib/calendar/dates";
+import { layoutLanes } from "@/lib/calendar/layout";
+import type { CalendarCategory, CalendarEvent, CalendarMember } from "@/lib/calendar/types";
+import { EventChipContent } from "./EventChip";
+
+const HOUR_PX = 56;
+const DEFAULT_FIRST_HOUR = 6;
+const LAST_HOUR = 24;
+
+interface Props {
+  date: string;
+  events: CalendarEvent[];
+  members: CalendarMember[];
+  categories: CalendarCategory[];
+  onCreateAt: (memberId: string, hour: number) => void;
+  onOpen: (id: string) => void;
+}
+
+/** Én tidskolonne per familiemedlem (+ Felles) for én dag. */
+export function PersonDayView({ date, events, members, categories, onCreateAt, onOpen }: Props) {
+  const timed = events.filter((e) => !e.allDay);
+  const allDay = events.filter((e) => e.allDay);
+
+  // Start tidligere enn 06 hvis noe skjer før det.
+  const firstHour = useMemo(() => {
+    const earliest = Math.min(...timed.map((e) => Math.floor(minutesIntoDay(e.start, date) / 60)), DEFAULT_FIRST_HOUR);
+    return Math.max(0, earliest);
+  }, [timed, date]);
+  const hours = Array.from({ length: LAST_HOUR - firstHour }, (_, i) => firstHour + i);
+
+  const now = useNowMinutes(date);
+
+  return (
+    <div className="overflow-x-auto rounded-3xl bg-card shadow-[0_2px_12px_rgba(120,90,60,0.08)]">
+      <div className="grid min-w-[640px]" style={{ gridTemplateColumns: `3.25rem repeat(${members.length}, minmax(0, 1fr))` }}>
+        {/* Topp: avatarer */}
+        <div className="sticky left-0 z-10 bg-card" />
+        {members.map((m) => (
+          <div key={m.id} className="flex flex-col items-center gap-1 border-b-2 border-line px-1 py-2">
+            <Avatar name={m.name} color={m.color} icon={m.icon} url={m.avatarUrl} size={40} />
+            <span className="text-sm font-bold">{m.name}</span>
+          </div>
+        ))}
+
+        {/* Heldagsaktiviteter */}
+        <div className="sticky left-0 z-10 flex items-center bg-card px-1 text-[10px] font-bold text-ink-light">Hele dagen</div>
+        {members.map((m) => (
+          <div key={m.id} className="flex min-h-10 flex-col gap-1 border-b-2 border-l border-line p-1">
+            {allDay
+              .filter((e) => e.participantIds.includes(m.id))
+              .map((e) => (
+                <button
+                  key={e.id}
+                  onClick={() => onOpen(e.id)}
+                  className="rounded-xl border-l-4 px-2 py-1 text-left"
+                  style={{ borderColor: m.color, background: tint(m.color, 0.18) }}
+                >
+                  <EventChipContent
+                    event={e}
+                    members={members}
+                    category={categories.find((c) => c.id === e.categoryId)}
+                    showParticipants={e.participantIds.length > 1}
+                    compact
+                  />
+                </button>
+              ))}
+          </div>
+        ))}
+
+        {/* Timeakse */}
+        <div className="sticky left-0 z-10 bg-card">
+          {hours.map((h, i) => (
+            <div key={h} className="relative text-right text-xs text-ink-light" style={{ height: HOUR_PX }}>
+              <span className={`absolute right-1.5 tabular-nums ${i === 0 ? "top-0.5" : "-top-2"}`}>
+                {String(h).padStart(2, "0")}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Kolonner */}
+        {members.map((m) => {
+          const placed = layoutLanes(
+            timed.filter((e) => e.participantIds.includes(m.id)),
+            (e) => minutesIntoDay(e.start, date),
+            (e) => minutesIntoDay(e.end, date)
+          );
+          return (
+            <div key={m.id} className="relative border-l border-line" style={{ height: hours.length * HOUR_PX }}>
+              {hours.map((h, i) => (
+                <button
+                  key={h}
+                  aria-label={`Ny aktivitet for ${m.name} kl. ${h}`}
+                  onClick={() => onCreateAt(m.id, h)}
+                  className="absolute inset-x-0 border-t border-line/70 hover:bg-primary-soft/40"
+                  style={{ top: i * HOUR_PX, height: HOUR_PX }}
+                />
+              ))}
+              {now !== null && now >= firstHour * 60 && (
+                <div
+                  className="pointer-events-none absolute inset-x-0 z-10 h-0.5 bg-danger"
+                  style={{ top: ((now - firstHour * 60) / 60) * HOUR_PX }}
+                />
+              )}
+              {placed.map(({ item: e, lane, lanes }) => {
+                const startMin = minutesIntoDay(e.start, date);
+                const endMin = Math.max(minutesIntoDay(e.end, date), startMin + 20);
+                return (
+                  <button
+                    key={e.id}
+                    onClick={() => onOpen(e.id)}
+                    className="absolute z-20 overflow-hidden rounded-xl border-l-4 px-1.5 py-1 text-left shadow-sm"
+                    style={{
+                      top: ((startMin - firstHour * 60) / 60) * HOUR_PX + 1,
+                      height: ((endMin - startMin) / 60) * HOUR_PX - 2,
+                      left: `calc(${(lane / lanes) * 100}% + 2px)`,
+                      width: `calc(${100 / lanes}% - 4px)`,
+                      borderColor: m.color,
+                      background: tint(m.color, 0.22),
+                    }}
+                  >
+                    <EventChipContent
+                      event={e}
+                      members={members}
+                      category={categories.find((c) => c.id === e.categoryId)}
+                      timeLabel={`${utcToOsloParts(e.start).time}–${utcToOsloParts(e.end).time}`}
+                      showParticipants={e.participantIds.length > 1}
+                      compact
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** Minutter siden midnatt nå, hvis `date` er i dag (oppdateres hvert minutt). */
+function useNowMinutes(date: string): number | null {
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    const tick = () => setNow(new Date());
+    tick();
+    const id = setInterval(tick, 60_000);
+    return () => clearInterval(id);
+  }, []);
+  if (!now) return null;
+  const { date: today } = utcToOsloParts(now.toISOString());
+  return today === date ? minutesIntoDay(now.toISOString(), date) : null;
+}

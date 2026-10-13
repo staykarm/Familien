@@ -9,7 +9,7 @@ Familieapp for planlegging for Ingvild, Marius, Edvard og Olav (+ Felles): kalen
 | Fase | Innhold | Status |
 |---|---|---|
 | 1 | Oppsett, innlogging, «Hvem er jeg?», profiler med bilde | ✅ |
-| 2 | Kalender (dag/uke/måned, per person) med lokal data | ⏳ |
+| 2 | Kalender (dag/uke/måned, per person) med lokal data | ✅ |
 | 3 | Synk med delt Outlook-kalender (Microsoft Graph) | ⏳ |
 | 4 | Oppgaver | ⏳ |
 | 5 | Værvarsel fra Yr / MET Norway | ⏳ |
@@ -36,7 +36,7 @@ Sjekker: `npm run lint`, `npm run typecheck`, `npm test` og `npm run build`.
    - Publishable key (eller anon) → `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
    - Secret key (eller service_role) → `SUPABASE_SECRET_KEY` (kun server)
 3. Kjør migrasjonene. Velg ett av alternativene:
-   - SQL Editor: lim inn og kjør `supabase/migrations/0001_init.sql`, deretter `0002_seed_family.sql`.
+   - SQL Editor: lim inn og kjør filene i `supabase/migrations/` i rekkefølge (`0001_…`, `0002_…`, `0003_…` osv.).
    - CLI: `npx supabase link --project-ref <ref>` og så `npx supabase db push`.
 4. Gå til **Authentication → Sign In / Providers → Email** og slå **av** «Allow new users to sign up». Bare brukere dere oppretter selv slipper inn.
 5. Gå til **Authentication → URL Configuration**:

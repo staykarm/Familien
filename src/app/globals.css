@@ -54,3 +54,58 @@ body {
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/* --- FullCalendar i familiens stil ------------------------------------------------- */
+.familien-fc {
+  --fc-border-color: var(--color-line);
+  --fc-today-bg-color: color-mix(in srgb, var(--color-sun) 35%, transparent);
+  --fc-now-indicator-color: var(--color-danger);
+  --fc-neutral-bg-color: var(--color-card-soft);
+  --fc-page-bg-color: var(--color-card);
+  --fc-highlight-color: color-mix(in srgb, var(--color-primary) 18%, transparent);
+  --fc-event-border-color: transparent;
+}
+.familien-fc .fc-scrollgrid {
+  border-radius: 1rem;
+  overflow: hidden;
+}
+.familien-fc .fc-col-header-cell-cushion {
+  padding: 0.5rem 0.25rem;
+  font-weight: 800;
+  text-transform: capitalize;
+}
+.familien-fc .fc-daygrid-day-number {
+  font-weight: 700;
+  padding: 0.35rem 0.5rem;
+}
+.familien-fc .fc-day-today .fc-daygrid-day-number {
+  background: var(--color-primary);
+  color: #fff;
+  border-radius: 9999px;
+  min-width: 1.9rem;
+  text-align: center;
+}
+.familien-fc .fc-timegrid-slot {
+  height: 1.75rem;
+}
+.familien-fc .fc-timegrid-slot-label-cushion,
+.familien-fc .fc-timegrid-axis-cushion {
+  font-size: 0.75rem;
+  color: var(--color-ink-light);
+}
+.familien-fc .fc-event {
+  border-radius: 0.75rem;
+  border-width: 0 0 0 4px;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(120, 90, 60, 0.08);
+}
+.familien-fc .fc-daygrid-event {
+  margin-top: 2px;
+}
+.familien-fc .fc-daygrid-more-link {
+  font-weight: 700;
+  color: var(--color-primary-dark);
+}
+.familien-fc a {
+  color: inherit;
+}

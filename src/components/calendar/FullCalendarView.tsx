@@ -77,14 +77,17 @@ export function FullCalendarView({ view, date, events, members, categories, onCr
     const ev = arg.event.extendedProps.event as CalendarEvent;
     const category = categories.find((c) => c.id === ev.categoryId);
     const isMonth = arg.view.type === "dayGridMonth";
+    const box = !isMonth && !ev.allDay;
+    const hhmm = (d: Date | null) => (d ? DateTime.fromJSDate(d).setZone(TIME_ZONE).toFormat("HH:mm") : undefined);
     return (
-      <div className="w-full overflow-hidden px-1 py-0.5">
+      <div className={`w-full overflow-hidden ${box ? "h-full" : "px-1 py-0.5"}`}>
         <EventChipContent
           event={ev}
           members={members}
           category={category}
-          timeLabel={ev.allDay ? undefined : arg.timeText}
+          time={ev.allDay ? undefined : { start: hhmm(arg.event.start)!, end: hhmm(arg.event.end) }}
           compact={isMonth}
+          box={box}
           showParticipants={!isMonth}
         />
       </div>
@@ -134,6 +137,9 @@ export function FullCalendarView({ view, date, events, members, categories, onCr
         allDayText="Hele dagen"
         nowIndicator
         dayMaxEvents={3}
+        // Aktiviteter samtidig står side om side (ikke oppå hverandre), maks tre; resten samles i «+N til».
+        slotEventOverlap={false}
+        eventMaxStack={3}
         eventDisplay="block"
         moreLinkText={(n) => `+${n} til`}
         events={fcEvents}

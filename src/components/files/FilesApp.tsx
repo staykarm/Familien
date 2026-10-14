@@ -322,6 +322,7 @@ export function FilesApp({ initialUploads, members, eventCategories, taskCategor
       {taskEdit && (
         <TaskDialog
           key={taskEdit.suggestionId}
+          explicitSave
           draft={taskEdit.draft}
           members={members}
           categories={taskCategories}

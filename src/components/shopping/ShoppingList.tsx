@@ -6,6 +6,7 @@ import { addItem, addTemplateToList, clearChecked, getShopping, toggleItem, type
 import { buttonGhost, buttonPrimary, buttonSecondary, card, input } from "@/components/ui/styles";
 import type { CalendarCategory } from "@/lib/calendar/types";
 import { checkedItems, groupOpenItems } from "@/lib/shopping/group";
+import { parseItemText } from "@/lib/shopping/parse";
 import type { ShoppingItem, ShoppingTemplate } from "@/lib/shopping/types";
 import { ItemDialog, TemplateDialog } from "./ShoppingDialogs";
 import { OdaDialog } from "./OdaDialog";
@@ -23,7 +24,6 @@ export function ShoppingList({ initial, categories }: Props) {
   const [data, setData] = useState(initial);
   const [tab, setTab] = useState<"list" | "templates">("list");
   const [name, setName] = useState("");
-  const [quantity, setQuantity] = useState("");
   const [showChecked, setShowChecked] = useState(false);
   const [editing, setEditing] = useState<ShoppingItem | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<ShoppingTemplate | "new" | null>(null);
@@ -50,13 +50,16 @@ export function ShoppingList({ initial, categories }: Props) {
   function add(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
+    const parsed = parseItemText(name);
+    // Tøm feltet med en gang, så man kan skrive neste vare mens denne lagres.
+    setName("");
     start(async () => {
-      const res = await addItem({ name, quantity, categoryId: null });
-      if (res.ok) {
-        setName("");
-        setQuantity("");
-        refetch();
-      } else setToast(res.message ?? "Kunne ikke legge til");
+      const res = await addItem({ name: parsed.name, quantity: parsed.quantity, categoryId: null });
+      if (res.ok) refetch();
+      else {
+        setName((current) => current || name);
+        setToast(res.message ?? "Kunne ikke legge til");
+      }
     });
   }
 
@@ -112,22 +115,17 @@ export function ShoppingList({ initial, categories }: Props) {
       {tab === "list" ? (
         <>
           <form onSubmit={add} className="flex gap-2">
+            {/* Skriv og trykk Enter – feltet blir stående klart for neste vare. Antall kan skrives rett inn: «2 melk». */}
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Hva trenger vi?"
-              aria-label="Vare"
+              placeholder="Hva trenger vi? F.eks. «2 melk»"
+              aria-label="Ny vare"
               className={`${input} min-w-0 flex-1 text-lg`}
-              enterKeyHint="done"
+              enterKeyHint="enter"
+              autoComplete="off"
             />
-            <input
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              placeholder="Antall"
-              aria-label="Antall"
-              className={`${input.replace("w-full", "")} w-20 shrink-0 sm:w-28`}
-            />
-            <button className={`${buttonPrimary} shrink-0 px-4`} disabled={pending || !name.trim()} aria-label="Legg til">
+            <button className={`${buttonPrimary} shrink-0 px-4`} disabled={!name.trim()} aria-label="Legg til">
               <Plus size={24} aria-hidden />
             </button>
           </form>
@@ -263,7 +261,6 @@ export function ShoppingList({ initial, categories }: Props) {
           key={editing.id}
           item={editing}
           categories={categories}
-          onClose={() => setEditing(null)}
           onDone={(message) => {
             setEditing(null);
             if (message) setToast(message);

@@ -33,6 +33,7 @@ Arkitektur og faser står i README. Marius godkjenner hver fase før den startes
 
 ## Les inn fil
 - Brukeren kan velge hvem alt i en fil gjelder (`uploads.member_ids`), før opplasting eller etterpå. Valget sendes til Claude og legges på alle ventende forslag med `applyPeople` (`lib/ai/map.ts`).
+- Tolkningen lærer av familien: vaner fra kalenderen (hvem og kategori per tittel) og rettelser/avvisninger av tidligere forslag legges i prompten (`lib/ai/learning.ts`, hentes i `lib/ai/learningDb.ts`). Ingen egen tabell – det utledes av `events` og `suggestions`.
 
 ## Lagring
 - Handleliste, oppgaver og notater lagres automatisk mens man skriver, som i iOS Notater. Dialogene har ingen «Lagre»-knapp, bare «Ferdig» som lukker etter at siste endring er lagret. Bruk `useAutosave` (`components/useAutosave.ts`, logikken ligger i `lib/autosave.ts`).

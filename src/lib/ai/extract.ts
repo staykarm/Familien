@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { DateTime } from "luxon";
 import mammoth from "mammoth";
+import { learningPrompt } from "./learning";
 import { serverEnv } from "@/lib/env";
 import { TIME_ZONE } from "@/lib/time";
 import { buildExtractionSchema } from "./schema";
@@ -21,11 +22,14 @@ export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 export interface FamilyContext {
   members: { name: string; isShared: boolean; details: { label: string; value: string }[] }[];
   eventCategories: string[];
+  /** Det tolkningen skal lære av (se learning.ts): vaner fra kalenderen og tidligere rettelser. */
+  learning?: { habits: string[]; corrections: string[] };
   /** Valgt av brukeren: alt i filen gjelder disse. */
   appliesTo?: string[];
 }
 
 function systemPrompt(ctx: FamilyContext, now: Date): string {
+  const learning = learningPrompt(ctx.learning?.habits ?? [], ctx.learning?.corrections ?? []);
   const today = DateTime.fromJSDate(now).setZone(TIME_ZONE).setLocale("nb");
   const people = ctx.members
     .filter((m) => !m.isShared)
@@ -57,7 +61,7 @@ Slik vurderer du innholdet:
     ctx.appliesTo?.length
       ? `\n\nBrukeren har sagt at alt i dokumentet gjelder ${ctx.appliesTo.join(" og ")}. Bruk det som deltakere og ansvarlig, og ta bare med det som gjelder ${ctx.appliesTo.length > 1 ? "dem" : ctx.appliesTo[0]}.`
       : ""
-  }`;
+  }${learning ? `\n\n${learning}` : ""}`;
 }
 
 async function fileContent(data: Buffer, mime: string, filename: string): Promise<Anthropic.Beta.BetaContentBlockParam[]> {

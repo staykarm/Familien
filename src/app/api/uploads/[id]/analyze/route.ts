@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import type { Json } from "@/lib/database.types";
 import { ExtractionError, extractSuggestions } from "@/lib/ai/extract";
+import { loadLearning } from "@/lib/ai/learningDb";
 import { applyPeople } from "@/lib/ai/map";
 import { requireFamily } from "@/lib/session";
 import { getDb } from "@/lib/supabase/db";
@@ -40,7 +41,10 @@ export async function POST(_req: Request, ctx: RouteContext<"/api/uploads/[id]/a
     const { data: blob, error } = await db.storage.from("uploads").download(upload.storage_path);
     if (error || !blob) return fail("Fant ikke filen i lagringen. Prøv å laste den opp på nytt.");
 
-    const { data: categories } = await db.from("categories").select("name").eq("scope", "event").order("sort_order");
+    const [{ data: categories }, learning] = await Promise.all([
+      db.from("categories").select("name").eq("scope", "event").order("sort_order"),
+      loadLearning(db, session.members),
+    ]);
     // Valgt «Gjelder»: navnene i medlemsrekkefølge.
     const appliesTo = session.members.filter((m) => (upload.member_ids ?? []).includes(m.id)).map((m) => m.name);
     const extracted = await extractSuggestions(
@@ -48,6 +52,7 @@ export async function POST(_req: Request, ctx: RouteContext<"/api/uploads/[id]/a
       {
         members: session.members.map((m) => ({ name: m.name, isShared: m.is_shared, details: parseDetails(m.details) })),
         eventCategories: (categories ?? []).map((c) => c.name),
+        learning,
         appliesTo,
       }
     );

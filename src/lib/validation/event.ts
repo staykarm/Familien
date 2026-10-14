@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { DateTime } from "luxon";
-import { allDayRangeToUtc, osloLocalToUtc } from "@/lib/calendar/dates";
+import { allDayRangeToUtc, osloDate, osloLocalToUtc } from "@/lib/calendar/dates";
+import { MAX_SPAN_DAYS, occurrenceDates, occurrenceRange, type LocalTiming } from "@/lib/calendar/recurrence";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -16,6 +17,14 @@ const optionalText = (max: number, msg: string) =>
     .optional()
     .transform((v) => v ?? null);
 
+/** Gjentakelse slik dialogen sender den. */
+export const recurrenceSchema = z.object({
+  freq: z.enum(["daily", "weekly", "monthly"]),
+  interval: z.number().int().min(1).max(4),
+  weekdays: z.array(z.number().int().min(1).max(7)).max(7),
+  until: z.string().regex(DATE, "Velg hvor lenge den skal gjentas"),
+});
+
 /** Skjemaet slik dialogen sender det: Oslo-tid som dato + klokkeslett + varighet. */
 export const eventFormSchema = z
   .object({
@@ -30,6 +39,9 @@ export const eventFormSchema = z
     endDate: z.string().regex(DATE, "Velg en sluttdato"),
     location: optionalText(200, "Stedet er for langt"),
     notes: optionalText(2000, "Notatet er for langt"),
+    recurrence: recurrenceSchema.nullable().optional(),
+    /** For aktiviteter i en serie: endre bare denne, eller denne og alle senere. */
+    scope: z.enum(["one", "following"]).optional(),
   })
   .transform((v, ctx) => {
     let start: string | null;
@@ -49,6 +61,28 @@ export const eventFormSchema = z
       ctx.addIssue({ code: "custom", message: "Ugyldig dato eller klokkeslett", path: ["date"] });
       return z.NEVER;
     }
+    const timing: LocalTiming = {
+      allDay: v.allDay,
+      startTime: v.startTime,
+      durationMinutes: v.durationMinutes,
+      allDayDays: Math.round(osloDate(v.endDate).diff(osloDate(v.date), "days").days) + 1,
+    };
+    const recurrence = v.recurrence ? { ...v.recurrence, weekdays: [...new Set(v.recurrence.weekdays)].sort() } : null;
+    let occurrences: { start: string; end: string }[] | null = null;
+    if (recurrence) {
+      const span = osloDate(recurrence.until).diff(osloDate(v.date), "days").days;
+      if (span > MAX_SPAN_DAYS) {
+        ctx.addIssue({ code: "custom", message: "En gjentakelse kan vare i maks to år", path: ["recurrence"] });
+        return z.NEVER;
+      }
+      occurrences = occurrenceDates(v.date, recurrence)
+        .map((d) => occurrenceRange(d, timing))
+        .filter((r): r is { start: string; end: string } => r !== null);
+      if (occurrences.length === 0) {
+        ctx.addIssue({ code: "custom", message: "Gjentakelsen gir ingen datoer – sjekk sluttdatoen og ukedagene", path: ["recurrence"] });
+        return z.NEVER;
+      }
+    }
     return {
       id: v.id ?? null,
       title: v.title,
@@ -59,6 +93,11 @@ export const eventFormSchema = z
       end,
       location: v.location,
       notes: v.notes,
+      date: v.date,
+      timing,
+      recurrence,
+      occurrences,
+      scope: v.scope ?? "one",
     };
   });
 

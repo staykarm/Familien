@@ -52,3 +52,22 @@ describe("moveEventSchema", () => {
     ).toBe(false);
   });
 });
+
+describe("gjentakelse", () => {
+  it("lager én forekomst per dato med samme Oslo-klokkeslett", () => {
+    const r = eventFormSchema.parse({ ...base, date: "2026-10-19", recurrence: { freq: "weekly", interval: 1, weekdays: [1], until: "2026-12-23" } });
+    expect(r.occurrences).toHaveLength(10);
+    expect(r.occurrences![0]).toEqual({ start: "2026-10-19T15:30:00.000Z", end: "2026-10-19T17:00:00.000Z" });
+    expect(r.occurrences![1]).toEqual({ start: "2026-10-26T16:30:00.000Z", end: "2026-10-26T18:00:00.000Z" });
+    expect(r.scope).toBe("one");
+  });
+
+  it("avviser en regel uten datoer og for lange serier", () => {
+    expect(eventFormSchema.safeParse({ ...base, recurrence: { freq: "daily", interval: 1, weekdays: [], until: "2026-10-01" } }).success).toBe(false);
+    expect(eventFormSchema.safeParse({ ...base, recurrence: { freq: "weekly", interval: 1, weekdays: [1], until: "2029-01-01" } }).success).toBe(false);
+  });
+
+  it("uten gjentakelse er det ingen forekomster", () => {
+    expect(eventFormSchema.parse(base).occurrences).toBeNull();
+  });
+});

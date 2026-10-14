@@ -358,36 +358,11 @@ body {
     display: none;
   }
 }
-/* Lav boks (kort aktivitet): kort tittel, så den får plass i høyden når den brytes. */
-@container (max-height: 3.75rem) {
-  .ev-t-full,
-  .ev-t-mid,
-  .ev-t-tiny {
-    display: none;
-  }
-  .ev-t-short {
-    display: inline;
-  }
-}
-@container (max-height: 3.75rem) and (max-width: 3.2rem) {
-  .ev-t-short {
-    display: none;
-  }
-  .ev-t-tiny {
-    display: inline;
-  }
-}
-/* Plass til bare én linje: første ord, og ikonet tas bort. */
+/* Lav boks (kort aktivitet): tittelen forkortes ikke på grunn av høyden – bare bredden avgjør.
+   Plass til bare én linje: ikonet tas bort, og boksen viser de første ordene. */
 @container (max-height: 2.1rem) {
-  .ev-t-full,
-  .ev-t-mid,
-  .ev-t-short,
-  .ev-t-tiny,
   .ev-icon {
     display: none;
-  }
-  .ev-t-one {
-    display: inline;
   }
 }
 .familien-fc .fc-timegrid-more-link {

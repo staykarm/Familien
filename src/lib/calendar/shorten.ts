@@ -4,9 +4,9 @@
  *
  * - full:   tittelen som den er
  * - medium: uten tillegg i parentes og etter tankestrek/kolon («Fotball (bortekamp)» → «Fotball»)
- * - short:  som medium, uten småord, og lange ord forkortet («Foreldremøte på skolen» → «Foreldrem. skolen»)
- * - tiny:   for de aller smaleste boksene: de to første ordene i short («Foreldrem. skolen»). Ord kuttes ikke
- *           videre – det som ikke får plass brytes over flere linjer.
+ * - short:  som medium, men lange ord (over 9 tegn) forkortet («Foreldremøte på skolen» → «Foreldrem. på skolen»).
+ *           Ingen ord fjernes – «Ha med dag» skal ikke bli «Ha dag». Korte titler er uendret.
+ * - tiny/one: samme som short. Det som ikke får plass brytes over flere linjer (og en lav boks viser de første).
  *
  * Etter punktum inne i en forkortelse settes et usynlig bryte-punkt, så «Fotb.tren.» brytes som «Fotb.» / «tren.»
  * i stedet for midt i et ord.
@@ -14,7 +14,6 @@
 const ZWSP = "\u200b";
 const breakAfterDots = (s: string) => s.replace(/\.(?=\S)/g, `.${ZWSP}`);
 
-const SMALL_WORDS = new Set(["på", "i", "med", "og", "til", "hos", "for", "av", "fra", "om", "en", "et", "the", "at"]);
 const MAX_WORD = 9;
 
 /** Kjente lange ord med naturlige forkortelser. Sjekkes før den generelle regelen. */
@@ -42,11 +41,12 @@ function keepCase(original: string, short: string): string {
   return original[0] === original[0]?.toLocaleUpperCase("nb") ? short[0].toLocaleUpperCase("nb") + short.slice(1) : short;
 }
 
+/** Bare lange ord forkortes; korte ord («Trening», «Middag») står som de er. */
 function shortenWord(word: string): string {
   const bare = word.replace(/[.,!?]+$/, "");
+  if (bare.length <= MAX_WORD) return word;
   const known = KNOWN[bare.toLocaleLowerCase("nb")];
   if (known) return keepCase(bare, known);
-  if (bare.length <= MAX_WORD) return bare;
   return `${bare.slice(0, MAX_WORD - 1)}.`;
 }
 
@@ -59,18 +59,17 @@ export function mediumTitle(title: string): string {
 }
 
 export function shortTitle(title: string): string {
-  const words = mediumTitle(title).split(" ");
-  const kept = words.filter((w, i) => i === 0 || !SMALL_WORDS.has(w.toLocaleLowerCase("nb")));
-  return kept.map(shortenWord).join(" ");
+  return mediumTitle(title).split(" ").map(shortenWord).join(" ");
 }
 
+/** De smaleste boksene: samme som short – ord fjernes aldri, teksten brytes heller. */
 export function tinyTitle(title: string): string {
-  return shortTitle(title).split(" ").slice(0, 2).join(" ");
+  return shortTitle(title);
 }
 
-/** Bare det første ordet – for bokser med plass til én linje (f.eks. 30 minutter). */
+/** Bokser med plass til én linje: samme som short; boksen viser de første ordene. */
 export function oneWordTitle(title: string): string {
-  return shortTitle(title).split(" ")[0] ?? title;
+  return shortTitle(title);
 }
 
 export function titleVariants(title: string): { full: string; medium: string; short: string; tiny: string; one: string } {

@@ -54,7 +54,7 @@ Arkitektur og faser står i README. Marius godkjenner hver fase før den startes
   - Rader med filterknapper bruker klassen `chip-row`. Den gir én linje som kan rulles sidelengs på telefon, og bryter linjen fra `sm`.
   - På telefon vises sekundære knapper bare som ikon (`<span className="hidden sm:inline">tekst</span>`) med `aria-label`.
   - Skrivefelt holdes på minst 16 px på berøringsskjerm (ellers zoomer iOS), og det er allerede ordnet globalt.
-  - Aktiviteter i kalenderen vises med `EventChipContent` (`components/calendar/EventChip.tsx`). Maks tre står side om side; resten samles i «+N». Når boksene blir smale eller lave, krymper skriften, teksten brytes (aldri «…»), og tittelen byttes til en kortere variant (`lib/calendar/shorten.ts`). Dette styres av container queries (`.ev-*` i `globals.css`), ikke av JS-måling.
+  - Aktiviteter i kalenderen vises med `EventChipContent` (`components/calendar/EventChip.tsx`). Maks tre står side om side; resten samles i «+N». Når boksene blir smale, krymper skriften, teksten brytes (aldri «…»), og lange ord (over 9 tegn) forkortes (`lib/calendar/shorten.ts`). Ord fjernes aldri, og høyden alene gir ingen forkorting. Dette styres av container queries (`.ev-*` i `globals.css`), ikke av JS-måling.
   - I dagvisningene vises været time for time (lite symbol + temperatur) ved timeaksen (`HourWeather`, `lib/weather/hourly.ts`).
   - Dagvisningen på telefon (< `md`) har fast høyde og ruller inni seg selv, slik at 08–20 synes med en gang (`usePhoneDayFit`). «Per person» får plass i bredden på telefon (dag: smale kolonner; uke: alle radene og dagene på én skjerm).
   - Tekst som ikke får plass brytes over flere linjer (`wrap-break-word`). Bruk ikke `truncate`/«…».

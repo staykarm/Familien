@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { eventFormSchema } from "@/lib/validation/event";
 import { taskFormSchema } from "@/lib/validation/task";
-import { eventSuggestionToForm, taskSuggestionToForm } from "./map";
+import { applyPeople, eventSuggestionToForm, taskSuggestionToForm } from "./map";
 import { buildExtractionSchema } from "./schema";
 
 const members = [
@@ -68,5 +68,31 @@ describe("buildExtractionSchema", () => {
     const ok = { summary: "x", events: [{ ...base, participants: ["Per"] }], tasks: [], shopping: [] };
     expect(schema.safeParse(ok).success).toBe(true);
     expect(schema.safeParse({ ...ok, events: [{ ...base, date: undefined }] }).success).toBe(false);
+  });
+});
+
+describe("applyPeople", () => {
+  const items = {
+    events: [{ title: "Tur", participants: ["Felles"] }],
+    tasks: [
+      { title: "Gymtøy", assignee: "Olav" },
+      { title: "Svarslipp", assignee: null },
+    ],
+  };
+
+  it("setter valgt person på alt", () => {
+    const r = applyPeople(items, ["Edvard"]);
+    expect(r.events[0].participants).toEqual(["Edvard"]);
+    expect(r.tasks.map((t) => t.assignee)).toEqual(["Edvard", "Edvard"]);
+  });
+
+  it("beholder Claude sin ansvarlige når den er blant de valgte", () => {
+    const r = applyPeople(items, ["Edvard", "Olav"]);
+    expect(r.events[0].participants).toEqual(["Edvard", "Olav"]);
+    expect(r.tasks.map((t) => t.assignee)).toEqual(["Olav", "Edvard"]);
+  });
+
+  it("tom liste endrer ingenting", () => {
+    expect(applyPeople(items, [])).toBe(items);
   });
 });

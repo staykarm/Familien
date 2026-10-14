@@ -66,3 +66,20 @@ export function taskSuggestionToForm(s: TaskSuggestion, members: Named[]): TaskF
     status: "todo",
   };
 }
+
+/**
+ * «Alt i filen gjelder disse»: setter deltakerne på alle aktiviteter og ansvarlig på alle oppgaver.
+ * Oppgaver har bare én ansvarlig; står Claude sitt forslag blant de valgte, beholdes det, ellers brukes den første.
+ * Tom liste endrer ingenting.
+ */
+export function applyPeople<E extends { participants: string[] }, T extends { assignee: string | null }>(
+  items: { events: E[]; tasks: T[] },
+  names: string[]
+): { events: E[]; tasks: T[] } {
+  if (!names.length) return items;
+  const has = (n: string | null) => !!n && names.some((x) => x.toLocaleLowerCase("nb") === n.toLocaleLowerCase("nb"));
+  return {
+    events: items.events.map((e) => ({ ...e, participants: [...names] })),
+    tasks: items.tasks.map((t) => ({ ...t, assignee: has(t.assignee) ? t.assignee : names[0] })),
+  };
+}

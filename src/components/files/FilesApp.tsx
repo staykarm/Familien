@@ -11,6 +11,7 @@ import {
   listUploads,
   markSuggestionApproved,
   rejectSuggestion,
+  setUploadPeople,
 } from "@/actions/files";
 import { addItem } from "@/actions/shopping";
 import { EventDialog, type EventDraft } from "@/components/calendar/EventDialog";
@@ -50,6 +51,8 @@ export function FilesApp({ initialUploads, members, eventCategories, taskCategor
   const [eventEdit, setEventEdit] = useState<{ suggestionId: string; draft: EventDraft } | null>(null);
   const [taskEdit, setTaskEdit] = useState<{ suggestionId: string; draft: TaskDraft } | null>(null);
   const [pending, start] = useTransition();
+  // «Gjelder hvem?» for neste fil som lastes opp. Tomt = Claude finner det ut.
+  const [appliesTo, setAppliesTo] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
 
@@ -84,7 +87,7 @@ export function FilesApp({ initialUploads, members, eventCategories, taskCategor
       const mime = file.type || (file.name.endsWith(".docx") ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "");
       setProgress({ step: "upload", filename: original.name });
 
-      const created = await createUpload({ filename: original.name, mime, size: file.size });
+      const created = await createUpload({ filename: original.name, mime, size: file.size, memberIds: appliesTo });
       if (!created.ok || !created.uploadId || !created.path || !created.token) {
         showToast(created.message ?? "Kunne ikke laste opp");
         setProgress(null);
@@ -225,6 +228,13 @@ export function FilesApp({ initialUploads, members, eventCategories, taskCategor
                 lagres før du godkjenner.
               </p>
             </div>
+            <div className="flex w-full flex-col items-center gap-1">
+              <span className="text-sm font-bold text-ink-light">Gjelder hvem?</span>
+              <PeoplePicker members={members} selected={appliesTo} onChange={setAppliesTo} center />
+              <span className="text-xs text-ink-light">
+                {appliesTo.length ? "Alt i filen legges på de valgte." : "Ingen valgt: Claude finner ut hvem det gjelder."}
+              </span>
+            </div>
             <div className="flex flex-wrap justify-center gap-2">
               <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onPick} />
               <input ref={fileRef} type="file" accept={ACCEPT} className="hidden" onChange={onPick} />
@@ -282,6 +292,21 @@ export function FilesApp({ initialUploads, members, eventCategories, taskCategor
                 </button>
               </div>
             </div>
+
+            {(pendingCount > 0 || u.memberIds.length > 0) && (
+              <div className="flex flex-col gap-1">
+                <span className="text-sm font-bold text-ink-light">Gjelder hvem? Velg for å legge alle forslagene på dem.</span>
+                <PeoplePicker
+                  members={members}
+                  selected={u.memberIds}
+                  disabled={pending}
+                  onChange={(ids) => {
+                    setUploads((list) => list.map((x) => (x.id === u.id ? { ...x, memberIds: ids } : x)));
+                    act(() => setUploadPeople(u.id, ids));
+                  }}
+                />
+              </div>
+            )}
 
             {u.error && <p className="rounded-2xl bg-primary-soft p-3 font-semibold text-danger">{u.error}</p>}
             {u.summary && <p className="rounded-2xl bg-sky/50 p-3">{u.summary}</p>}
@@ -366,6 +391,43 @@ export function FilesApp({ initialUploads, members, eventCategories, taskCategor
           {toast}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Velg én eller flere i familien (avatar-knapper). */
+function PeoplePicker({
+  members,
+  selected,
+  onChange,
+  disabled,
+  center,
+}: {
+  members: CalendarMember[];
+  selected: string[];
+  onChange: (ids: string[]) => void;
+  disabled?: boolean;
+  center?: boolean;
+}) {
+  return (
+    <div className={`flex flex-wrap gap-2 ${center ? "justify-center" : ""}`} role="group" aria-label="Gjelder hvem">
+      {members.map((m) => {
+        const on = selected.includes(m.id);
+        return (
+          <button
+            key={m.id}
+            type="button"
+            aria-pressed={on}
+            disabled={disabled}
+            onClick={() => onChange(on ? selected.filter((id) => id !== m.id) : [...selected, m.id])}
+            className={`flex min-h-11 items-center gap-1.5 rounded-full border-2 py-0.5 pl-0.5 pr-3 text-sm font-bold transition active:scale-95 ${on ? "" : "opacity-70"}`}
+            style={{ borderColor: on ? m.color : "var(--color-line)", background: on ? `${m.color}26` : "var(--color-card)" }}
+          >
+            <Avatar name={m.name} color={m.color} icon={m.icon} url={m.avatarUrl} size={30} ring={on} />
+            {m.name}
+          </button>
+        );
+      })}
     </div>
   );
 }

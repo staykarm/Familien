@@ -16,5 +16,7 @@ export interface UploadWithSuggestions {
   error: string | null;
   summary: string | null;
   createdAt: string;
+  /** Hvem alt i filen gjelder (valgt av brukeren). Tom = ikke valgt. */
+  memberIds: string[];
   suggestions: Suggestion[];
 }

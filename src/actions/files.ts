@@ -6,8 +6,9 @@ import { saveEvent } from "@/actions/events";
 import { addItem } from "@/actions/shopping";
 import { saveTask } from "@/actions/tasks";
 import { ALLOWED_UPLOAD_TYPES, MAX_UPLOAD_BYTES } from "@/lib/ai/extract";
-import { eventSuggestionToForm, taskSuggestionToForm } from "@/lib/ai/map";
+import { applyPeople, eventSuggestionToForm, taskSuggestionToForm } from "@/lib/ai/map";
 import { eventSuggestionSchema, shoppingSuggestionSchema, taskSuggestionSchema } from "@/lib/ai/schema";
+import type { Json } from "@/lib/database.types";
 import type { Suggestion, UploadWithSuggestions } from "@/lib/ai/types";
 import { storagePath } from "@/lib/files/names";
 import { requireFamily } from "@/lib/session";
@@ -24,7 +25,7 @@ const uuid = z.uuid();
  * Steg 1: registrer opplastingen og gi nettleseren en signert URL, slik at filen lastes rett til
  * Supabase Storage (Vercel tillater ikke store filer gjennom serveren).
  */
-export async function createUpload(input: { filename: string; mime: string; size: number }): Promise<
+export async function createUpload(input: { filename: string; mime: string; size: number; memberIds?: string[] }): Promise<
   FileResult & { uploadId?: string; path?: string; token?: string }
 > {
   const session = await requireFamily();
@@ -33,11 +34,13 @@ export async function createUpload(input: { filename: string; mime: string; size
       filename: z.string().trim().min(1).max(200),
       mime: z.string().refine((m) => ALLOWED_UPLOAD_TYPES.includes(m), "Filtypen støttes ikke. Bruk PDF, bilde, Word eller tekst."),
       size: z.number().int().positive().max(MAX_UPLOAD_BYTES, "Filen er større enn 20 MB"),
+      memberIds: z.array(z.uuid()).max(20).optional(),
     })
     .safeParse(input);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
 
   const { filename, mime, size } = parsed.data;
+  const memberIds = (parsed.data.memberIds ?? []).filter((id) => session.members.some((m) => m.id === id));
   const path = storagePath(filename);
   const db = await getDb();
   const { data: signed, error: signError } = await db.storage.from("uploads").createSignedUploadUrl(path);
@@ -45,7 +48,7 @@ export async function createUpload(input: { filename: string; mime: string; size
 
   const { data, error } = await db
     .from("uploads")
-    .insert({ storage_path: path, filename, mime, size_bytes: size, uploaded_by: session.activeMember?.id ?? null })
+    .insert({ storage_path: path, filename, mime, size_bytes: size, uploaded_by: session.activeMember?.id ?? null, member_ids: memberIds })
     .select("id")
     .maybeSingle();
   if (error || !data) return { ok: false, message: "Kunne ikke registrere filen" };
@@ -57,7 +60,7 @@ export async function listUploads(): Promise<UploadWithSuggestions[]> {
   const db = await getDb();
   const { data: uploads } = await db
     .from("uploads")
-    .select("id, filename, mime, size_bytes, status, error, summary, created_at")
+    .select("id, filename, mime, size_bytes, status, error, summary, created_at, member_ids")
     .order("created_at", { ascending: false })
     .limit(30);
   if (!uploads?.length) return [];
@@ -79,6 +82,7 @@ export async function listUploads(): Promise<UploadWithSuggestions[]> {
     error: u.error,
     summary: u.summary,
     createdAt: u.created_at,
+    memberIds: u.member_ids ?? [],
     suggestions: (suggestions ?? [])
       .filter((s) => s.upload_id === u.id)
       .flatMap((s): Suggestion[] => {
@@ -87,6 +91,39 @@ export async function listUploads(): Promise<UploadWithSuggestions[]> {
         return payload.success ? [{ id: s.id, kind: s.kind, status: s.status, payload: payload.data } as Suggestion] : [];
       }),
   }));
+}
+
+/**
+ * «Alt i filen gjelder …»: lagrer valget og setter personene på alle forslag som ikke er behandlet ennå.
+ * Tom liste fjerner bare valget; forslagene beholder personene de har.
+ */
+export async function setUploadPeople(uploadId: string, memberIds: string[]): Promise<FileResult> {
+  const session = await requireFamily();
+  const parsed = z.object({ uploadId: z.uuid(), memberIds: z.array(z.uuid()).max(20) }).safeParse({ uploadId, memberIds });
+  if (!parsed.success) return { ok: false, message: "Ugyldig valg" };
+  const chosen = session.members.filter((m) => parsed.data.memberIds.includes(m.id));
+
+  const db = await getDb();
+  const { error } = await db.from("uploads").update({ member_ids: chosen.map((m) => m.id) }).eq("id", uploadId);
+  if (error) return { ok: false, message: "Kunne ikke lagre valget" };
+  if (!chosen.length) return { ok: true };
+
+  const names = chosen.map((m) => m.name);
+  const { data: rows } = await db.from("suggestions").select("id, kind, payload").eq("upload_id", uploadId).eq("status", "pending");
+  for (const row of rows ?? []) {
+    if (row.kind === "shopping") continue;
+    const p = row.payload as { participants?: string[]; assignee?: string | null };
+    const next =
+      row.kind === "event"
+        ? applyPeople({ events: [{ participants: p.participants ?? [] }], tasks: [] }, names).events[0]
+        : applyPeople({ events: [], tasks: [{ assignee: p.assignee ?? null }] }, names).tasks[0];
+    await db
+      .from("suggestions")
+      .update({ payload: { ...(row.payload as object), ...next } as unknown as Json })
+      .eq("id", row.id);
+  }
+  revalidatePath("/filer");
+  return { ok: true, message: `Gjelder ${names.join(" og ")}` };
 }
 
 /** Signert lenke til originalfilen (gyldig i 10 minutter). */

@@ -66,8 +66,7 @@ export function AppShell({ children, me }: { children: ReactNode; me: ReactNode 
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex items-center justify-between bg-background/90 px-4 pb-1.5 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur md:hidden">
-          <span className="font-display text-lg font-bold text-primary-dark">Familien</span>
+        <header className="sticky top-0 z-20 flex items-center justify-end bg-background/90 px-4 pb-1 pt-[max(0.25rem,env(safe-area-inset-top))] backdrop-blur md:hidden">
           <span className="flex items-center gap-0.5">
             {EXTRA.map(({ href, label, icon: Icon }) => (
               <Link

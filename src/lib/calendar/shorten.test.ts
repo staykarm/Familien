@@ -9,15 +9,16 @@ describe("smart forkorting av titler", () => {
     expect(mediumTitle("Middag")).toBe("Middag");
   });
 
-  it("short fjerner småord og forkorter lange ord", () => {
-    expect(shortTitle("Foreldremøte på skolen")).toBe("Foreldrem. skolen");
-    expect(shortTitle("Fotballtrening med laget")).toBe("Fotb.tren. laget");
+  it("short forkorter bare lange ord, og fjerner aldri ord", () => {
+    expect(shortTitle("Foreldremøte på skolen")).toBe("Foreldrem. på skolen");
+    expect(shortTitle("Fotballtrening med laget")).toBe("Fotb.tren. med laget");
     expect(shortTitle("Kommunestyremøte")).toBe("Kommunes.");
+    expect(shortTitle("Ha med dag")).toBe("Ha med dag");
   });
 
   it("beholder korte titler og stor forbokstav", () => {
     expect(shortTitle("Svømming")).toBe("Svømming");
-    expect(shortTitle("Trening")).toBe("Tren.");
+    expect(shortTitle("Trening")).toBe("Trening");
     expect(shortTitle("i dag")).toBe("i dag");
   });
 
@@ -25,13 +26,10 @@ describe("smart forkorting av titler", () => {
     expect(titleVariants("(Teams)")).toEqual({ full: "(Teams)", medium: "(Teams)", short: "(Teams)", tiny: "(Teams)", one: "(Teams)" });
   });
 
-  it("tiny: de to første ordene, uten å kutte ord videre", () => {
-    expect(tinyTitle("Foreldremøte på skolen i dag")).toBe("Foreldrem. skolen");
-    expect(tinyTitle("Svømming")).toBe("Svømming");
-  });
-
-  it("én linje: bare første ord", () => {
-    expect(oneWordTitle("Tannlegetime hos Olsen")).toBe("Tannlege");
+  it("tiny og én linje fjerner heller ikke ord", () => {
+    expect(tinyTitle("Foreldremøte på skolen i dag")).toBe("Foreldrem. på skolen i dag");
+    expect(oneWordTitle("Tannlegetime hos Olsen")).toBe("Tannlege hos Olsen");
+    expect(tinyTitle("Ha med dag")).toBe("Ha med dag");
   });
 
   it("forkortelser kan brytes etter punktum", () => {

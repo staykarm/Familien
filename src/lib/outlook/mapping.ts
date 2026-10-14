@@ -1,12 +1,15 @@
 import { DateTime } from "luxon";
 import { allDayRangeToUtc } from "@/lib/calendar/dates";
+import { membersInTitle } from "@/lib/calendar/names";
 import { TIME_ZONE } from "@/lib/time";
 
 /**
  * Oversetting mellom en aktivitet i appen og en hendelse i Outlook (Microsoft Graph).
  * Rene funksjoner uten nettverk, slik at de kan testes.
  *
- * - Deltakerne skrives som et tillegg i tittelen: «Fotball (Edvard, Olav)». Kun Felles gir ingen parentes.
+ * - Deltakerne skrives som et tillegg i tittelen: «Fotball (Edvard, Olav)». Kun Felles gir ingen parentes, og navn som
+ *   allerede står i tittelen («Trening Olav») gjentas ikke.
+ * - Hendelser fra Outlook uten parentes får deltakere ut fra navn i tittelen («Trening Olav» → Olav).
  * - Kategorien blir Outlook-kategorien med samme navn (eller `outlook_category`).
  * - Appens id sendes som `transactionId`, så vi kjenner igjen våre egne hendelser når de kommer tilbake.
  */
@@ -75,19 +78,28 @@ export const outlookCategoryName = (c: CategoryRef) => c.outlookCategory?.trim()
 /** «Fotball» + [Edvard, Olav] → «Fotball (Edvard, Olav)». Navnene kommer i samme rekkefølge som `members`. */
 export function outlookTitle(title: string, participantIds: string[], members: MemberRef[]): string {
   const chosen = members.filter((m) => participantIds.includes(m.id));
-  const named = chosen.filter((m) => !m.isShared);
+  const inTitle = membersInTitle(title, members);
+  const named = chosen.filter((m) => !m.isShared && !inTitle.includes(m.id));
   if (named.length === 0) return title;
   return `${title} (${named.map((m) => m.name).join(", ")})`;
 }
 
 /**
  * Leser deltakerne fra slutten av tittelen. Bare hvis ALLE navnene i parentesen er familiemedlemmer,
- * ellers er parentesen en del av tittelen (f.eks. «Møte (zoom)»).
+ * ellers er parentesen en del av tittelen (f.eks. «Møte (zoom)»). Uten slik parentes brukes navn som står
+ * i tittelen («Trening Olav»); da er `fromTitle` satt, og tittelen beholdes som den er.
  */
-export function parseOutlookTitle(subject: string, members: MemberRef[]): { title: string; participantIds: string[] | null } {
+export function parseOutlookTitle(
+  subject: string,
+  members: MemberRef[]
+): { title: string; participantIds: string[] | null; fromTitle?: boolean } {
   const clean = subject.trim();
+  const fallback = () => {
+    const ids = membersInTitle(clean, members);
+    return ids.length ? { title: clean, participantIds: ids, fromTitle: true } : { title: clean, participantIds: null };
+  };
   const m = clean.match(/^(.*\S)\s*\(([^()]+)\)\s*$/);
-  if (!m) return { title: clean, participantIds: null };
+  if (!m) return fallback();
   const parts = m[2]
     .split(/,|\s+og\s+|\s*&\s*|\s*\+\s*/i)
     .map((p) => p.trim())
@@ -95,10 +107,14 @@ export function parseOutlookTitle(subject: string, members: MemberRef[]): { titl
   const ids: string[] = [];
   for (const part of parts) {
     const member = members.find((x) => norm(x.name) === norm(part));
-    if (!member) return { title: clean, participantIds: null };
+    if (!member) return fallback();
     if (!ids.includes(member.id)) ids.push(member.id);
   }
-  return ids.length ? { title: m[1].trim(), participantIds: ids } : { title: clean, participantIds: null };
+  if (!ids.length) return fallback();
+  // «Trening Olav (Edvard)»: navn som står i selve tittelen hører også med.
+  const inTitle = membersInTitle(m[1], members);
+  const all = [...ids, ...inTitle.filter((id) => !ids.includes(id))];
+  return { title: m[1].trim(), participantIds: all };
 }
 
 function toOsloLocal(iso: string): string {
@@ -200,7 +216,18 @@ export function fromGraphEvent(
     end = (e < s ? s : e).toUTC().toISO()!;
   }
 
-  const participantIds = parsed.participantIds ?? (ctx.current?.participantIds.length ? ctx.current.participantIds : felles ? [felles] : []);
+  // Navn i tittelen («Trening Olav») gjelder for nye hendelser og når appen bare har Felles. Har noen valgt
+  // personer i appen, beholdes de. Navn i parentes (appens eget format) gjelder alltid.
+  const current = ctx.current?.participantIds ?? [];
+  const onlyFelles = current.length === 0 || current.every((id) => id === felles);
+  const participantIds =
+    parsed.participantIds && (!parsed.fromTitle || onlyFelles)
+      ? parsed.participantIds
+      : current.length
+        ? current
+        : felles
+          ? [felles]
+          : [];
   const outlookCategory = categoryFromOutlook(g.categories, ctx.categories);
   const fallbackCategory = ctx.categories.find((c) => c.name === "Annet")?.id ?? null;
   // Felt Outlook ikke sender med (undefined) beholdes fra appen i stedet for å tømmes.

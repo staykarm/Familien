@@ -185,3 +185,27 @@ describe("outlookFingerprint", () => {
     expect(outlookFingerprint(a)).toBe(outlookFingerprint(b));
   });
 });
+
+describe("navn i tittelen", () => {
+  it("«Trening Olav» fra Outlook blir Olav, og tittelen beholdes", () => {
+    expect(parseOutlookTitle("Trening Olav", members)).toEqual({ title: "Trening Olav", participantIds: ["o"], fromTitle: true });
+    const ev = fromGraphEvent(
+      { id: "x", subject: "Trening Olav", start: { dateTime: "2026-10-14T16:00:00", timeZone: "UTC" }, end: { dateTime: "2026-10-14T17:00:00", timeZone: "UTC" } },
+      { members, categories }
+    );
+    expect(ev?.participantIds).toEqual(["o"]);
+    expect(ev?.title).toBe("Trening Olav");
+  });
+
+  it("retter Felles til personen i tittelen, men overstyrer ikke personer valgt i appen", () => {
+    const g = { id: "x", subject: "Trening Olav", start: { dateTime: "2026-10-14T16:00:00", timeZone: "UTC" }, end: { dateTime: "2026-10-14T17:00:00", timeZone: "UTC" } };
+    expect(fromGraphEvent(g, { members, categories, current: { participantIds: ["f"], categoryId: null } })?.participantIds).toEqual(["o"]);
+    expect(fromGraphEvent(g, { members, categories, current: { participantIds: ["m"], categoryId: null } })?.participantIds).toEqual(["m"]);
+  });
+
+  it("gjentar ikke navn som allerede står i tittelen, og leser dem tilbake", () => {
+    expect(outlookTitle("Trening Olav", ["o"], members)).toBe("Trening Olav");
+    expect(outlookTitle("Trening Olav", ["o", "e"], members)).toBe("Trening Olav (Edvard)");
+    expect(parseOutlookTitle("Trening Olav (Edvard)", members)).toEqual({ title: "Trening Olav", participantIds: ["e", "o"] });
+  });
+});

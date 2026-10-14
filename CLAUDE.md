@@ -28,6 +28,7 @@ Arkitektur og faser står i README. Marius godkjenner hver fase før den startes
 - Sider i `(app)` kaller `requireFamily()` fra `lib/session.ts`. Server actions gjør det samme før de skriver.
 
 ## Kalender
+- Navn i tittelen («Trening Olav») gir deltaker: i dialogen for ny aktivitet (til man velger selv) og for hendelser fra Outlook når appen bare har Felles (`lib/calendar/names.ts`). Til Outlook gjentas ikke navn som allerede står i tittelen.
 - Gjentakende aktiviteter lagres som én aktivitet per gang, samlet i `event_series` (`series_id` på `events`). Datoene regnes ut i `lib/calendar/recurrence.ts`, med Oslo-klokkeslett per dato (riktig over sommertid). Outlook får vanlige enkelthendelser. Lagring av en hel serie skjer i én transaksjon via `save_event_series`.
 
 ## Lagring
@@ -50,7 +51,7 @@ Arkitektur og faser står i README. Marius godkjenner hver fase før den startes
   - På telefon vises sekundære knapper bare som ikon (`<span className="hidden sm:inline">tekst</span>`) med `aria-label`.
   - Skrivefelt holdes på minst 16 px på berøringsskjerm (ellers zoomer iOS), og det er allerede ordnet globalt.
   - Aktiviteter i kalenderen vises med `EventChipContent` (`components/calendar/EventChip.tsx`). Maks tre står side om side; resten samles i «+N». Når boksene blir smale eller lave, krymper skriften, teksten brytes (aldri «…»), og tittelen byttes til en kortere variant (`lib/calendar/shorten.ts`). Dette styres av container queries (`.ev-*` i `globals.css`), ikke av JS-måling.
-  - Dagvisningen på telefon (< `md`) har fast høyde og ruller inni seg selv, slik at 08–20 synes med en gang (`usePhoneDayFit`).
+  - Dagvisningen på telefon (< `md`) har fast høyde og ruller inni seg selv, slik at 08–20 synes med en gang (`usePhoneDayFit`). «Per person» får plass i bredden på telefon (dag: smale kolonner; uke: alle radene og dagene på én skjerm).
   - Tekst som ikke får plass brytes over flere linjer (`wrap-break-word`). Bruk ikke `truncate`/«…».
   - Test på 390 px (telefon), 820 px (iPad høykant) og 1180/1440 px før commit.
 

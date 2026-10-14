@@ -259,6 +259,7 @@ export type Database = {
           summary: string | null;
           created_at: string;
           analyzed_at: string | null;
+          member_ids: string[];
         };
         Insert: {
           id?: string;
@@ -271,6 +272,7 @@ export type Database = {
           error?: string | null;
           summary?: string | null;
           analyzed_at?: string | null;
+          member_ids?: string[];
         };
         Update: Partial<Database["public"]["Tables"]["uploads"]["Insert"]>;
         Relationships: [];

@@ -21,6 +21,8 @@ export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 export interface FamilyContext {
   members: { name: string; isShared: boolean; details: { label: string; value: string }[] }[];
   eventCategories: string[];
+  /** Valgt av brukeren: alt i filen gjelder disse. */
+  appliesTo?: string[];
 }
 
 function systemPrompt(ctx: FamilyContext, now: Date): string {
@@ -51,7 +53,11 @@ Slik vurderer du innholdet:
 - Ta ikke med ting som allerede har skjedd, og ikke dikt opp noe som ikke står i dokumentet. Hopp heller over noe enn å gjette dato.
 - Unngå duplikater: samme ting skal ikke være både aktivitet og oppgave. Generelle beskjeder uten handling tas ikke med.
 - Skriv titler korte og vennlige på norsk, uten personnavn i tittelen (deltakere settes i eget felt).
-- Kategori velges fra listen hvis en passer.`;
+- Kategori velges fra listen hvis en passer.${
+    ctx.appliesTo?.length
+      ? `\n\nBrukeren har sagt at alt i dokumentet gjelder ${ctx.appliesTo.join(" og ")}. Bruk det som deltakere og ansvarlig, og ta bare med det som gjelder ${ctx.appliesTo.length > 1 ? "dem" : ctx.appliesTo[0]}.`
+      : ""
+  }`;
 }
 
 async function fileContent(data: Buffer, mime: string, filename: string): Promise<Anthropic.Beta.BetaContentBlockParam[]> {

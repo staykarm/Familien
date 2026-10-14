@@ -10,11 +10,12 @@ export class Autosaver<T> {
   private savedKey: string;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private chain: Promise<boolean> = Promise.resolve(true);
+  private disposed = false;
 
   constructor(
     initial: T,
     private save: (value: T) => Promise<boolean>,
-    private opts: { key?: (value: T) => string; delay?: number; onState?: (s: AutosaveState) => void } = {}
+    private opts: { key?: (value: T) => string; delay?: number; retryDelay?: number; onState?: (s: AutosaveState) => void } = {}
   ) {
     this.latest = initial;
     this.savedKey = this.keyOf(initial);
@@ -51,12 +52,15 @@ export class Autosaver<T> {
       }
       if (ok) this.savedKey = key;
       this.opts.onState?.(ok ? "saved" : "error");
+      // Feilet (f.eks. nettbrudd): prøv igjen om litt, med mindre det kommer nye endringer først.
+      if (!ok && !this.timer && !this.disposed) this.timer = setTimeout(() => void this.flush(), this.opts.retryDelay ?? 3000);
       return ok;
     });
     return this.chain;
   }
 
   dispose(): void {
+    this.disposed = true;
     this.clearTimer();
   }
 

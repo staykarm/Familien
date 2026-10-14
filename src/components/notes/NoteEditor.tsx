@@ -12,8 +12,38 @@ import type { NoteFull } from "@/lib/notes/types";
 import type { DocNode } from "@/lib/notes/text";
 
 const SAVE_DELAY_MS = 700;
+/** Etter så mange mislykkede forsøk på rad foreslår vi å laste siden på nytt (f.eks. etter en ny versjon av appen). */
+const MAX_QUIET_RETRIES = 3;
 
-type SaveState = "saved" | "dirty" | "saving" | "error" | "conflict";
+type SaveState = "saved" | "dirty" | "saving" | "error" | "stuck" | "conflict";
+
+/**
+ * Sikkerhetskopi i nettleseren av endringer som ikke er lagret ennå. Gjør at ingenting går tapt hvis
+ * lagringen feiler og siden lastes på nytt (eller lukkes). Slettes når endringene er lagret.
+ */
+const backupKey = (id: string) => `familien-notat-${id}`;
+function writeBackup(id: string, version: number, doc: DocNode) {
+  try {
+    localStorage.setItem(backupKey(id), JSON.stringify({ version, doc }));
+  } catch {
+    // Privat modus o.l.: ingen sikkerhetskopi.
+  }
+}
+function readBackup(id: string): { version: number; doc: DocNode } | null {
+  try {
+    const raw = localStorage.getItem(backupKey(id));
+    return raw ? (JSON.parse(raw) as { version: number; doc: DocNode }) : null;
+  } catch {
+    return null;
+  }
+}
+function clearBackup(id: string) {
+  try {
+    localStorage.removeItem(backupKey(id));
+  } catch {
+    // ignorer
+  }
+}
 
 interface Props {
   note: NoteFull;
@@ -31,6 +61,7 @@ export function NoteEditor({ note, onSaved, onReload, readOnly }: Props) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saving = useRef(false);
   const pendingDoc = useRef<DocNode | null>(null);
+  const failures = useRef(0);
   // flush planlegger seg selv på nytt (mer tekst under lagring, eller ny prøve etter nettfeil), via en ref.
   const flushRef = useRef<() => Promise<void>>(async () => {});
 
@@ -40,21 +71,34 @@ export function NoteEditor({ note, onSaved, onReload, readOnly }: Props) {
     pendingDoc.current = null;
     saving.current = true;
     setState("saving");
-    const res = await saveNote({ id: note.id, version: versionRef.current, content: content as { type: "doc" } });
+    // Kallet kan kaste (nettbrudd, eller ny versjon av appen mens notatet var åpent). Da må vi likevel
+    // slippe «lagrer» og prøve igjen – ellers står notatet fast på «Lagrer …» for alltid.
+    let res: Awaited<ReturnType<typeof saveNote>>;
+    try {
+      res = await saveNote({ id: note.id, version: versionRef.current, content: content as { type: "doc" } });
+    } catch {
+      res = { ok: false };
+    }
     saving.current = false;
     if (res.ok && res.note) {
+      failures.current = 0;
       versionRef.current = res.note.version;
       onSaved(res.note);
       // Skrev brukeren mer mens vi lagret? Lagre igjen.
       if (pendingDoc.current) void flushRef.current();
-      else setState("saved");
+      else {
+        clearBackup(note.id);
+        setState("saved");
+      }
     } else if (res.conflict) {
       setState("conflict");
     } else {
-      // Nettfeil o.l.: behold teksten og prøv igjen om litt.
+      // Nettfeil o.l.: behold teksten og prøv igjen om litt (sjeldnere etter hvert).
       if (!pendingDoc.current) pendingDoc.current = content;
-      setState("error");
-      timer.current = setTimeout(() => void flushRef.current(), 3000);
+      failures.current++;
+      setState(failures.current >= MAX_QUIET_RETRIES ? "stuck" : "error");
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => void flushRef.current(), failures.current >= MAX_QUIET_RETRIES ? 15000 : 3000);
     }
   }, [note.id, onSaved]);
 
@@ -73,9 +117,21 @@ export function NoteEditor({ note, onSaved, onReload, readOnly }: Props) {
     ],
     content: note.content as object,
     editorProps: { attributes: { class: "familien-note min-h-[50vh] outline-none", spellcheck: "true", lang: "nb" } },
+    // Endringer som ikke ble lagret sist (sikkerhetskopien) tas inn igjen og lagres.
+    onCreate: ({ editor }) => {
+      if (readOnly) return;
+      const backup = readBackup(note.id);
+      if (!backup) return;
+      if (backup.version === note.version && JSON.stringify(backup.doc) !== JSON.stringify(note.content)) {
+        editor.commands.setContent(backup.doc as object);
+      } else {
+        clearBackup(note.id);
+      }
+    },
     onUpdate: ({ editor }) => {
       pendingDoc.current = editor.getJSON() as DocNode;
-      setState("dirty");
+      writeBackup(note.id, versionRef.current, pendingDoc.current);
+      setState((s) => (s === "stuck" ? s : "dirty"));
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => void flushRef.current(), SAVE_DELAY_MS);
     },
@@ -136,6 +192,15 @@ export function NoteEditor({ note, onSaved, onReload, readOnly }: Props) {
         </div>
       )}
 
+      {state === "stuck" && (
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-sun p-3 font-semibold">
+          Får ikke lagret notatet. Endringene er tatt vare på på denne enheten.
+          <button className="rounded-xl bg-card px-3 py-2 font-bold" onClick={() => window.location.reload()}>
+            Last inn på nytt
+          </button>
+        </div>
+      )}
+
       {!readOnly && (
         <div className="sticky top-14 z-10 flex items-center gap-1 overflow-x-auto rounded-2xl bg-card-soft/95 p-1 backdrop-blur md:top-2">
           {tools.map(({ label, icon: Icon, on, run }) => (
@@ -176,7 +241,13 @@ export function NoteEditor({ note, onSaved, onReload, readOnly }: Props) {
             <Redo2 size={20} aria-hidden />
           </button>
           <span className="ml-auto shrink-0 whitespace-nowrap pr-2 text-xs font-bold text-ink-light" aria-live="polite">
-            {state === "saving" || state === "dirty" ? "Lagrer …" : state === "error" ? "⚠️ Ikke lagret" : state === "saved" ? "Lagret ✓" : ""}
+            {state === "saving" || state === "dirty"
+              ? "Lagrer …"
+              : state === "error" || state === "stuck"
+                ? "⚠️ Ikke lagret – prøver igjen"
+                : state === "saved"
+                  ? "Lagret ✓"
+                  : ""}
           </span>
         </div>
       )}

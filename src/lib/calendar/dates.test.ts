@@ -89,3 +89,13 @@ describe("diverse", () => {
     expect(formatDuration(120)).toBe("2 t");
   });
 });
+
+describe("touchesDay", () => {
+  it("aktivitet over midnatt berører begge dager, slutt er eksklusiv", async () => {
+    const { touchesDay } = await import("./dates");
+    const e = { start: "2026-10-14T21:00:00Z", end: "2026-10-14T23:30:00Z" }; // 23:00–01:30 Oslo
+    expect(touchesDay(e, "2026-10-14")).toBe(true);
+    expect(touchesDay(e, "2026-10-15")).toBe(true);
+    expect(touchesDay({ start: "2026-10-14T22:00:00Z", end: "2026-10-15T22:00:00Z" }, "2026-10-16")).toBe(false);
+  });
+});

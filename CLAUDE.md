@@ -39,6 +39,11 @@ Arkitektur og faser står i README. Marius godkjenner hver fase før den startes
 - Handleliste, oppgaver og notater lagres automatisk mens man skriver, som i iOS Notater. Dialogene har ingen «Lagre»-knapp, bare «Ferdig» som lukker etter at siste endring er lagret. Bruk `useAutosave` (`components/useAutosave.ts`, logikken ligger i `lib/autosave.ts`).
 - Unntak: forslag som skal godkjennes (Les inn fil) og kalenderaktiviteter, siden de synkes til Outlook.
 
+## Sletting og «I dag»
+- Sletting spør ikke «Er du sikker?». Den skjer med en gang og kan angres i noen sekunder (`useUndo` i `components/ui/UndoToast.tsx`). Delete-handlingene returnerer det som trengs for å angre (`deleted`/`undoIds`), og det finnes en `restore…`-handling.
+- Kalenderaktiviteter slettes mykt først (`deleted_at`). Etter angrefristen (`finalizeDeletes` i `actions/events.ts`) slettes de for godt og i Outlook; synken lar ferske slettinger vente.
+- `/i-dag` er oversikten appen åpner på (PWA `start_url`): vær, hvem skal hva i dag og i morgen, oppgaver med frist og handlelisten.
+
 ## Validering
 - All input til server actions og API-ruter valideres med Zod (`src/lib/validation/`), med vennlige feilmeldinger på norsk.
 - Server actions returnerer `{ ok, message }` i stedet for å kaste feil til UI.

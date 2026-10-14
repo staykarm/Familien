@@ -6,7 +6,9 @@ import { pushEvent } from "@/lib/outlook/sync";
 import { broadcastChange } from "@/lib/realtime";
 import { CALENDAR_TOPIC } from "@/lib/realtimeTopics";
 import { requireFamily } from "@/lib/session";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getDb } from "@/lib/supabase/db";
+import { z } from "zod";
 import { eventFormSchema, moveEventSchema, rangeSchema, type EventFormInput, type EventToSave } from "@/lib/validation/event";
 import type { CalendarEvent } from "@/lib/calendar/types";
 import { occurrenceRange, sameRule, type RecurrenceRule } from "@/lib/calendar/recurrence";
@@ -16,7 +18,12 @@ export interface EventResult {
   ok: boolean;
   message?: string;
   id?: string;
+  /** Slettede aktiviteter som kan hentes tilbake med restoreEvents («Angre»). */
+  undoIds?: string[];
 }
+
+/** Hvor lenge en sletting kan angres før den gjøres endelig (og sendes til Outlook). Litt lenger enn «Angre» vises. */
+const UNDO_GRACE_MS = 12_000;
 
 function conflictSummary(raw: unknown): CalendarEvent["conflict"] {
   if (!raw || typeof raw !== "object") return null;
@@ -256,9 +263,52 @@ export async function deleteEvent(id: string, scope: "one" | "following" | "all"
     rows = data ?? [];
   }
 
-  // Aktiviteter som aldri har vært i Outlook slettes helt. Ellers myk sletting, så synken får fjernet dem der.
-  const push = await removeEvents(db, rows);
-  afterChange(push);
+  // Myk sletting først, så det kan angres. Etter fristen slettes de for godt (og i Outlook), se finalizeDeletes.
+  const ids = rows.map((r) => r.id);
+  const { error } = await db.from("events").update({ deleted_at: new Date().toISOString() }).in("id", ids);
+  if (error) return { ok: false, message: "Kunne ikke slette aktiviteten" };
+  finalizeDeletes(ids);
+  await broadcastChange(CALENDAR_TOPIC);
   revalidatePath("/");
-  return { ok: true, message: rows.length > 1 ? `${count(rows.length)} er slettet` : "Aktiviteten er slettet" };
+  return { ok: true, message: rows.length > 1 ? `${count(rows.length)} er slettet` : "Aktiviteten er slettet", undoIds: ids };
+}
+
+/**
+ * Etter angrefristen: aktiviteter som fortsatt er slettet, fjernes i Outlook (via synken) eller fra databasen.
+ * Bruker admin-klienten, siden dette kjører etter at svaret er sendt.
+ */
+function finalizeDeletes(ids: string[]) {
+  after(async () => {
+    await new Promise((r) => setTimeout(r, UNDO_GRACE_MS));
+    const db = createAdminClient();
+    const { data } = await db.from("events").select("id, outlook_id, deleted_at").in("id", ids);
+    const still = (data ?? []).filter((r) => r.deleted_at);
+    const local = still.filter((r) => !r.outlook_id).map((r) => r.id);
+    if (local.length) await db.from("events").delete().in("id", local);
+    for (const r of still.filter((x) => x.outlook_id)) {
+      await db.from("events").update({ sync_status: "pending" }).eq("id", r.id);
+      await pushEvent(r.id);
+    }
+  });
+}
+
+/** «Angre» etter sletting: henter aktivitetene tilbake. De som allerede var i Outlook, sendes dit på nytt ved behov. */
+export async function restoreEvents(ids: string[]): Promise<EventResult> {
+  await requireFamily();
+  const parsed = z.array(z.uuid()).min(1).max(250).safeParse(ids);
+  if (!parsed.success) return { ok: false, message: "Kunne ikke angre" };
+  const db = await getDb();
+  const { data } = await db
+    .from("events")
+    .update({ deleted_at: null })
+    .in("id", parsed.data)
+    .not("deleted_at", "is", null)
+    .select("id, outlook_id, sync_status");
+  const restored = data ?? [];
+  if (!restored.length) return { ok: false, message: "For sent å angre – aktiviteten er allerede slettet" };
+  // Har Outlook rukket å slette den, lager synken den på nytt (pushOne finner 404 og oppretter).
+  const toPush = restored.filter((r) => !r.outlook_id || r.sync_status !== "synced").map((r) => r.id);
+  afterChange(toPush);
+  revalidatePath("/");
+  return { ok: true, message: restored.length > 1 ? `${count(restored.length)} er tilbake` : "Aktiviteten er tilbake" };
 }

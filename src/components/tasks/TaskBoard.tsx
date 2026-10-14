@@ -9,6 +9,7 @@ import { osloToday } from "@/lib/calendar/dates";
 import type { CalendarCategory, CalendarMember } from "@/lib/calendar/types";
 import { dueLabel, groupTasks } from "@/lib/tasks/group";
 import type { Task } from "@/lib/tasks/types";
+import { useUndo } from "@/components/ui/UndoToast";
 import { TaskDialog, draftFromTask, type TaskDraft } from "./TaskDialog";
 
 interface Props {
@@ -27,6 +28,7 @@ export function TaskBoard({ initialTasks, members, categories, activeMemberId }:
   const [quickTitle, setQuickTitle] = useState("");
   const [draft, setDraft] = useState<TaskDraft | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const { offer: offerUndo, node: undoNode } = useUndo((m) => setToast(m ?? null));
   const [adding, startAdding] = useTransition();
   const today = osloToday();
 
@@ -195,15 +197,26 @@ export function TaskBoard({ initialTasks, members, categories, activeMemberId }:
           members={members}
           categories={categories}
           onClose={() => setDraft(null)}
-          onSaved={(message, task, deletedId) => {
+          onSaved={(message, task, deletedId, undo) => {
             if (task) upsert(task);
             if (deletedId) setTasks((list) => list.filter((t) => t.id !== deletedId));
             setDraft(null);
-            setToast(message);
+            if (undo) {
+              setToast(null);
+              offerUndo({
+                text: message,
+                run: async () => {
+                  const res = await undo();
+                  if (res.task) upsert(res.task);
+                  return res;
+                },
+              });
+            } else setToast(message);
           }}
         />
       )}
 
+      {undoNode}
       {toast && (
         <div role="status" className="fixed inset-x-0 bottom-24 z-50 mx-auto w-fit rounded-full bg-ink px-5 py-3 font-bold text-white shadow-lg md:bottom-8">
           {toast}

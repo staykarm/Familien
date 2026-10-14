@@ -31,6 +31,7 @@ import type { CalendarCategory, CalendarEvent, CalendarMember } from "@/lib/cale
 import { isTaskItemId, TASK_PREFIX, taskToCalendarItem } from "@/lib/tasks/calendar";
 import type { Task } from "@/lib/tasks/types";
 import { TIME_ZONE } from "@/lib/time";
+import { useUndo } from "@/components/ui/UndoToast";
 import { EventDialog, type EventDraft } from "./EventDialog";
 import { PersonDayView } from "./PersonDayView";
 import { PersonWeekView } from "./PersonWeekView";
@@ -95,6 +96,7 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [weatherDate, setWeatherDate] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const { offer: offerUndo, node: undoNode } = useUndo((m) => setToast(m ?? null));
   const requestId = useRef(0);
 
   // Husk visning per enhet. Første gang: dagsvisning på mobil, uke ellers.
@@ -409,9 +411,16 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
           members={members}
           categories={categories}
           onClose={() => setDraft(null)}
-          onSaved={(message) => {
+          onSaved={(message, _id, undo) => {
             setDraft(null);
-            setToast(message);
+            if (undo) {
+              setToast(null);
+              offerUndo({ text: message, run: async () => {
+                const res = await undo();
+                reload();
+                return res;
+              } });
+            } else setToast(message);
             reload();
           }}
         />
@@ -443,6 +452,7 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
         />
       )}
 
+      {undoNode}
       {toast && (
         <div
           role="status"

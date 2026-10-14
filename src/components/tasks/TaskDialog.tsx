@@ -2,11 +2,11 @@
 
 import { useRef, useState, useTransition } from "react";
 import { DateTime } from "luxon";
-import { deleteTask, saveTask } from "@/actions/tasks";
+import { deleteTask, restoreTask, saveTask } from "@/actions/tasks";
 import { autosaveLabel, useAutosave } from "@/components/useAutosave";
 import { Avatar } from "@/components/ui/Avatar";
-import { DeleteButton, Sheet } from "@/components/ui/Sheet";
-import { buttonPrimary, input, label } from "@/components/ui/styles";
+import { Sheet } from "@/components/ui/Sheet";
+import { buttonGhost, buttonPrimary, input, label } from "@/components/ui/styles";
 import type { CalendarCategory, CalendarMember } from "@/lib/calendar/types";
 import type { Task, TaskStatus } from "@/lib/tasks/types";
 import { TIME_ZONE } from "@/lib/time";
@@ -58,7 +58,7 @@ interface Props {
   members: CalendarMember[];
   categories: CalendarCategory[];
   onClose: () => void;
-  onSaved: (message: string, task?: Task, deletedId?: string) => void;
+  onSaved: (message: string, task?: Task, deletedId?: string, undo?: () => Promise<{ ok: boolean; message?: string; task?: Task }>) => void;
   /**
    * Standard: alt lagres automatisk mens man skriver (som iOS Notater), og «Ferdig» lukker.
    * `explicitSave` gir en vanlig «Legg til»-knapp – brukes for AI-forslag som skal godkjennes.
@@ -69,7 +69,6 @@ interface Props {
 export function TaskDialog({ draft: initial, members, categories, onClose, onSaved, explicitSave }: Props) {
   const [draft, setDraft] = useState(initial);
   const [error, setError] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [pending, startTransition] = useTransition();
   const set = <K extends keyof TaskDraft>(key: K, value: TaskDraft[K]) => setDraft((d) => ({ ...d, [key]: value }));
 
@@ -119,7 +118,8 @@ export function TaskDialog({ draft: initial, members, categories, onClose, onSav
     if (!id) return;
     startTransition(async () => {
       const res = await deleteTask(id);
-      if (res.ok) onSaved(res.message ?? "Slettet", undefined, id);
+      const deleted = res.deleted;
+      if (res.ok) onSaved(res.message ?? "Slettet", undefined, id, deleted ? () => restoreTask(deleted) : undefined);
       else setError(res.message ?? "Noe gikk galt");
     });
   }
@@ -132,14 +132,10 @@ export function TaskDialog({ draft: initial, members, categories, onClose, onSav
       footer={
         <>
           {!isNew && (
-            <DeleteButton
-              confirming={confirmDelete}
-              onAsk={() => setConfirmDelete(true)}
-              onCancel={() => setConfirmDelete(false)}
-              onConfirm={remove}
-              pending={pending}
-              label="🗑️ Slett"
-            />
+            // Sletting kan angres etterpå, så ingen «Er du sikker?».
+            <button type="button" className={buttonGhost} disabled={pending} onClick={remove}>
+              🗑️ Slett
+            </button>
           )}
           {autosave ? (
             <>

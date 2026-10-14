@@ -3,10 +3,10 @@
 import { useMemo, useState, useTransition } from "react";
 import { DateTime } from "luxon";
 import { Clock, MapPin, Repeat, StickyNote } from "lucide-react";
-import { deleteEvent, saveEvent } from "@/actions/events";
+import { deleteEvent, restoreEvents, saveEvent } from "@/actions/events";
 import { resolveOutlookConflict } from "@/actions/outlook";
 import { Avatar } from "@/components/ui/Avatar";
-import { DeleteButton, Sheet } from "@/components/ui/Sheet";
+import { Sheet } from "@/components/ui/Sheet";
 import { buttonGhost, buttonPrimary, buttonSecondary, input, label } from "@/components/ui/styles";
 import { formatDuration, osloDate } from "@/lib/calendar/dates";
 import { membersInTitle } from "@/lib/calendar/names";
@@ -83,8 +83,8 @@ interface Props {
   members: CalendarMember[];
   categories: CalendarCategory[];
   onClose: () => void;
-  /** id er satt når en aktivitet ble lagret (ikke ved sletting). */
-  onSaved: (message: string, id?: string) => void;
+  /** id er satt når en aktivitet ble lagret (ikke ved sletting). `undo` er satt etter sletting. */
+  onSaved: (message: string, id?: string, undo?: () => Promise<{ ok: boolean; message?: string }>) => void;
 }
 
 export function EventDialog({ draft: initial, sync, members, categories, onClose, onSaved }: Props) {
@@ -157,7 +157,8 @@ export function EventDialog({ draft: initial, sync, members, categories, onClose
     const id = draft.id;
     startTransition(async () => {
       const res = await deleteEvent(id, scope);
-      if (res.ok) onSaved(res.message ?? "Slettet");
+      const undoIds = res.undoIds;
+      if (res.ok) onSaved(res.message ?? "Slettet", undefined, undoIds?.length ? () => restoreEvents(undoIds) : undefined);
       else setError(res.message ?? "Noe gikk galt");
     });
   }
@@ -221,14 +222,15 @@ export function EventDialog({ draft: initial, sync, members, categories, onClose
         ) : (
           <>
             {!isNew && (
-              <DeleteButton
-                confirming={confirmDelete}
-                onAsk={() => setConfirmDelete(true)}
-                onCancel={() => setConfirmDelete(false)}
-                onConfirm={() => remove()}
-                pending={pending}
-                label="🗑️ Slett"
-              />
+              // Sletting kan angres etterpå, så ingen «Er du sikker?». En serie får velge hva som skal slettes.
+              <button
+                type="button"
+                className={buttonGhost}
+                disabled={pending}
+                onClick={() => (inSeries ? setConfirmDelete(true) : remove())}
+              >
+                🗑️ Slett
+              </button>
             )}
             <button className={`${buttonPrimary} ml-auto`} disabled={pending}>
               {pending ? "Lagrer …" : isNew ? (repeat && repeatCount > 1 ? `Legg til ${repeatCount}` : "Legg til") : "Lagre"}

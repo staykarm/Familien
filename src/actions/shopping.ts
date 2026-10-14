@@ -17,6 +17,8 @@ import {
 export interface ShoppingResult {
   ok: boolean;
   message?: string;
+  /** Varene slik de var før de ble fjernet – til «Angre». */
+  deleted?: ShoppingItem[];
 }
 
 const ITEM_COLUMNS = "id, name, quantity, category_id, checked, checked_at, added_by, created_at";
@@ -24,6 +26,30 @@ const ITEM_COLUMNS = "id, name, quantity, category_id, checked, checked_at, adde
 export interface ShoppingData {
   items: ShoppingItem[];
   templates: ShoppingTemplate[];
+}
+
+type ItemRow = {
+  id: string;
+  name: string;
+  quantity: string | null;
+  category_id: string | null;
+  checked: boolean;
+  checked_at: string | null;
+  added_by: string | null;
+  created_at: string;
+};
+
+function toItem(i: ItemRow): ShoppingItem {
+  return {
+    id: i.id,
+    name: i.name,
+    quantity: i.quantity,
+    categoryId: i.category_id,
+    checked: i.checked,
+    checkedAt: i.checked_at,
+    addedBy: i.added_by,
+    createdAt: i.created_at,
+  };
 }
 
 export async function getShopping(): Promise<ShoppingData> {
@@ -35,16 +61,7 @@ export async function getShopping(): Promise<ShoppingData> {
     db.from("shopping_template_items").select("id, template_id, name, quantity, category_id").order("sort_order"),
   ]);
   return {
-    items: (items ?? []).map((i) => ({
-      id: i.id,
-      name: i.name,
-      quantity: i.quantity,
-      categoryId: i.category_id,
-      checked: i.checked,
-      checkedAt: i.checked_at,
-      addedBy: i.added_by,
-      createdAt: i.created_at,
-    })),
+    items: (items ?? []).map(toItem),
     templates: (templates ?? []).map((t) => ({
       ...t,
       items: (templateItems ?? [])
@@ -120,19 +137,60 @@ export async function deleteItem(id: string): Promise<ShoppingResult> {
   await requireFamily();
   if (!z.uuid().safeParse(id).success) return { ok: false, message: "Ugyldig vare" };
   const db = await getDb();
+  const { data: rows } = await db.from("shopping_items").select(ITEM_COLUMNS).eq("id", id);
   const { error } = await db.from("shopping_items").delete().eq("id", id);
   if (error) return { ok: false, message: "Kunne ikke slette" };
   await broadcastChange(SHOPPING_TOPIC);
-  return { ok: true, message: "Fjernet" };
+  return { ok: true, message: "Fjernet", deleted: (rows ?? []).map(toItem) };
 }
 
 export async function clearChecked(): Promise<ShoppingResult> {
   await requireFamily();
   const db = await getDb();
+  const { data: rows } = await db.from("shopping_items").select(ITEM_COLUMNS).eq("checked", true);
   const { error } = await db.from("shopping_items").delete().eq("checked", true);
   if (error) return { ok: false, message: "Kunne ikke rydde listen" };
   await broadcastChange(SHOPPING_TOPIC);
-  return { ok: true, message: "Avhukede varer er fjernet" };
+  return { ok: true, message: "Avhukede varer er fjernet", deleted: (rows ?? []).map(toItem) };
+}
+
+const restoreItemsSchema = z
+  .array(
+    z.object({
+      id: z.uuid(),
+      name: z.string().trim().min(1).max(200),
+      quantity: z.string().max(100).nullable(),
+      categoryId: z.uuid().nullable(),
+      checked: z.boolean(),
+      checkedAt: z.string().nullable(),
+      addedBy: z.uuid().nullable(),
+      createdAt: z.string(),
+    })
+  )
+  .max(500);
+
+/** «Angre» etter at varer er fjernet: legger dem tilbake slik de var (samme id). */
+export async function restoreItems(items: ShoppingItem[]): Promise<ShoppingResult> {
+  await requireFamily();
+  const parsed = restoreItemsSchema.safeParse(items);
+  if (!parsed.success) return { ok: false, message: "Kunne ikke angre" };
+  if (!parsed.data.length) return { ok: true };
+  const db = await getDb();
+  const { error } = await db.from("shopping_items").upsert(
+    parsed.data.map((i) => ({
+      id: i.id,
+      name: i.name,
+      quantity: i.quantity,
+      category_id: i.categoryId,
+      checked: i.checked,
+      checked_at: i.checkedAt,
+      added_by: i.addedBy,
+      created_at: i.createdAt,
+    }))
+  );
+  if (error) return { ok: false, message: "Kunne ikke angre" };
+  await broadcastChange(SHOPPING_TOPIC);
+  return { ok: true, message: parsed.data.length === 1 ? "Varen er tilbake" : "Varene er tilbake" };
 }
 
 /** Legger varene fra en fast liste inn i handlelisten. Varer som allerede står der (ikke avhuket) hoppes over. */

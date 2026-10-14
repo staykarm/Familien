@@ -2,19 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, FileUp, ListChecks, NotebookPen, Settings, ShoppingBasket, Users } from "lucide-react";
+import { CalendarDays, FileUp, ListChecks, NotebookPen, Settings, ShoppingBasket, Sun, Users } from "lucide-react";
 import type { ReactNode } from "react";
 
 const NAV = [
+  { href: "/i-dag", label: "I dag", icon: Sun },
   { href: "/", label: "Kalender", icon: CalendarDays },
   { href: "/oppgaver", label: "Oppgaver", icon: ListChecks },
   { href: "/handleliste", label: "Handle", icon: ShoppingBasket, long: "Handleliste" },
   { href: "/notater", label: "Notater", icon: NotebookPen },
-  { href: "/profiler", label: "Familien", icon: Users },
 ];
 
 /** Sekundære sider: nederst i sidemenyen og som ikoner i toppen på telefon. */
 const EXTRA = [
+  { href: "/profiler", label: "Familien", icon: Users },
   { href: "/filer", label: "Les inn fil", icon: FileUp },
   { href: "/innstillinger", label: "Innstillinger", icon: Settings },
 ];

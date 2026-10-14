@@ -204,6 +204,7 @@ export type Database = {
           checked?: boolean;
           checked_at?: string | null;
           added_by?: string | null;
+          created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["shopping_items"]["Insert"]>;
         Relationships: [];

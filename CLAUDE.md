@@ -42,7 +42,8 @@ Arkitektur og faser står i README. Marius godkjenner hver fase før den startes
   - Rader med filterknapper bruker klassen `chip-row`. Den gir én linje som kan rulles sidelengs på telefon, og bryter linjen fra `sm`.
   - På telefon vises sekundære knapper bare som ikon (`<span className="hidden sm:inline">tekst</span>`) med `aria-label`.
   - Skrivefelt holdes på minst 16 px på berøringsskjerm (ellers zoomer iOS), og det er allerede ordnet globalt.
-  - Aktiviteter i kalenderen vises med `EventChipContent` (`components/calendar/EventChip.tsx`). Maks tre står side om side; resten samles i «+N». Når boksene blir smale, krymper skriften, teksten brytes, og tittelen byttes til en kortere variant (`lib/calendar/shorten.ts`). Dette styres av container queries (`.ev-*` i `globals.css`), ikke av JS-måling.
+  - Aktiviteter i kalenderen vises med `EventChipContent` (`components/calendar/EventChip.tsx`). Maks tre står side om side; resten samles i «+N». Når boksene blir smale eller lave, krymper skriften, teksten brytes (aldri «…»), og tittelen byttes til en kortere variant (`lib/calendar/shorten.ts`). Dette styres av container queries (`.ev-*` i `globals.css`), ikke av JS-måling.
+  - Tekst som ikke får plass brytes over flere linjer (`wrap-break-word`). Bruk ikke `truncate`/«…».
   - Test på 390 px (telefon), 820 px (iPad høykant) og 1180/1440 px før commit.
 
 ## Mappestruktur

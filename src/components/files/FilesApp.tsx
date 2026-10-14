@@ -228,7 +228,7 @@ export function FilesApp({ initialUploads, members, eventCategories, taskCategor
           <section key={u.id} className={`${card} flex flex-col gap-4`}>
             <div className="flex flex-wrap items-start gap-3">
               <div className="min-w-0 flex-1">
-                <h2 className="truncate font-display text-lg font-bold">{u.filename}</h2>
+                <h2 className="wrap-break-word font-display text-lg font-bold">{u.filename}</h2>
                 <p className="text-sm text-ink-light">
                   {new Date(u.createdAt).toLocaleString("nb-NO", { timeZone: "Europe/Oslo", dateStyle: "medium", timeStyle: "short" })}
                   {" · "}

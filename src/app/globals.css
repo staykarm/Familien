@@ -169,6 +169,8 @@ body {
 }
 .familien-fc .fc-daygrid-event {
   margin-top: 2px;
+  /* FullCalendar holder månedsaktiviteter på én linje; vi bryter heller teksten. */
+  white-space: normal;
 }
 .familien-fc .fc-daygrid-more-link {
   font-weight: 700;
@@ -277,18 +279,12 @@ body {
 .ev-title {
   font-weight: 700;
   font-size: 0.875rem;
+  /* Tekst som ikke får plass brytes over flere linjer – aldri «…». */
   overflow-wrap: break-word;
   hyphens: auto;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
-  line-clamp: 4;
-  overflow: hidden;
 }
 .ev-compact .ev-title {
   font-size: 0.75rem;
-  -webkit-line-clamp: 1;
-  line-clamp: 1;
 }
 .ev-meta {
   display: flex;
@@ -300,6 +296,7 @@ body {
 .ev-t-mid,
 .ev-t-short,
 .ev-t-tiny,
+.ev-t-one,
 .ev-time-short {
   display: none;
 }
@@ -354,18 +351,42 @@ body {
   .ev-meta {
     display: none;
   }
-  .ev-title {
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-  }
 }
 @container (max-height: 2.4rem) {
   .ev-meta {
     display: none;
   }
-  .ev-title {
-    -webkit-line-clamp: 1;
-    line-clamp: 1;
+}
+/* Lav boks (kort aktivitet): kort tittel, så den får plass i høyden når den brytes. */
+@container (max-height: 3.75rem) {
+  .ev-t-full,
+  .ev-t-mid,
+  .ev-t-tiny {
+    display: none;
+  }
+  .ev-t-short {
+    display: inline;
+  }
+}
+@container (max-height: 3.75rem) and (max-width: 3.2rem) {
+  .ev-t-short {
+    display: none;
+  }
+  .ev-t-tiny {
+    display: inline;
+  }
+}
+/* Plass til bare én linje: første ord, og ikonet tas bort. */
+@container (max-height: 2.1rem) {
+  .ev-t-full,
+  .ev-t-mid,
+  .ev-t-short,
+  .ev-t-tiny,
+  .ev-icon {
+    display: none;
+  }
+  .ev-t-one {
+    display: inline;
   }
 }
 .familien-fc .fc-timegrid-more-link {

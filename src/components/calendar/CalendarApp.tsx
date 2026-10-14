@@ -268,7 +268,7 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
               <ChevronRight size={22} aria-hidden />
             </button>
           </div>
-          <h2 className="ml-1 min-w-0 flex-1 truncate font-display text-lg font-bold first-letter:uppercase sm:text-2xl">
+          <h2 className="ml-1 min-w-0 flex-1 wrap-break-word font-display text-lg font-bold first-letter:uppercase sm:text-2xl">
             {viewTitle(view, date)}
             {loading && <span className="ml-2 inline-block h-2.5 w-2.5 animate-ping rounded-full bg-primary align-middle" aria-label="Laster" />}
           </h2>

@@ -5,7 +5,8 @@
  * - full:   tittelen som den er
  * - medium: uten tillegg i parentes og etter tankestrek/kolon («Fotball (bortekamp)» → «Fotball»)
  * - short:  som medium, uten småord, og lange ord forkortet («Foreldremøte på skolen» → «Foreldrem. skolen»)
- * - tiny:   for de aller smaleste boksene: maks to ord, lange ord kuttet til 5 tegn + punktum («Forel. skolen»)
+ * - tiny:   for de aller smaleste boksene: de to første ordene i short («Foreldrem. skolen»). Ord kuttes ikke
+ *           videre – det som ikke får plass brytes over flere linjer.
  *
  * Etter punktum inne i en forkortelse settes et usynlig bryte-punkt, så «Fotb.tren.» brytes som «Fotb.» / «tren.»
  * i stedet for midt i et ord.
@@ -64,22 +65,21 @@ export function shortTitle(title: string): string {
 }
 
 export function tinyTitle(title: string): string {
-  return shortTitle(title)
-    .split(" ")
-    .slice(0, 2)
-    .map((w) => {
-      const firstPart = w.includes(".") && w.indexOf(".") < w.length - 1 ? w.slice(0, w.indexOf(".") + 1) : w;
-      return firstPart.length > 7 ? `${firstPart.slice(0, 5)}.` : firstPart;
-    })
-    .join(" ");
+  return shortTitle(title).split(" ").slice(0, 2).join(" ");
 }
 
-export function titleVariants(title: string): { full: string; medium: string; short: string; tiny: string } {
+/** Bare det første ordet – for bokser med plass til én linje (f.eks. 30 minutter). */
+export function oneWordTitle(title: string): string {
+  return shortTitle(title).split(" ")[0] ?? title;
+}
+
+export function titleVariants(title: string): { full: string; medium: string; short: string; tiny: string; one: string } {
   const full = title.trim();
   return {
     full,
     medium: mediumTitle(full),
     short: breakAfterDots(shortTitle(full)),
     tiny: breakAfterDots(tinyTitle(full)),
+    one: breakAfterDots(oneWordTitle(full)),
   };
 }

@@ -202,7 +202,7 @@ export function ShoppingList({ initial, categories }: Props) {
                   </span>
                   <div className="min-w-0">
                     <h2 className="font-display text-lg font-bold">{t.name}</h2>
-                    <p className="truncate text-sm text-ink-light">
+                    <p className="wrap-break-word text-sm text-ink-light">
                       {t.items.length} varer · {t.items.map((i) => i.name).join(", ")}
                     </p>
                   </div>

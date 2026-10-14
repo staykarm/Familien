@@ -20,11 +20,11 @@ export default async function SettingsPage({ searchParams }: PageProps<"/innstil
   const outlookReturn = typeof params.outlook === "string" ? params.outlook : null;
 
   return (
-    <div className="flex flex-col gap-6">
-      <h1 className="font-display text-2xl font-bold sm:text-3xl lg:text-4xl">Innstillinger</h1>
+    <div className="flex flex-col gap-4">
+      <h1 className="font-display text-xl font-bold sm:text-2xl lg:text-3xl">Innstillinger</h1>
 
       <section className={`${card} flex flex-col gap-3`}>
-        <h2 className="font-display text-xl font-bold">Konto</h2>
+        <h2 className="font-display text-lg font-bold">Konto</h2>
         {AUTH_ENABLED ? (
           <p className="text-ink-light">
             Innlogget som <strong className="text-ink">{session.displayName ?? session.email}</strong>
@@ -45,17 +45,17 @@ export default async function SettingsPage({ searchParams }: PageProps<"/innstil
       </section>
 
       <section className={`${card} flex flex-col gap-3`}>
-        <h2 className="font-display text-xl font-bold">Sted for værvarsel</h2>
+        <h2 className="font-display text-lg font-bold">Sted for værvarsel</h2>
         <WeatherLocationForm current={weatherLocation} />
       </section>
 
       <section id="oda" className={`${card} flex flex-col gap-3`}>
-        <h2 className="font-display text-xl font-bold">🛒 Oda</h2>
+        <h2 className="font-display text-lg font-bold">🛒 Oda</h2>
         <OdaSettings initial={oda} />
       </section>
 
       <section id="outlook" className={`${card} flex flex-col gap-3`}>
-        <h2 className="font-display text-xl font-bold">📅 Outlook-kalender</h2>
+        <h2 className="font-display text-lg font-bold">📅 Outlook-kalender</h2>
         <OutlookSettings initial={outlook} returnStatus={outlookReturn} />
       </section>
     </div>

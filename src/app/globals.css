@@ -46,21 +46,21 @@
 
 /*
  * Responsiv grunnstørrelse: alt i Tailwind er i rem, så tekst, luft og knapper skalerer sammen.
- * Telefon 14px · nettbrett 15px · PC 16px. Store trykkflater (min-h-12) blir fortsatt ≥ 42px på telefon.
+ * Telefon 13px · nettbrett 14px · PC 15px. Strammere oppsett for voksne brukere; trykkflater (min-h-12) blir ca. 40px på telefon.
  */
 html {
-  font-size: 14px;
+  font-size: 13px;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
 @media (min-width: 640px) {
   html {
-    font-size: 15px;
+    font-size: 14px;
   }
 }
 @media (min-width: 1024px) {
   html {
-    font-size: 16px;
+    font-size: 15px;
   }
 }
 
@@ -326,11 +326,11 @@ body {
     display: none;
   }
   .ev-title {
-    font-size: 0.6875rem;
+    font-size: max(0.6875rem, 9.5px);
     line-height: 1.1;
   }
   .ev-meta {
-    font-size: 0.625rem;
+    font-size: max(0.625rem, 9px);
   }
 }
 /* Svært smal (tre side om side i ukevisning på iPad): maks to korte ord. */
@@ -343,7 +343,7 @@ body {
     display: inline;
   }
   .ev-title {
-    font-size: 0.625rem;
+    font-size: max(0.625rem, 9px);
   }
 }
 /* Lav boks (kort aktivitet): tittelen får plassen, klokkeslettet ses av plasseringen. */

@@ -105,7 +105,7 @@ export function NotesApp({ initialNotes, members, activeMemberId, selected: init
   const list = (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="font-display text-2xl font-bold sm:text-3xl lg:text-4xl">Notater</h1>
+        <h1 className="font-display text-xl font-bold sm:text-2xl lg:text-3xl">Notater</h1>
         <div className="flex items-center gap-2">
           <LiveBadge live={live} />
           <button className={`${buttonPrimary} px-4`} onClick={newNote} disabled={pending} aria-label="Nytt notat">
@@ -274,7 +274,7 @@ export function NotesApp({ initialNotes, members, activeMemberId, selected: init
 
   return (
     <>
-      <div className="md:grid md:grid-cols-[minmax(18rem,22rem)_1fr] md:gap-6">
+      <div className="md:grid md:grid-cols-[minmax(18rem,22rem)_1fr] md:gap-4">
         <div className={selected ? "hidden md:block" : ""}>{list}</div>
         {selected ? (
           editorPane

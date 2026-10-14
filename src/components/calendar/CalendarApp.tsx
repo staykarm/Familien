@@ -457,7 +457,7 @@ function DayWeatherStrip({ day, onOpen }: { day: DailyWeather; onOpen: () => voi
     >
       <WeatherIcon code={day.symbolCode} size={44} />
       <span className="flex flex-col leading-tight">
-        <span className="font-display text-xl font-bold">
+        <span className="font-display text-lg font-bold">
           {formatTemp(day.tempMax)} <span className="text-base text-ink-light">/ {formatTemp(day.tempMin)}</span>
         </span>
         <span className="text-sm text-ink-light">

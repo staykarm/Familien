@@ -183,8 +183,8 @@ export function FilesApp({ initialUploads, members, eventCategories, taskCategor
   const busy = progress !== null;
 
   return (
-    <div className="flex flex-col gap-5">
-      <h1 className="font-display text-2xl font-bold sm:text-3xl lg:text-4xl">Les inn fil</h1>
+    <div className="flex flex-col gap-4">
+      <h1 className="font-display text-xl font-bold sm:text-2xl lg:text-3xl">Les inn fil</h1>
 
       <section
         className={`${card} flex flex-col items-center gap-3 border-4 border-dashed py-5 text-center sm:gap-4 sm:py-8 transition ${
@@ -205,7 +205,7 @@ export function FilesApp({ initialUploads, members, eventCategories, taskCategor
         {busy ? (
           <>
             <Sparkles size={48} className="animate-pulse text-primary" aria-hidden />
-            <p className="font-display text-xl font-bold sm:text-2xl">
+            <p className="font-display text-lg font-bold sm:text-2xl">
               {progress.step === "upload" ? "Laster opp …" : "Claude leser dokumentet …"}
             </p>
             <p className="text-ink-light">
@@ -219,7 +219,7 @@ export function FilesApp({ initialUploads, members, eventCategories, taskCategor
               📄
             </span>
             <div>
-              <p className="font-display text-xl font-bold sm:text-2xl">Ukeplan, invitasjon eller skriv?</p>
+              <p className="font-display text-lg font-bold sm:text-2xl">Ukeplan, invitasjon eller skriv?</p>
               <p className="text-ink-light">
                 Ta bilde eller velg en fil (PDF, bilde, Word). Du får forslag til aktiviteter, oppgaver og handleliste – ingenting
                 lagres før du godkjenner.
@@ -251,7 +251,7 @@ export function FilesApp({ initialUploads, members, eventCategories, taskCategor
           <section key={u.id} className={`${card} flex flex-col gap-4`}>
             <div className="flex flex-wrap items-start gap-3">
               <div className="min-w-0 flex-1">
-                <h2 className="wrap-break-word font-display text-xl font-bold">{u.filename}</h2>
+                <h2 className="wrap-break-word font-display text-lg font-bold">{u.filename}</h2>
                 <p className="text-sm text-ink-light">
                   {new Date(u.createdAt).toLocaleString("nb-NO", { timeZone: "Europe/Oslo", dateStyle: "medium", timeStyle: "short" })}
                   {" · "}

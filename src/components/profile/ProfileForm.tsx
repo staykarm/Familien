@@ -57,11 +57,11 @@ export function ProfileForm({ member, avatarUrl }: Props) {
   const unusedSuggestions = SUGGESTED_DETAILS.filter((s) => !details.some((d) => d.label === s));
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <section className={`${card} flex flex-col items-center gap-4 sm:flex-row`}>
         <Avatar name={name} color={color} icon={icon} url={avatarUrl} size={120} />
         <div className="flex flex-col items-center gap-2 sm:items-start">
-          <h1 className="font-display text-2xl font-bold sm:text-3xl lg:text-4xl">{name || member.name}</h1>
+          <h1 className="font-display text-xl font-bold sm:text-2xl lg:text-3xl">{name || member.name}</h1>
           <div className="flex flex-wrap gap-2">
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPickFile} />
             <button type="button" className={buttonSecondary} disabled={uploading} onClick={() => fileRef.current?.click()}>
@@ -80,13 +80,13 @@ export function ProfileForm({ member, avatarUrl }: Props) {
         </div>
       </section>
 
-      <form action={formAction} className="flex flex-col gap-6">
+      <form action={formAction} className="flex flex-col gap-4">
         <input type="hidden" name="id" value={member.id} />
         <input type="hidden" name="color" value={color} />
         <input type="hidden" name="icon" value={icon} />
         <input type="hidden" name="details" value={JSON.stringify(details)} />
 
-        <section className={`${card} flex flex-col gap-5`}>
+        <section className={`${card} flex flex-col gap-4`}>
           <div>
             <label htmlFor="name" className={label}>
               Navn
@@ -146,7 +146,7 @@ export function ProfileForm({ member, avatarUrl }: Props) {
         </section>
 
         <section className={`${card} flex flex-col gap-4`}>
-          <h2 className="font-display text-xl font-bold">{member.isShared ? "Notater" : `Om ${name || member.name}`}</h2>
+          <h2 className="font-display text-lg font-bold">{member.isShared ? "Notater" : `Om ${name || member.name}`}</h2>
           {details.length === 0 && <p className="text-ink-light">Ingen detaljer ennå.</p>}
           {details.map((d, i) => (
             <div key={i} className="flex flex-col gap-2 rounded-2xl bg-card-soft p-3 sm:flex-row sm:items-start">

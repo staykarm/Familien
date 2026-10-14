@@ -67,7 +67,7 @@ export function AppShell({ children, me }: { children: ReactNode; me: ReactNode 
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex items-center justify-between bg-background/90 px-4 pb-1.5 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur md:hidden">
-          <span className="font-display text-xl font-bold text-primary-dark">Familien</span>
+          <span className="font-display text-lg font-bold text-primary-dark">Familien</span>
           <span className="flex items-center gap-0.5">
             {EXTRA.map(({ href, label, icon: Icon }) => (
               <Link
@@ -84,7 +84,7 @@ export function AppShell({ children, me }: { children: ReactNode; me: ReactNode 
             <span className="ml-1">{me}</span>
           </span>
         </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-24 pt-1 md:px-6 md:pb-8 md:pt-5 lg:px-8">{children}</main>
+        <main className="mx-auto w-full max-w-6xl flex-1 px-3 pb-24 pt-1 md:px-5 md:pb-6 md:pt-4 lg:px-6">{children}</main>
       </div>
 
       <nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t-2 border-line bg-card/95 backdrop-blur md:hidden">

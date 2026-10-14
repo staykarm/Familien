@@ -9,6 +9,7 @@ import { ALLOWED_UPLOAD_TYPES, MAX_UPLOAD_BYTES } from "@/lib/ai/extract";
 import { eventSuggestionToForm, taskSuggestionToForm } from "@/lib/ai/map";
 import { eventSuggestionSchema, shoppingSuggestionSchema, taskSuggestionSchema } from "@/lib/ai/schema";
 import type { Suggestion, UploadWithSuggestions } from "@/lib/ai/types";
+import { storagePath } from "@/lib/files/names";
 import { requireFamily } from "@/lib/session";
 import { getDb } from "@/lib/supabase/db";
 
@@ -18,17 +19,6 @@ export interface FileResult {
 }
 
 const uuid = z.uuid();
-
-/** Trygt filnavn i lagringsstien (beholder filendelsen). */
-function safeName(name: string): string {
-  return (
-    name
-      .normalize("NFKD")
-      .replace(/[^\w.-]+/g, "_")
-      .replace(/_+/g, "_")
-      .slice(-80) || "fil"
-  );
-}
 
 /**
  * Steg 1: registrer opplastingen og gi nettleseren en signert URL, slik at filen lastes rett til
@@ -48,7 +38,7 @@ export async function createUpload(input: { filename: string; mime: string; size
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
 
   const { filename, mime, size } = parsed.data;
-  const path = `${new Date().toISOString().slice(0, 7)}/${crypto.randomUUID()}-${safeName(filename)}`;
+  const path = storagePath(filename);
   const db = await getDb();
   const { data: signed, error: signError } = await db.storage.from("uploads").createSignedUploadUrl(path);
   if (signError || !signed) return { ok: false, message: "Kunne ikke starte opplastingen" };

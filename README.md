@@ -163,3 +163,23 @@ Oda har ikke noe hostet MCP-endepunkt, så appen har en egen Oda-klient på serv
 - Forslaget vises for godkjenning: man kan endre antall, velge alternativ eller fjerne linjer. Først ved «Legg i handlekurven» legges varene i Oda-kurven. **Ingenting bestilles.** Man fullfører kjøpet selv i Oda-appen eller på oda.com. Varene kan hukes av på handlelisten samtidig.
 - **Risiko:** Oda har ikke noe offentlig API. Klienten bruker de samme kallene som nettsiden, og kan slutte å virke hvis Oda endrer noe. Da får man en feilmelding, og handlelisten fungerer som før.
 - Krever `ANTHROPIC_API_KEY` og `TOKEN_ENCRYPTION_KEY` i Vercel, og migrasjonene `0011_oda.sql` og `0012_oda_password.sql`.
+
+## Del til appen (skjermbilder, PDF-er, tekst)
+Filer og tekst kan sendes rett til **Les inn fil** fra delingsmenyen på mobilen, uten å gå via filbehandleren. De lastes opp til `/api/del`, og «Les inn fil» åpnes og tolker dem med en gang.
+
+- **Android og PC (Chrome/Edge):** installer appen («Legg til på startskjermen» / «Installer app»). Da står **Familien** i delingsmenyen. Dette er PWA «share_target» i `src/app/manifest.ts`.
+- **iPhone/iPad:** Safari støtter ikke «share_target». Bruk i stedet en snarvei i Snarveier-appen:
+  1. Lag en ny snarvei og kall den **Del til Familien**.
+  2. Under snarveiens innstillinger (ⓘ) slår du på **Vis i delingsark**. Velg typene **Bilder**, **PDF-er** og **Filer**.
+  3. Legg til handlingen **Hent innholdet i URL**:
+     - URL: `https://familien-two.vercel.app/api/del`
+     - Metode: **POST**
+     - Forespørselsinnhold: **Skjema**, med ett felt av typen **Fil**. Navnet skal være `filer`, og verdien **Snarveiinndata**.
+     - Overskrifter: `Accept` = `application/json`
+  4. Legg til **Hent ordbokverdi**. Nøkkel: `url`, fra «Innholdet i URL».
+  5. Legg til **Åpne URL-er**.
+
+  Nå står **Del til Familien** i delingsmenyen, for eksempel på et skjermbilde.
+- Maks ca. 4 MB per deling, fordi det er grensen hos Vercel. Vanlige skjermbilder er godt under det. Er et bilde for stort, kan du legge **Konverter bilde → JPEG** inn i snarveien før opplastingen.
+- Med innlogging på (`AUTH_ENABLED=true`) må snarveien også sende `Authorization: Bearer <SHARE_TOKEN>`. Uten innlogging trengs ikke `SHARE_TOKEN`.
+

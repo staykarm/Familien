@@ -180,8 +180,8 @@ export function NotesApp({ initialNotes, members, activeMemberId, selected: init
                   >
                     <span className="h-10 w-1.5 shrink-0 rounded-full" style={{ background: m?.color ?? "var(--color-line)" }} />
                     <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate font-bold">{n.title || "Nytt notat"}</span>
-                      <span className="truncate text-sm text-ink-light">
+                      <span className="wrap-break-word font-bold">{n.title || "Nytt notat"}</span>
+                      <span className="wrap-break-word text-sm text-ink-light">
                         <span className="font-semibold">{noteTimeLabel(n.updatedAt)}</span>
                         {n.checklist.total > 0 && ` · ☑ ${n.checklist.done}/${n.checklist.total}`}
                         {n.preview ? ` · ${n.preview}` : ""}

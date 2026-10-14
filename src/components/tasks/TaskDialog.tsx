@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { DateTime } from "luxon";
 import { deleteTask, saveTask } from "@/actions/tasks";
+import { autosaveLabel, useAutosave } from "@/components/useAutosave";
 import { Avatar } from "@/components/ui/Avatar";
 import { DeleteButton, Sheet } from "@/components/ui/Sheet";
 import { buttonPrimary, input, label } from "@/components/ui/styles";
@@ -37,7 +38,7 @@ export function draftFromTask(t: Task): TaskDraft {
 const STATUSES: { value: TaskStatus; label: string }[] = [
   { value: "todo", label: "⬜ Å gjøre" },
   { value: "doing", label: "⏳ Pågår" },
-  { value: "done", label: "✅ Ferdig" },
+  { value: "done", label: "✅ Gjort" },
 ];
 
 function quickDates(): { label: string; date: string }[] {
@@ -58,15 +59,51 @@ interface Props {
   categories: CalendarCategory[];
   onClose: () => void;
   onSaved: (message: string, task?: Task, deletedId?: string) => void;
+  /**
+   * Standard: alt lagres automatisk mens man skriver (som iOS Notater), og «Ferdig» lukker.
+   * `explicitSave` gir en vanlig «Legg til»-knapp – brukes for AI-forslag som skal godkjennes.
+   */
+  explicitSave?: boolean;
 }
 
-export function TaskDialog({ draft: initial, members, categories, onClose, onSaved }: Props) {
+export function TaskDialog({ draft: initial, members, categories, onClose, onSaved, explicitSave }: Props) {
   const [draft, setDraft] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pending, startTransition] = useTransition();
-  const isNew = draft.id === null;
   const set = <K extends keyof TaskDraft>(key: K, value: TaskDraft[K]) => setDraft((d) => ({ ...d, [key]: value }));
+
+  // Automatisk lagring: en ny oppgave opprettes når den har fått en tittel, og oppdateres deretter.
+  const autosave = !explicitSave;
+  const [savedId, setSavedId] = useState(initial.id);
+  const idRef = useRef(initial.id);
+  const lastSaved = useRef<Task | undefined>(undefined);
+  const isNew = savedId === null;
+  const canSave = draft.title.trim() !== "" && !(draft.dueTime && !draft.dueDate);
+  const { state: saveState, flush } = useAutosave(
+    draft,
+    async (d) => {
+      const res = await saveTask({ ...d, id: idRef.current });
+      if (!res.ok || !res.task) {
+        setError(res.message ?? "Kunne ikke lagre");
+        return false;
+      }
+      setError(null);
+      idRef.current = res.task.id;
+      setSavedId(res.task.id);
+      lastSaved.current = res.task;
+      return true;
+    },
+    { key: (d) => JSON.stringify({ ...d, id: null }), enabled: autosave && canSave, delay: 600 }
+  );
+
+  /** Lukk: lagre det siste først, og gi oppgaven tilbake til listen. */
+  async function done() {
+    if (!autosave) return onClose();
+    if (canSave) await flush();
+    if (lastSaved.current) onSaved("", lastSaved.current);
+    else onClose();
+  }
 
   function submit() {
     setError(null);
@@ -78,8 +115,8 @@ export function TaskDialog({ draft: initial, members, categories, onClose, onSav
   }
 
   function remove() {
-    if (!draft.id) return;
-    const id = draft.id;
+    const id = idRef.current;
+    if (!id) return;
     startTransition(async () => {
       const res = await deleteTask(id);
       if (res.ok) onSaved(res.message ?? "Slettet", undefined, id);
@@ -89,9 +126,9 @@ export function TaskDialog({ draft: initial, members, categories, onClose, onSav
 
   return (
     <Sheet
-      title={isNew ? "Ny oppgave" : "Endre oppgave"}
-      onClose={onClose}
-      onSubmit={submit}
+      title={isNew ? "Ny oppgave" : "Oppgave"}
+      onClose={() => void done()}
+      onSubmit={() => (autosave ? void done() : submit())}
       footer={
         <>
           {!isNew && (
@@ -104,9 +141,20 @@ export function TaskDialog({ draft: initial, members, categories, onClose, onSav
               label="🗑️ Slett"
             />
           )}
-          <button className={`${buttonPrimary} ml-auto`} disabled={pending}>
-            {pending ? "Lagrer …" : isNew ? "Legg til" : "Lagre"}
-          </button>
+          {autosave ? (
+            <>
+              <span className="ml-auto text-sm font-semibold text-ink-light" aria-live="polite">
+                {autosaveLabel(saveState)}
+              </span>
+              <button className={buttonPrimary} disabled={pending}>
+                Ferdig
+              </button>
+            </>
+          ) : (
+            <button className={`${buttonPrimary} ml-auto`} disabled={pending}>
+              {pending ? "Lagrer …" : "Legg til"}
+            </button>
+          )}
         </>
       }
     >

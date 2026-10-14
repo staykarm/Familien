@@ -270,7 +270,7 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
               <ChevronRight size={22} aria-hidden />
             </button>
           </div>
-          <h2 className="ml-1 min-w-0 flex-1 truncate font-display text-lg font-bold first-letter:uppercase sm:text-2xl">
+          <h2 className="ml-1 min-w-0 flex-1 wrap-break-word font-display text-lg font-bold first-letter:uppercase sm:text-2xl">
             {viewTitle(view, date)}
             {loading && <span className="ml-2 inline-block h-2.5 w-2.5 animate-ping rounded-full bg-primary align-middle" aria-label="Laster" />}
           </h2>
@@ -349,8 +349,14 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
           members={visibleMembers}
           categories={categories}
           onOpen={openExisting}
-          onCreateAt={(memberId, hour) =>
-            setDraft(newDraft({ participantIds: [memberId], startTime: `${String(hour).padStart(2, "0")}:00` }))
+          onCreateAt={(memberId, hour, minute) =>
+            setDraft(
+              newDraft({
+                participantIds: [memberId],
+                startTime: `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`,
+                durationMinutes: 60,
+              })
+            )
           }
         />
       ) : showPersonView && view === "week" ? (
@@ -386,7 +392,7 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
 
       {!loading && visibleEvents.length === 0 && (
         <p className="text-center text-ink-light">
-          Ingenting planlagt her ennå. Trykk på <strong>Ny</strong> eller i kalenderen for å legge til.
+          Ingenting planlagt her ennå. Trykk på et tidspunkt i kalenderen, eller på <strong>+</strong>, for å legge til.
         </p>
       )}
 

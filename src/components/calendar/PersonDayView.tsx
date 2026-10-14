@@ -19,7 +19,7 @@ interface Props {
   events: CalendarEvent[];
   members: CalendarMember[];
   categories: CalendarCategory[];
-  onCreateAt: (memberId: string, hour: number) => void;
+  onCreateAt: (memberId: string, hour: number, minute: number) => void;
   onOpen: (id: string) => void;
 }
 
@@ -102,7 +102,11 @@ export function PersonDayView({ date, events, members, categories, onCreateAt, o
                 <button
                   key={h}
                   aria-label={`Ny aktivitet for ${m.name} kl. ${h}`}
-                  onClick={() => onCreateAt(m.id, h)}
+                  // Øvre halvdel av timen gir hel time, nedre halvdel halv time.
+                  onClick={(ev) => {
+                    const rect = ev.currentTarget.getBoundingClientRect();
+                    onCreateAt(m.id, h, ev.clientY - rect.top >= rect.height / 2 ? 30 : 0);
+                  }}
                   className="absolute inset-x-0 border-t border-line/70 hover:bg-primary-soft/40"
                   style={{ top: i * HOUR_PX, height: HOUR_PX }}
                 />

@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element -- små statiske SVG-er fra public/weather */
 import { symbolLabel, symbolUrl } from "@/lib/weather/symbols";
-import type { DailyWeather } from "@/lib/weather/yr";
+import type { DailyWeather, HourlyWeather } from "@/lib/weather/yr";
 
 export function WeatherIcon({ code, size = 28 }: { code: string | null; size?: number }) {
   if (!code) return null;
@@ -36,6 +36,19 @@ export function WeatherBadge({ day, size = 24, onClick }: { day: DailyWeather; s
     >
       {content}
     </button>
+  );
+}
+
+/** Lite symbol + temperatur for én time, til timeaksen i kalenderen. */
+export function HourWeather({ hour, stacked }: { hour: HourlyWeather; stacked?: boolean }) {
+  const warm = (hour.temp ?? 0) > 0;
+  return (
+    <span className={`inline-flex items-center ${stacked ? "flex-col gap-0" : "gap-0.5"}`}>
+      <WeatherIcon code={hour.symbolCode} size={14} />
+      <span className={`text-[9px] font-extrabold leading-none tabular-nums ${warm ? "text-[#c60000]" : "text-[#0062ba]"}`}>
+        {formatTemp(hour.temp)}
+      </span>
+    </span>
   );
 }
 

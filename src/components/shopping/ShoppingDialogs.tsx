@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { autosaveLabel, useAutosave } from "@/components/useAutosave";
 import { Plus, Trash2 } from "lucide-react";
 import { deleteItem, deleteTemplate, saveTemplate, updateItem } from "@/actions/shopping";
 import { DeleteButton, Sheet } from "@/components/ui/Sheet";
@@ -43,12 +44,11 @@ function CategoryPicker({
 export function ItemDialog({
   item,
   categories,
-  onClose,
   onDone,
 }: {
   item: ShoppingItem;
   categories: CalendarCategory[];
-  onClose: () => void;
+  /** Kalles når dialogen lukkes (etter at siste endring er lagret), eller når varen er fjernet. */
   onDone: (message?: string) => void;
 }) {
   const [name, setName] = useState(item.name);
@@ -57,17 +57,27 @@ export function ItemDialog({
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
+  // Endringer lagres mens man skriver; «Ferdig» lukker.
+  const { state: saveState, flush } = useAutosave(
+    { name, quantity, categoryId },
+    async (v) => {
+      const res = await updateItem({ id: item.id, ...v });
+      setError(res.ok ? null : (res.message ?? "Kunne ikke lagre"));
+      return res.ok;
+    },
+    { enabled: name.trim() !== "", delay: 500 }
+  );
+
+  async function done() {
+    if (name.trim()) await flush();
+    onDone();
+  }
+
   return (
     <Sheet
-      title="Endre vare"
-      onClose={onClose}
-      onSubmit={() =>
-        start(async () => {
-          const res = await updateItem({ id: item.id, name, quantity, categoryId });
-          if (res.ok) onDone(res.message);
-          else setError(res.message ?? "Noe gikk galt");
-        })
-      }
+      title="Vare"
+      onClose={() => void done()}
+      onSubmit={() => void done()}
       footer={
         <>
           <button
@@ -84,8 +94,11 @@ export function ItemDialog({
           >
             <Trash2 size={20} aria-hidden /> Fjern
           </button>
-          <button className={`${buttonPrimary} ml-auto`} disabled={pending}>
-            Lagre
+          <span className="ml-auto text-sm font-semibold text-ink-light" aria-live="polite">
+            {autosaveLabel(saveState)}
+          </span>
+          <button className={buttonPrimary} disabled={pending}>
+            Ferdig
           </button>
         </>
       }

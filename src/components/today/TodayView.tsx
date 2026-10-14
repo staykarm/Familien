@@ -5,6 +5,7 @@ import Link from "next/link";
 import { DateTime } from "luxon";
 import { Check, ChevronRight } from "lucide-react";
 import { setTaskStatus } from "@/actions/tasks";
+import { CareBadge } from "@/components/care/CareBadge";
 import { Avatar } from "@/components/ui/Avatar";
 import { card } from "@/components/ui/styles";
 import {
@@ -19,6 +20,7 @@ import type {
   CalendarEvent,
   CalendarMember,
 } from "@/lib/calendar/types";
+import { planForDate, type CarePlanDay } from "@/lib/care/plan";
 import type { Task } from "@/lib/tasks/types";
 import { TIME_ZONE } from "@/lib/time";
 import { symbolLabel } from "@/lib/weather/symbols";
@@ -34,6 +36,7 @@ interface Props {
   tasks: Task[];
   shopping: string[];
   weather: Forecast | null;
+  carePlans?: CarePlanDay[];
 }
 
 const hhmm = (iso: string) =>
@@ -59,6 +62,7 @@ export function TodayView({
   tasks: initialTasks,
   shopping,
   weather,
+  carePlans = [],
 }: Props) {
   const [tasks, setTasks] = useState(initialTasks);
   const [toast, setToast] = useState<string | null>(null);
@@ -149,6 +153,7 @@ export function TodayView({
           members={members}
           categories={categories}
           events={events}
+          carePlans={carePlans}
         />
         <DaySection
           label="I morgen"
@@ -156,6 +161,7 @@ export function TodayView({
           members={members}
           categories={categories}
           events={events}
+          carePlans={carePlans}
         />
 
         <section className={`${card} flex flex-col gap-2`}>
@@ -265,12 +271,14 @@ function DaySection({
   members,
   categories,
   events,
+  carePlans,
 }: {
   label: string;
   day: string;
   members: CalendarMember[];
   categories: CalendarCategory[];
   events: CalendarEvent[];
+  carePlans: CarePlanDay[];
 }) {
   const onDay = events
     .filter((e) => touchesDay(e, day))
@@ -282,8 +290,9 @@ function DaySection({
     .map((m) => ({
       m,
       list: onDay.filter((e) => e.participantIds.includes(m.id)),
+      plan: planForDate(carePlans, m.id, day),
     }))
-    .filter((p) => p.list.length);
+    .filter((p) => p.list.length || p.plan);
 
   return (
     <section className={`${card} flex flex-col gap-3`}>
@@ -302,7 +311,7 @@ function DaySection({
         <p className="text-ink-light">Ingenting i kalenderen.</p>
       ) : (
         <ul className="flex flex-col gap-3">
-          {people.map(({ m, list }) => (
+          {people.map(({ m, list, plan }) => (
             <li key={m.id} className="flex gap-3">
               <Avatar
                 name={m.name}
@@ -315,6 +324,11 @@ function DaySection({
                 <p className="text-sm font-bold" style={{ color: m.color }}>
                   {m.name}
                 </p>
+                {plan && (
+                  <div className="my-0.5 w-fit max-w-full">
+                    <CareBadge plan={plan} members={members} />
+                  </div>
+                )}
                 <ul className="flex flex-col gap-0.5">
                   {list.map((e) => {
                     const cat = categories.find((c) => c.id === e.categoryId);

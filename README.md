@@ -18,6 +18,7 @@ Familieapp for planlegging for Ingvild, Marius, Edvard og Olav (+ Felles): kalen
 | 7 | Filinnlesning med forslag (Claude API) | ✅ |
 | 8 | Oda-handlekurv med Claude-agent | ✅ |
 | 9 | «I dag»-oversikt og «Angre» i stedet for «Er du sikker?» | ✅ |
+| 10 | Handlemodus i butikken, butikkrekkefølge, og levering/henting i barnehagen | ✅ |
 
 ## Kom i gang lokalt
 

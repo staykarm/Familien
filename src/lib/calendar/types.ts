@@ -1,3 +1,5 @@
+import type { RecurrenceRule } from "./recurrence";
+
 /** Aktivitet slik kalenderen i nettleseren får den. Tidspunkt er ISO i UTC. */
 export interface CalendarEvent {
   id: string;
@@ -15,6 +17,9 @@ export interface CalendarEvent {
   syncError?: string | null;
   /** Outlook sin versjon når aktiviteten er endret begge steder. */
   conflict?: { title: string; start: string; end: string; allDay: boolean } | null;
+  /** Satt når aktiviteten er en del av en gjentakende serie. */
+  seriesId?: string | null;
+  recurrence?: RecurrenceRule | null;
   /** Satt for oppgaver med frist som vises i kalenderen. id er da «task:<oppgave-id>». */
   kind?: "task";
   done?: boolean;

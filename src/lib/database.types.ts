@@ -98,6 +98,7 @@ export type Database = {
           sync_error: string | null;
           outlook_conflict: Json | null;
           outlook_synced_hash: string | null;
+          series_id: string | null;
         };
         Insert: {
           id?: string;
@@ -119,8 +120,29 @@ export type Database = {
           sync_error?: string | null;
           outlook_conflict?: Json | null;
           outlook_synced_hash?: string | null;
+          series_id?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["events"]["Insert"]>;
+        Relationships: [];
+      };
+      event_series: {
+        Row: {
+          id: string;
+          freq: "daily" | "weekly" | "monthly";
+          interval: number;
+          weekdays: number[];
+          until: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          freq: "daily" | "weekly" | "monthly";
+          interval?: number;
+          weekdays?: number[];
+          until: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["event_series"]["Insert"]>;
         Relationships: [];
       };
       event_participants: {
@@ -359,6 +381,26 @@ export type Database = {
           p_title: string;
           p_start_at: string;
           p_end_at: string;
+          p_all_day: boolean;
+          p_location: string | null;
+          p_notes: string | null;
+          p_category_id: string | null;
+          p_participants: string[];
+        };
+        Returns: string;
+      };
+      save_event_series: {
+        Args: {
+          p_series_id: string | null;
+          p_freq: "daily" | "weekly" | "monthly";
+          p_interval: number;
+          p_weekdays: number[];
+          p_until: string;
+          p_replace_from: string | null;
+          p_replace_event: string | null;
+          p_title: string;
+          p_starts: string[];
+          p_ends: string[];
           p_all_day: boolean;
           p_location: string | null;
           p_notes: string | null;

@@ -218,6 +218,8 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
       endDate: e.allDay ? allDayLastDay(e.end) : s.date,
       location: e.location ?? "",
       notes: e.notes ?? "",
+      recurrence: e.recurrence ?? null,
+      seriesId: e.seriesId ?? null,
     });
   }
 

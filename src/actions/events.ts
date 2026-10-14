@@ -265,8 +265,15 @@ export async function deleteEvent(id: string, scope: "one" | "following" | "all"
 
   // Myk sletting først, så det kan angres. Etter fristen slettes de for godt (og i Outlook), se finalizeDeletes.
   const ids = rows.map((r) => r.id);
-  const { error } = await db.from("events").update({ deleted_at: new Date().toISOString() }).in("id", ids);
-  if (error) return { ok: false, message: "Kunne ikke slette aktiviteten" };
+  const now = new Date().toISOString();
+  // De som er i Outlook merkes «venter», så synken uansett fjerner dem der etter fristen (også om finalizeDeletes ikke rekker det).
+  const inOutlook = rows.filter((r) => r.outlook_id).map((r) => r.id);
+  const local = rows.filter((r) => !r.outlook_id).map((r) => r.id);
+  const results = await Promise.all([
+    inOutlook.length ? db.from("events").update({ deleted_at: now, sync_status: "pending" }).in("id", inOutlook) : null,
+    local.length ? db.from("events").update({ deleted_at: now }).in("id", local) : null,
+  ]);
+  if (results.some((r) => r?.error)) return { ok: false, message: "Kunne ikke slette aktiviteten" };
   finalizeDeletes(ids);
   await broadcastChange(CALENDAR_TOPIC);
   revalidatePath("/");
@@ -285,10 +292,7 @@ function finalizeDeletes(ids: string[]) {
     const still = (data ?? []).filter((r) => r.deleted_at);
     const local = still.filter((r) => !r.outlook_id).map((r) => r.id);
     if (local.length) await db.from("events").delete().in("id", local);
-    for (const r of still.filter((x) => x.outlook_id)) {
-      await db.from("events").update({ sync_status: "pending" }).eq("id", r.id);
-      await pushEvent(r.id);
-    }
+    for (const r of still.filter((x) => x.outlook_id)) await pushEvent(r.id);
   });
 }
 

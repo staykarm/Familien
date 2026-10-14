@@ -9,6 +9,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { DeleteButton, Sheet } from "@/components/ui/Sheet";
 import { buttonGhost, buttonPrimary, buttonSecondary, input, label } from "@/components/ui/styles";
 import { formatDuration, osloDate } from "@/lib/calendar/dates";
+import { membersInTitle } from "@/lib/calendar/names";
 import { describeRule, occurrenceDates, sameRule, untilChristmas, untilSummer, WEEKDAYS, type RecurrenceRule } from "@/lib/calendar/recurrence";
 import type { CalendarCategory, CalendarEvent, CalendarMember } from "@/lib/calendar/types";
 import { TIME_ZONE } from "@/lib/time";
@@ -91,6 +92,8 @@ export function EventDialog({ draft: initial, sync, members, categories, onClose
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [askScope, setAskScope] = useState(false);
+  // Har brukeren valgt deltakere selv? Hvis ikke, følger de navn i tittelen («Trening Olav» → Olav).
+  const [peopleTouched, setPeopleTouched] = useState(false);
   const [pending, startTransition] = useTransition();
   const isNew = draft.id === null;
   const inSeries = !!draft.seriesId;
@@ -115,7 +118,14 @@ export function EventDialog({ draft: initial, sync, members, categories, onClose
   const set = <K extends keyof EventDraft>(key: K, value: EventDraft[K]) => setDraft((d) => ({ ...d, [key]: value }));
   const endTime = useMemo(() => endTimeOf(draft.startTime, draft.durationMinutes), [draft.startTime, draft.durationMinutes]);
 
+  function changeTitle(title: string) {
+    if (!isNew || peopleTouched) return set("title", title);
+    const named = membersInTitle(title, members);
+    setDraft((d) => ({ ...d, title, participantIds: named.length ? named : initial.participantIds }));
+  }
+
   function toggleParticipant(id: string) {
+    setPeopleTouched(true);
     set(
       "participantIds",
       draft.participantIds.includes(id) ? draft.participantIds.filter((p) => p !== id) : [...draft.participantIds, id]
@@ -256,7 +266,7 @@ export function EventDialog({ draft: initial, sync, members, categories, onClose
         <input
           id="ev-title"
           value={draft.title}
-          onChange={(e) => set("title", e.target.value)}
+          onChange={(e) => changeTitle(e.target.value)}
           placeholder="F.eks. Fotballtrening"
           className={`${input} text-lg font-bold`}
           autoFocus={isNew}

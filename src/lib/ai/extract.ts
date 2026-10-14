@@ -24,6 +24,8 @@ export interface FamilyContext {
   eventCategories: string[];
   /** Det tolkningen skal lære av (se learning.ts): vaner fra kalenderen og tidligere rettelser. */
   learning?: { habits: string[]; corrections: string[] };
+  /** Valgt av brukeren: alt i filen gjelder disse. */
+  appliesTo?: string[];
 }
 
 function systemPrompt(ctx: FamilyContext, now: Date): string {
@@ -55,7 +57,6 @@ Slik vurderer du innholdet:
 - Ta ikke med ting som allerede har skjedd, og ikke dikt opp noe som ikke står i dokumentet. Hopp heller over noe enn å gjette dato.
 - Unngå duplikater: samme ting skal ikke være både aktivitet og oppgave. Generelle beskjeder uten handling tas ikke med.
 - Skriv titler korte og vennlige på norsk, uten personnavn i tittelen (deltakere settes i eget felt).
-- Kategori velges fra listen hvis en passer.${learning ? `\n\n${learning}` : ""}`;
 }
 
 async function fileContent(data: Buffer, mime: string, filename: string): Promise<Anthropic.Beta.BetaContentBlockParam[]> {

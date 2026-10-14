@@ -31,6 +31,7 @@ Arkitektur og faser står i README. Marius godkjenner hver fase før den startes
 - Gjentakende aktiviteter lagres som én aktivitet per gang, samlet i `event_series` (`series_id` på `events`). Datoene regnes ut i `lib/calendar/recurrence.ts`, med Oslo-klokkeslett per dato (riktig over sommertid). Outlook får vanlige enkelthendelser. Lagring av en hel serie skjer i én transaksjon via `save_event_series`.
 
 ## Les inn fil
+- Brukeren kan velge hvem alt i en fil gjelder (`uploads.member_ids`), før opplasting eller etterpå. Valget sendes til Claude og legges på alle ventende forslag med `applyPeople` (`lib/ai/map.ts`).
 - Tolkningen lærer av familien: vaner fra kalenderen (hvem og kategori per tittel) og rettelser/avvisninger av tidligere forslag legges i prompten (`lib/ai/learning.ts`, hentes i `lib/ai/learningDb.ts`). Ingen egen tabell – det utledes av `events` og `suggestions`.
 
 ## Lagring

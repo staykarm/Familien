@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Json } from "@/lib/database.types";
 import { ExtractionError, extractSuggestions } from "@/lib/ai/extract";
 import { loadLearning } from "@/lib/ai/learningDb";
+import { applyPeople } from "@/lib/ai/map";
 import { requireFamily } from "@/lib/session";
 import { getDb } from "@/lib/supabase/db";
 import { parseDetails } from "@/lib/validation/profile";
@@ -19,7 +20,7 @@ export async function POST(_req: Request, ctx: RouteContext<"/api/uploads/[id]/a
   const db = await getDb();
   const { data: upload } = await db
     .from("uploads")
-    .select("id, storage_path, filename, mime, status, analyzed_at")
+    .select("id, storage_path, filename, mime, status, analyzed_at, member_ids")
     .eq("id", id)
     .maybeSingle();
   if (!upload) return NextResponse.json({ ok: false, message: "Fant ikke filen" }, { status: 404 });
@@ -44,14 +45,18 @@ export async function POST(_req: Request, ctx: RouteContext<"/api/uploads/[id]/a
       db.from("categories").select("name").eq("scope", "event").order("sort_order"),
       loadLearning(db, session.members),
     ]);
-    const result = await extractSuggestions(
+    // Valgt «Gjelder»: navnene i medlemsrekkefølge.
+    const appliesTo = session.members.filter((m) => (upload.member_ids ?? []).includes(m.id)).map((m) => m.name);
+    const extracted = await extractSuggestions(
       { data: Buffer.from(await blob.arrayBuffer()), mime: upload.mime, filename: upload.filename },
       {
         members: session.members.map((m) => ({ name: m.name, isShared: m.is_shared, details: parseDetails(m.details) })),
         eventCategories: (categories ?? []).map((c) => c.name),
         learning,
+        appliesTo,
       }
     );
+    const result = { ...extracted, ...applyPeople(extracted, appliesTo) };
 
     // Tolk på nytt = erstatt ventende forslag; godkjente/avviste beholdes.
     await db.from("suggestions").delete().eq("upload_id", id).eq("status", "pending");

@@ -84,9 +84,9 @@ export function ShoppingList({ initial, categories }: Props) {
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-2xl font-bold sm:text-3xl lg:text-4xl">Handleliste</h1>
+        <h1 className="font-display text-xl font-bold sm:text-2xl lg:text-3xl">Handleliste</h1>
         <LiveBadge live={live} />
       </div>
 
@@ -201,7 +201,7 @@ export function ShoppingList({ initial, categories }: Props) {
                     {t.icon}
                   </span>
                   <div className="min-w-0">
-                    <h2 className="font-display text-xl font-bold">{t.name}</h2>
+                    <h2 className="font-display text-lg font-bold">{t.name}</h2>
                     <p className="truncate text-sm text-ink-light">
                       {t.items.length} varer · {t.items.map((i) => i.name).join(", ")}
                     </p>

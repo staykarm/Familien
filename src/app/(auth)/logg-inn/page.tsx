@@ -17,7 +17,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/logg-inn">
     <main className="flex flex-1 items-center justify-center p-4">
       <div className={`${card} flex w-full max-w-md flex-col items-center gap-2 p-8`}>
         <div className="h-20 w-20 overflow-hidden rounded-3xl">{appIconElement(80)}</div>
-        <h1 className="font-display text-2xl font-bold sm:text-3xl lg:text-4xl text-primary-dark">Familien</h1>
+        <h1 className="font-display text-xl font-bold sm:text-2xl lg:text-3xl text-primary-dark">Familien</h1>
         <p className="mb-4 text-center text-ink-light">Kalender, oppgaver og handleliste for hele familien</p>
         {failed && (
           <p className="mb-2 w-full rounded-2xl bg-primary-soft p-3 text-center font-semibold">

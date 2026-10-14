@@ -96,9 +96,9 @@ export function TaskBoard({ initialTasks, members, categories, activeMemberId }:
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-2xl font-bold sm:text-3xl lg:text-4xl">Oppgaver</h1>
+        <h1 className="font-display text-xl font-bold sm:text-2xl lg:text-3xl">Oppgaver</h1>
         <button className={buttonPrimary} onClick={() => setDraft(newDraft())}>
           <Plus size={22} aria-hidden /> Ny oppgave
         </button>
@@ -176,7 +176,7 @@ export function TaskBoard({ initialTasks, members, categories, activeMemberId }:
         }
         return (
           <section key={group.key} className="flex flex-col gap-2">
-            <h2 className={`font-display text-xl font-bold ${group.key === "overdue" ? "text-danger" : ""}`}>
+            <h2 className={`font-display text-lg font-bold ${group.key === "overdue" ? "text-danger" : ""}`}>
               {group.title} <span className="text-base font-semibold text-ink-faint">{group.tasks.length}</span>
             </h2>
             <ul className="flex flex-col gap-2">

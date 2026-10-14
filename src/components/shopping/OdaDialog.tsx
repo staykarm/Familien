@@ -202,7 +202,7 @@ export function OdaDialog({ openCount, templates, initialTemplateId, onClose, on
       {step === "working" && (
         <div className="flex flex-col items-center gap-3 py-8 text-center">
           <Sparkles size={44} className="animate-pulse text-primary" aria-hidden />
-          <p className="font-display text-xl font-bold">Claude finner varene hos Oda …</p>
+          <p className="font-display text-lg font-bold">Claude finner varene hos Oda …</p>
           <p className="text-ink-light">Søker og sammenligner med det dere pleier å kjøpe. Tar gjerne et halvt minutt.</p>
         </div>
       )}
@@ -307,7 +307,7 @@ export function OdaDialog({ openCount, templates, initialTemplateId, onClose, on
           <span className="text-5xl" aria-hidden>
             🛒
           </span>
-          <p className="font-display text-xl font-bold">{result}</p>
+          <p className="font-display text-lg font-bold">{result}</p>
           <p className="text-ink-light">Velg levering og fullfør bestillingen i Oda-appen eller på oda.com.</p>
         </div>
       )}

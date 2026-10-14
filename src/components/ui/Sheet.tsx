@@ -36,14 +36,14 @@ export function Sheet({ title, onClose, onSubmit, children, footer }: SheetProps
         className="pb-safe flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-card shadow-xl sm:rounded-3xl"
       >
         <header className="flex items-center justify-between border-b-2 border-line px-5 py-3">
-          <h2 id={titleId} className="font-display text-xl font-bold sm:text-2xl">
+          <h2 id={titleId} className="font-display text-lg font-bold sm:text-2xl">
             {title}
           </h2>
           <button type="button" onClick={onClose} className={buttonGhost} aria-label="Lukk">
             <X size={24} aria-hidden />
           </button>
         </header>
-        <div className="flex flex-col gap-5 overflow-y-auto px-5 py-4">{children}</div>
+        <div className="flex flex-col gap-4 overflow-y-auto px-5 py-4">{children}</div>
         <footer className="flex flex-wrap items-center gap-3 border-t-2 border-line px-5 py-3">{footer}</footer>
       </form>
     </div>

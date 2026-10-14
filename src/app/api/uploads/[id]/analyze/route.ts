@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import type { Json } from "@/lib/database.types";
 import { ExtractionError, extractSuggestions } from "@/lib/ai/extract";
+import { loadLearning } from "@/lib/ai/learningDb";
 import { requireFamily } from "@/lib/session";
 import { getDb } from "@/lib/supabase/db";
 import { parseDetails } from "@/lib/validation/profile";
@@ -39,12 +40,16 @@ export async function POST(_req: Request, ctx: RouteContext<"/api/uploads/[id]/a
     const { data: blob, error } = await db.storage.from("uploads").download(upload.storage_path);
     if (error || !blob) return fail("Fant ikke filen i lagringen. Prøv å laste den opp på nytt.");
 
-    const { data: categories } = await db.from("categories").select("name").eq("scope", "event").order("sort_order");
+    const [{ data: categories }, learning] = await Promise.all([
+      db.from("categories").select("name").eq("scope", "event").order("sort_order"),
+      loadLearning(db, session.members),
+    ]);
     const result = await extractSuggestions(
       { data: Buffer.from(await blob.arrayBuffer()), mime: upload.mime, filename: upload.filename },
       {
         members: session.members.map((m) => ({ name: m.name, isShared: m.is_shared, details: parseDetails(m.details) })),
         eventCategories: (categories ?? []).map((c) => c.name),
+        learning,
       }
     );
 

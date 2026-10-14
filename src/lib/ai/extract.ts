@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { DateTime } from "luxon";
 import mammoth from "mammoth";
+import { learningPrompt } from "./learning";
 import { serverEnv } from "@/lib/env";
 import { TIME_ZONE } from "@/lib/time";
 import { buildExtractionSchema } from "./schema";
@@ -21,9 +22,12 @@ export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 export interface FamilyContext {
   members: { name: string; isShared: boolean; details: { label: string; value: string }[] }[];
   eventCategories: string[];
+  /** Det tolkningen skal lære av (se learning.ts): vaner fra kalenderen og tidligere rettelser. */
+  learning?: { habits: string[]; corrections: string[] };
 }
 
 function systemPrompt(ctx: FamilyContext, now: Date): string {
+  const learning = learningPrompt(ctx.learning?.habits ?? [], ctx.learning?.corrections ?? []);
   const today = DateTime.fromJSDate(now).setZone(TIME_ZONE).setLocale("nb");
   const people = ctx.members
     .filter((m) => !m.isShared)
@@ -51,7 +55,7 @@ Slik vurderer du innholdet:
 - Ta ikke med ting som allerede har skjedd, og ikke dikt opp noe som ikke står i dokumentet. Hopp heller over noe enn å gjette dato.
 - Unngå duplikater: samme ting skal ikke være både aktivitet og oppgave. Generelle beskjeder uten handling tas ikke med.
 - Skriv titler korte og vennlige på norsk, uten personnavn i tittelen (deltakere settes i eget felt).
-- Kategori velges fra listen hvis en passer.`;
+- Kategori velges fra listen hvis en passer.${learning ? `\n\n${learning}` : ""}`;
 }
 
 async function fileContent(data: Buffer, mime: string, filename: string): Promise<Anthropic.Beta.BetaContentBlockParam[]> {

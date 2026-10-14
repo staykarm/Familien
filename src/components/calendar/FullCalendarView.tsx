@@ -9,8 +9,8 @@ import luxonPlugin from "@fullcalendar/luxon3";
 import nbLocale from "@fullcalendar/core/locales/nb";
 import type { DayCellContentArg, DayHeaderContentArg, EventContentArg, EventInput } from "@fullcalendar/core";
 import { DateTime } from "luxon";
-import { WeatherBadge } from "@/components/weather/WeatherBadge";
-import type { DailyWeather } from "@/lib/weather/yr";
+import { HourWeather, WeatherBadge } from "@/components/weather/WeatherBadge";
+import type { DailyWeather, HourlyWeather } from "@/lib/weather/yr";
 import { eventColor, tint } from "@/lib/calendar/colors";
 import type { CalendarViewKind } from "@/lib/calendar/dates";
 import type { CalendarCategory, CalendarEvent, CalendarMember } from "@/lib/calendar/types";
@@ -37,12 +37,14 @@ interface Props {
   onDayClick: (date: string) => void;
   weather: Record<string, DailyWeather>;
   onWeather: (date: string) => void;
+  /** Været time for time for dagen som vises (bare dagvisning). */
+  hourly?: Record<number, HourlyWeather>;
 }
 
 const osloIsoDate = (d: Date) => DateTime.fromJSDate(d).setZone(TIME_ZONE).toISODate()!;
 
 /** Vanlig dag-/uke-/månedsvisning med FullCalendar (gratisversjonen). */
-export function FullCalendarView({ view, date, events, members, categories, onCreate, onOpen, onMove, onDayClick, weather, onWeather }: Props) {
+export function FullCalendarView({ view, date, events, members, categories, onCreate, onOpen, onMove, onDayClick, weather, onWeather, hourly = {} }: Props) {
   const ref = useRef<FullCalendar>(null);
 
   // Navigasjonen styres av appen (egne knapper), ikke av FullCalendar sin verktøylinje.
@@ -155,6 +157,17 @@ export function FullCalendarView({ view, date, events, members, categories, onCr
         slotMaxTime="24:00:00"
         slotDuration="00:30:00"
         slotLabelFormat={{ hour: "2-digit", minute: "2-digit", hour12: false }}
+        // Dagvisning: lite værsymbol og temperatur ved hver hele time.
+        slotLabelContent={(arg) => {
+          const hour = view === "day" ? DateTime.fromJSDate(arg.date).setZone(TIME_ZONE) : null;
+          const w = hour && hour.minute === 0 ? hourly[hour.hour] : undefined;
+          return (
+            <span className="inline-flex items-center gap-1">
+              <span>{arg.text}</span>
+              {w && <HourWeather hour={w} />}
+            </span>
+          );
+        }}
         eventTimeFormat={{ hour: "2-digit", minute: "2-digit", hour12: false }}
         dayHeaderFormat={view === "month" ? { weekday: "short" } : { weekday: "short", day: "numeric" }}
         allDayText="Hele dagen"

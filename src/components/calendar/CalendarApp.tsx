@@ -11,6 +11,7 @@ import { formatTemp, WeatherIcon, YrCredit } from "@/components/weather/WeatherB
 import { WeatherDialog } from "@/components/weather/WeatherDialog";
 import { symbolLabel } from "@/lib/weather/symbols";
 import type { DailyWeather } from "@/lib/weather/yr";
+import { hourlyForDate } from "@/lib/weather/hourly";
 import { TaskDialog, draftFromTask, type TaskDraft } from "@/components/tasks/TaskDialog";
 import { Avatar } from "@/components/ui/Avatar";
 import { useRealtimeRefresh } from "@/components/useRealtimeRefresh";
@@ -152,6 +153,7 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
     for (const d of weather?.forecast?.daily ?? []) map[d.date] = d;
     return map;
   }, [weather]);
+  const hourlyToday = useMemo(() => hourlyForDate(weather?.forecast?.hourly ?? [], date), [weather, date]);
 
   useEffect(() => {
     if (!toast) return;
@@ -350,6 +352,7 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
           members={visibleMembers}
           categories={categories}
           onOpen={openExisting}
+          hourly={hourlyToday}
           onCreateAt={(memberId, hour, minute) =>
             setDraft(
               newDraft({
@@ -387,6 +390,7 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
             onDayClick={goToDay}
             weather={weatherByDate}
             onWeather={setWeatherDate}
+            hourly={hourlyToday}
           />
         </div>
       )}

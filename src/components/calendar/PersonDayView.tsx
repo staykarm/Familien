@@ -6,6 +6,8 @@ import { tint } from "@/lib/calendar/colors";
 import { minutesIntoDay, utcToOsloParts } from "@/lib/calendar/dates";
 import { layoutLanes } from "@/lib/calendar/layout";
 import type { CalendarCategory, CalendarEvent, CalendarMember } from "@/lib/calendar/types";
+import { HourWeather } from "@/components/weather/WeatherBadge";
+import type { HourlyWeather } from "@/lib/weather/yr";
 import { EventChipContent } from "./EventChip";
 import { FIT_FIRST_HOUR, FIT_HOURS, usePhoneDayFit } from "./usePhoneDayFit";
 
@@ -22,10 +24,12 @@ interface Props {
   categories: CalendarCategory[];
   onCreateAt: (memberId: string, hour: number, minute: number) => void;
   onOpen: (id: string) => void;
+  /** Været time for time denne dagen (vises ved timeaksen). */
+  hourly?: Record<number, HourlyWeather>;
 }
 
 /** Én tidskolonne per familiemedlem (+ Felles) for én dag. */
-export function PersonDayView({ date, events, members, categories, onCreateAt, onOpen }: Props) {
+export function PersonDayView({ date, events, members, categories, onCreateAt, onOpen, hourly = {} }: Props) {
   const timed = events.filter((e) => !e.allDay);
   const allDay = events.filter((e) => e.allDay);
 
@@ -124,6 +128,11 @@ export function PersonDayView({ date, events, members, categories, onCreateAt, o
               <span className={`absolute right-1 tabular-nums ${i === 0 ? "top-0.5" : "-top-2"}`}>
                 {String(h).padStart(2, "0")}
               </span>
+              {hourly[h] && (
+                <span className={`absolute inset-x-0 flex justify-end pr-0.5 ${i === 0 ? "top-4" : "top-2"}`}>
+                  <HourWeather hour={hourly[h]} stacked />
+                </span>
+              )}
             </div>
           ))}
         </div>

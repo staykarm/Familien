@@ -154,7 +154,8 @@ body {
   text-align: center;
 }
 .familien-fc .fc-timegrid-slot {
-  height: 1.75rem;
+  /* --fc-slot-h settes på telefon i dagvisning, slik at 08–20 får plass (usePhoneDayFit). */
+  height: var(--fc-slot-h, 1.75rem);
 }
 .familien-fc .fc-timegrid-slot-label-cushion,
 .familien-fc .fc-timegrid-axis-cushion {

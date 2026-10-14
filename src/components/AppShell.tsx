@@ -87,7 +87,7 @@ export function AppShell({ children, me }: { children: ReactNode; me: ReactNode 
         <main className="mx-auto w-full max-w-6xl flex-1 px-3 pb-24 pt-1 md:px-5 md:pb-6 md:pt-4 lg:px-6">{children}</main>
       </div>
 
-      <nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t-2 border-line bg-card/95 backdrop-blur md:hidden">
+      <nav data-bottom-nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t-2 border-line bg-card/95 backdrop-blur md:hidden">
         <ul className="grid grid-cols-5">
           {NAV.map(({ href, label, icon: Icon }) => {
             const active = isActive(pathname, href);

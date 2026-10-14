@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { tint } from "@/lib/calendar/colors";
 import { minutesIntoDay, utcToOsloParts } from "@/lib/calendar/dates";
 import { layoutLanes } from "@/lib/calendar/layout";
 import type { CalendarCategory, CalendarEvent, CalendarMember } from "@/lib/calendar/types";
 import { EventChipContent } from "./EventChip";
+import { FIT_FIRST_HOUR, FIT_HOURS, usePhoneDayFit } from "./usePhoneDayFit";
 
-const HOUR_PX = 56;
+const DEFAULT_HOUR_PX = 56;
 /** Maks antall aktiviteter side om side i én kolonne. Resten samles i en «+N»-knapp. */
 const MAX_LANES = 3;
 const DEFAULT_FIRST_HOUR = 6;
@@ -37,22 +38,60 @@ export function PersonDayView({ date, events, members, categories, onCreateAt, o
 
   const now = useNowMinutes(date);
 
+  // Telefon: fast høyde med rulling inni, avatarer og heldagsrad står fast øverst, og 08–20 synes med en gang.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const avatarRef = useRef<HTMLDivElement>(null);
+  const allDayRef = useRef<HTMLDivElement>(null);
+  const fitHeight = usePhoneDayFit(scrollRef, true);
+  const [head, setHead] = useState({ avatar: 0, total: 0 });
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      const avatar = avatarRef.current?.offsetHeight ?? 0;
+      // Ikke offsetTop: den endrer seg når raden står fast (sticky) mens man ruller.
+      const total = avatar + (allDayRef.current?.offsetHeight ?? 0);
+      setHead((h) => (h.avatar === avatar && h.total === total ? h : { avatar, total }));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [fitHeight, allDay.length, members.length, date]);
+  const HOUR_PX = fitHeight !== null && head.total > 0 ? Math.max(28, Math.floor((fitHeight - head.total - 10) / FIT_HOURS)) : DEFAULT_HOUR_PX;
+  const sticky = fitHeight !== null;
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    // Litt luft over, så «08» ikke skjules bak den faste toppen.
+    if (el && sticky) el.scrollTop = Math.max(0, (FIT_FIRST_HOUR - firstHour) * HOUR_PX - 10);
+  }, [sticky, HOUR_PX, firstHour, date]);
+
   return (
-    <div className="overflow-x-auto rounded-3xl bg-card shadow-[0_2px_12px_rgba(120,90,60,0.08)]">
-      <div className="grid min-w-[640px]" style={{ gridTemplateColumns: `3.25rem repeat(${members.length}, minmax(0, 1fr))` }}>
+    <div
+      ref={scrollRef}
+      className={`rounded-3xl bg-card shadow-[0_2px_12px_rgba(120,90,60,0.08)] ${sticky ? "overflow-auto overscroll-contain" : "overflow-x-auto"}`}
+      style={sticky ? { height: fitHeight } : undefined}
+    >
+      <div className="relative grid min-w-[640px]" style={{ gridTemplateColumns: `3.25rem repeat(${members.length}, minmax(0, 1fr))` }}>
         {/* Topp: avatarer */}
-        <div className="sticky left-0 z-10 bg-card" />
+        <div ref={avatarRef} className={`sticky left-0 z-50 bg-card ${sticky ? "top-0" : ""}`} />
         {members.map((m) => (
-          <div key={m.id} className="flex flex-col items-center gap-1 border-b-2 border-line px-1 py-2">
+          <div key={m.id} className={`flex flex-col items-center gap-1 border-b-2 border-line bg-card px-1 py-2 ${sticky ? "sticky top-0 z-40" : ""}`}>
             <Avatar name={m.name} color={m.color} icon={m.icon} url={m.avatarUrl} size={40} />
             <span className="text-sm font-bold">{m.name}</span>
           </div>
         ))}
 
         {/* Heldagsaktiviteter */}
-        <div className="sticky left-0 z-10 flex items-center bg-card px-1 text-[10px] font-bold text-ink-light">Hele dagen</div>
+        <div
+          ref={allDayRef}
+          className="sticky left-0 z-50 flex items-center bg-card px-1 text-[10px] font-bold text-ink-light"
+          style={sticky ? { top: head.avatar } : undefined}
+        >
+          Hele dagen
+        </div>
         {members.map((m) => (
-          <div key={m.id} className="flex min-h-10 flex-col gap-1 border-b-2 border-l border-line p-1">
+          <div
+            key={m.id}
+            className={`flex min-h-10 flex-col gap-1 border-b-2 border-l border-line bg-card p-1 ${sticky ? "sticky z-40" : ""}`}
+            style={sticky ? { top: head.avatar } : undefined}
+          >
             {allDay
               .filter((e) => e.participantIds.includes(m.id))
               .map((e) => (

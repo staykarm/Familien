@@ -68,20 +68,24 @@ export function PersonDayView({ date, events, members, categories, onCreateAt, o
       className={`rounded-3xl bg-card shadow-[0_2px_12px_rgba(120,90,60,0.08)] ${sticky ? "overflow-auto overscroll-contain" : "overflow-x-auto"}`}
       style={sticky ? { height: fitHeight } : undefined}
     >
-      <div className="relative grid min-w-[640px]" style={{ gridTemplateColumns: `3.25rem repeat(${members.length}, minmax(0, 1fr))` }}>
+      {/* Smale kolonner (ca. 4,5rem) slik at hele familien får plass på telefon; flere enn fem gir sidelengs rulling. */}
+      <div
+        className="relative grid"
+        style={{ gridTemplateColumns: `2.25rem repeat(${members.length}, minmax(0, 1fr))`, minWidth: `calc(2.25rem + ${members.length} * 4.5rem)` }}
+      >
         {/* Topp: avatarer */}
         <div ref={avatarRef} className={`sticky left-0 z-50 bg-card ${sticky ? "top-0" : ""}`} />
         {members.map((m) => (
           <div key={m.id} className={`flex flex-col items-center gap-1 border-b-2 border-line bg-card px-1 py-2 ${sticky ? "sticky top-0 z-40" : ""}`}>
-            <Avatar name={m.name} color={m.color} icon={m.icon} url={m.avatarUrl} size={40} />
-            <span className="text-sm font-bold">{m.name}</span>
+            <Avatar name={m.name} color={m.color} icon={m.icon} url={m.avatarUrl} size={32} />
+            <span className="max-w-full wrap-break-word text-center text-xs font-bold sm:text-sm">{m.name}</span>
           </div>
         ))}
 
         {/* Heldagsaktiviteter */}
         <div
           ref={allDayRef}
-          className="sticky left-0 z-50 flex items-center bg-card px-1 text-[10px] font-bold text-ink-light"
+          className="sticky left-0 z-50 flex items-center bg-card px-0.5 text-[9px] leading-tight font-bold text-ink-light"
           style={sticky ? { top: head.avatar } : undefined}
         >
           Hele dagen
@@ -117,7 +121,7 @@ export function PersonDayView({ date, events, members, categories, onCreateAt, o
         <div className="sticky left-0 z-10 bg-card">
           {hours.map((h, i) => (
             <div key={h} className="relative text-right text-xs text-ink-light" style={{ height: HOUR_PX }}>
-              <span className={`absolute right-1.5 tabular-nums ${i === 0 ? "top-0.5" : "-top-2"}`}>
+              <span className={`absolute right-1 tabular-nums ${i === 0 ? "top-0.5" : "-top-2"}`}>
                 {String(h).padStart(2, "0")}
               </span>
             </div>

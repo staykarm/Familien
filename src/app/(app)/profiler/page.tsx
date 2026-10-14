@@ -28,7 +28,7 @@ export default async function ProfilesPage() {
                 <Avatar name={m.name} color={m.color} icon={m.icon} url={m.avatar_path ? urls[m.avatar_path] : null} size={72} />
                 <div className="min-w-0">
                   <h2 className="font-display text-xl font-bold sm:text-2xl">{m.name}</h2>
-                  <p className="truncate text-ink-light">
+                  <p className="wrap-break-word text-ink-light">
                     {filled.length > 0 ? filled.map((d) => d.value).join(" · ") : "Trykk for å legge til detaljer"}
                   </p>
                 </div>

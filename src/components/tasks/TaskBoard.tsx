@@ -242,14 +242,14 @@ function TaskRow({ task, members, categories, today, onToggle, onOpen }: RowProp
         {done && <Check size={28} strokeWidth={3} className="text-white" aria-hidden />}
       </button>
       <button onClick={onOpen} className="flex min-h-12 min-w-0 flex-1 flex-col items-start justify-center text-left">
-        <span className={`w-full truncate text-lg font-bold ${done ? "text-ink-faint line-through" : ""}`}>
+        <span className={`w-full wrap-break-word text-lg font-bold ${done ? "text-ink-faint line-through" : ""}`}>
           {category && <span aria-hidden>{category.icon} </span>}
           {task.title}
         </span>
         <span className="flex flex-wrap items-center gap-x-2 text-sm text-ink-light">
           {task.status === "doing" && <span className="rounded-full bg-sun px-2 font-bold text-ink">Pågår</span>}
           {due && <span className={overdue ? "font-bold text-danger" : ""}>⏰ {due}</span>}
-          {task.notes && <span className="truncate">📝 {task.notes}</span>}
+          {task.notes && <span className="wrap-break-word">📝 {task.notes}</span>}
         </span>
       </button>
       {assignee && <Avatar name={assignee.name} color={assignee.color} icon={assignee.icon} url={assignee.avatarUrl} size={36} />}

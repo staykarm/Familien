@@ -25,3 +25,12 @@ export function groupOpenItems(items: ShoppingItem[], categories: CalendarCatego
 export function checkedItems(items: ShoppingItem[]): ShoppingItem[] {
   return items.filter((i) => i.checked).sort((a, b) => (b.checkedAt ?? "").localeCompare(a.checkedAt ?? ""));
 }
+
+/** Flytter elementet på `index` ett steg opp (-1) eller ned (1). Utenfor listen: uendret. */
+export function moveInList<T>(list: T[], index: number, dir: -1 | 1): T[] {
+  const to = index + dir;
+  if (index < 0 || index >= list.length || to < 0 || to >= list.length) return list;
+  const next = [...list];
+  [next[index], next[to]] = [next[to], next[index]];
+  return next;
+}

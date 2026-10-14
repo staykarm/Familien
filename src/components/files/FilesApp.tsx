@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { Camera, Check, ExternalLink, FileUp, Pencil, RefreshCw, Sparkles, Trash2, X } from "lucide-react";
+import { Camera, Check, ClipboardPaste, ExternalLink, FileUp, Pencil, RefreshCw, Sparkles, Trash2, X } from "lucide-react";
 import {
   approveAll,
   approveSuggestion,
@@ -35,6 +35,18 @@ interface Props {
 }
 
 type Progress = { step: "upload" | "analyze"; filename: string } | null;
+
+/** Innlimt tekst lastes opp som en tekstfil, så den tolkes på samme måte som andre filer. */
+function textToFile(text: string): File {
+  const stamp = new Date().toLocaleString("nb-NO", { timeZone: "Europe/Oslo", dateStyle: "short", timeStyle: "short" }).replace(/[/:]/g, ".");
+  return new File([text], `Innlimt tekst ${stamp}.txt`, { type: "text/plain" });
+}
+
+/** Bilde fra utklippstavlen har ofte ikke filnavn. */
+function namedFile(blob: Blob, type: string, base: string): File {
+  const ext = type === "application/pdf" ? "pdf" : (type.split("/")[1] ?? "bin").replace("jpeg", "jpg");
+  return blob instanceof File && blob.name && blob.name !== "image.png" ? blob : new File([blob], `${base}.${ext}`, { type });
+}
 
 function formatDate(date: string | null): string {
   if (!date) return "";
@@ -129,6 +141,54 @@ export function FilesApp({ initialUploads, members, eventCategories, taskCategor
     // eslint-disable-next-line react-hooks/exhaustive-deps -- kjøres én gang når siden åpnes etter deling
   }, []);
 
+  // --- Lim inn ------------------------------------------------------------------------
+  const [pasteText, setPasteText] = useState<string | null>(null);
+
+  /** «Lim inn»-knappen: leser utklippstavlen (bilde/PDF først, ellers tekst). Nekter nettleseren, vises et tekstfelt. */
+  async function pasteFromClipboard() {
+    try {
+      if (navigator.clipboard?.read) {
+        const items = await navigator.clipboard.read();
+        for (const item of items) {
+          const type = item.types.find((t) => t.startsWith("image/") || t === "application/pdf");
+          if (type) return void handleFile(namedFile(await item.getType(type), type, "Innlimt bilde"));
+        }
+        for (const item of items) {
+          if (!item.types.includes("text/plain")) continue;
+          const text = (await (await item.getType("text/plain")).text()).trim();
+          if (text) return void handleFile(textToFile(text));
+        }
+      } else if (navigator.clipboard?.readText) {
+        const text = (await navigator.clipboard.readText()).trim();
+        if (text) return void handleFile(textToFile(text));
+      } else {
+        return setPasteText("");
+      }
+      showToast("Fant ingenting å lime inn");
+    } catch {
+      // Ingen tilgang (f.eks. avslått): lim inn selv i tekstfeltet.
+      setPasteText("");
+    }
+  }
+
+  // Cmd/Ctrl+V hvor som helst på siden (utenom skrivefelt): fil, bilde eller tekst.
+  const handleFileRef = useRef(handleFile);
+  useEffect(() => {
+    handleFileRef.current = handleFile;
+  });
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      if (e.target instanceof Element && e.target.closest("input, textarea, [contenteditable=true]")) return;
+      const file = e.clipboardData?.files?.[0];
+      const text = e.clipboardData?.getData("text/plain")?.trim();
+      if (!file && !text) return;
+      e.preventDefault();
+      void handleFileRef.current(file ? namedFile(file, file.type, "Innlimt bilde") : textToFile(text!));
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, []);
+
   function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -221,7 +281,7 @@ export function FilesApp({ initialUploads, members, eventCategories, taskCategor
             <div>
               <p className="font-display text-lg font-bold sm:text-2xl">Ukeplan, invitasjon eller skriv?</p>
               <p className="text-ink-light">
-                Ta bilde eller velg en fil (PDF, bilde, Word). Du får forslag til aktiviteter, oppgaver og handleliste – ingenting
+                Ta bilde, velg en fil (PDF, bilde, Word) eller lim inn tekst eller et bilde. Du får forslag til aktiviteter, oppgaver og handleliste – ingenting
                 lagres før du godkjenner.
               </p>
             </div>
@@ -234,10 +294,46 @@ export function FilesApp({ initialUploads, members, eventCategories, taskCategor
               <button className={buttonSecondary} onClick={() => fileRef.current?.click()}>
                 <FileUp size={22} aria-hidden /> Velg fil
               </button>
+              <button className={buttonSecondary} onClick={() => void pasteFromClipboard()}>
+                <ClipboardPaste size={22} aria-hidden /> Lim inn
+              </button>
             </div>
           </>
         )}
       </section>
+
+      {pasteText !== null && (
+        <section className={`${card} flex flex-col gap-3`}>
+          <label htmlFor="paste-text" className="font-bold">
+            Lim inn teksten her
+          </label>
+          <textarea
+            id="paste-text"
+            autoFocus
+            rows={6}
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+            placeholder="Trykk og hold, og velg «Lim inn»"
+            className={`${input} py-3`}
+          />
+          <div className="flex flex-wrap gap-2">
+            <button
+              className={buttonPrimary}
+              disabled={busy || !pasteText.trim()}
+              onClick={() => {
+                const text = pasteText.trim();
+                setPasteText(null);
+                void handleFile(textToFile(text));
+              }}
+            >
+              <Sparkles size={20} aria-hidden /> Tolk teksten
+            </button>
+            <button className={buttonGhost} onClick={() => setPasteText(null)}>
+              Avbryt
+            </button>
+          </div>
+        </section>
+      )}
 
       {uploads.map((u) => {
         const pendingCount = u.suggestions.filter((s) => s.status === "pending").length;

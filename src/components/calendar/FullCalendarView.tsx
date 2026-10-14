@@ -16,6 +16,7 @@ import type { CalendarViewKind } from "@/lib/calendar/dates";
 import type { CalendarCategory, CalendarEvent, CalendarMember } from "@/lib/calendar/types";
 import { TIME_ZONE } from "@/lib/time";
 import { EventChipContent } from "./EventChip";
+import { FIT_FIRST_HOUR, FIT_HOURS, usePhoneDayFit } from "./usePhoneDayFit";
 
 const FC_VIEW: Record<CalendarViewKind, string> = {
   day: "timeGridDay",
@@ -50,6 +51,25 @@ export function FullCalendarView({ view, date, events, members, categories, onCr
   useEffect(() => {
     ref.current?.getApi().gotoDate(date);
   }, [date]);
+
+  // Telefon, dagvisning: fast høyde med rulling inni kalenderen, og slothøyde som gjør at 08–20 synes med en gang.
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const fitHeight = usePhoneDayFit(wrapRef, view === "day");
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    const api = ref.current?.getApi();
+    if (!wrap || !api) return;
+    if (fitHeight === null) {
+      wrap.style.removeProperty("--fc-slot-h");
+      return;
+    }
+    const body = wrap.querySelector<HTMLElement>(".fc-timegrid-body")?.closest<HTMLElement>(".fc-scroller");
+    if (!body) return;
+    const slot = Math.max(14, Math.floor(body.clientHeight / (FIT_HOURS * 2)));
+    wrap.style.setProperty("--fc-slot-h", `${slot}px`);
+    api.updateSize();
+    api.scrollToTime(`${String(FIT_FIRST_HOUR).padStart(2, "0")}:00:00`);
+  }, [fitHeight, date]);
 
   const fcEvents = useMemo<EventInput[]>(
     () =>
@@ -116,7 +136,7 @@ export function FullCalendarView({ view, date, events, members, categories, onCr
   };
 
   return (
-    <div className="familien-fc">
+    <div ref={wrapRef} className="familien-fc">
       <FullCalendar
         key={view}
         ref={ref}
@@ -127,7 +147,8 @@ export function FullCalendarView({ view, date, events, members, categories, onCr
         locale={nbLocale}
         timeZone={TIME_ZONE}
         firstDay={1}
-        height="auto"
+        height={fitHeight ?? "auto"}
+        scrollTime={`${String(FIT_FIRST_HOUR).padStart(2, "0")}:00:00`}
         slotMinTime="06:00:00"
         slotMaxTime="24:00:00"
         slotDuration="00:30:00"

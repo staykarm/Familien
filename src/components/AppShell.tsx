@@ -66,8 +66,7 @@ export function AppShell({ children, me }: { children: ReactNode; me: ReactNode 
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex items-center justify-between bg-background/90 px-4 pb-1.5 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur md:hidden">
-          <span className="font-display text-lg font-bold text-primary-dark">Familien</span>
+        <header className="sticky top-0 z-20 flex items-center justify-end bg-background/90 px-4 pb-1 pt-[max(0.25rem,env(safe-area-inset-top))] backdrop-blur md:hidden">
           <span className="flex items-center gap-0.5">
             {EXTRA.map(({ href, label, icon: Icon }) => (
               <Link
@@ -87,7 +86,7 @@ export function AppShell({ children, me }: { children: ReactNode; me: ReactNode 
         <main className="mx-auto w-full max-w-6xl flex-1 px-3 pb-24 pt-1 md:px-5 md:pb-6 md:pt-4 lg:px-6">{children}</main>
       </div>
 
-      <nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t-2 border-line bg-card/95 backdrop-blur md:hidden">
+      <nav data-bottom-nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t-2 border-line bg-card/95 backdrop-blur md:hidden">
         <ul className="grid grid-cols-5">
           {NAV.map(({ href, label, icon: Icon }) => {
             const active = isActive(pathname, href);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { Camera, Check, ExternalLink, FileUp, Pencil, RefreshCw, Sparkles, Trash2, X } from "lucide-react";
 import {
   approveAll,
@@ -105,6 +105,29 @@ export function FilesApp({ initialUploads, members, eventCategories, taskCategor
       setProgress(null);
     }
   }
+
+  // Delt fra delingsmenyen eller en snarvei (/api/del): filene er lastet opp, nå tolkes de.
+  const handledShare = useRef(false);
+  useEffect(() => {
+    if (handledShare.current) return;
+    handledShare.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const ids = (params.get("tolk") ?? "").split(",").filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+    const failed = params.get("delt");
+    if (!ids.length && !failed) return;
+    window.history.replaceState(null, "", "/filer");
+    void (async () => {
+      if (failed) {
+        showToast(failed === "feil" ? "Fant ingen fil som kunne leses." : failed);
+        return;
+      }
+      for (const id of ids) {
+        const upload = uploads.find((u) => u.id === id);
+        await analyze(id, upload?.filename ?? "Delt fil");
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- kjøres én gang når siden åpnes etter deling
+  }, []);
 
   function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];

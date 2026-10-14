@@ -57,6 +57,24 @@ describe("Autosaver", () => {
     expect(states).toEqual(["saving", "error"]);
   });
 
+  it("prøver igjen av seg selv etter en feil, også når lagringen kaster", async () => {
+    let calls = 0;
+    const save = vi.fn(async () => {
+      calls++;
+      if (calls === 1) throw new Error("nettbrudd");
+      return true;
+    });
+    const states: string[] = [];
+    const a = new Autosaver({ title: "" }, save, { retryDelay: 1000, onState: (s) => states.push(s) });
+    a.update({ title: "X" });
+    expect(await a.flush()).toBe(false);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(a.dirty).toBe(false);
+    expect(states).toEqual(["saving", "error", "saving", "saved"]);
+    a.dispose();
+  });
+
   it("key lar felt som id endre seg uten ny lagring", async () => {
     const save = vi.fn(async () => true);
     const a = new Autosaver({ id: null as string | null, title: "" }, save, { key: (v) => v.title });

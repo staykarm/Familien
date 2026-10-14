@@ -12,8 +12,21 @@ export function osloDate(date: string): DateTime {
   return DateTime.fromISO(date, { zone: TIME_ZONE }).startOf("day");
 }
 
-/** Synlig periode for en visning. `end` er eksklusiv. Uken starter mandag. */
-export function visibleRange(view: CalendarViewKind, date: string): { start: DateTime; end: DateTime; days: string[] } {
+/**
+ * Første dag i ukevisningen. Uken starter mandag, men i inneværende uke starter den i dag
+ * og fylles på med de kommende dagene (i dag står lengst til venstre). `today` = null gir alltid mandag.
+ */
+export function weekStart(date: string, today: string | null = null): DateTime {
+  const monday = osloDate(date).startOf("week");
+  if (today) {
+    const t = osloDate(today);
+    if (t >= monday && t < monday.plus({ weeks: 1 })) return t;
+  }
+  return monday;
+}
+
+/** Synlig periode for en visning. `end` er eksklusiv. Se `weekStart` for uken. */
+export function visibleRange(view: CalendarViewKind, date: string, today: string | null = null): { start: DateTime; end: DateTime; days: string[] } {
   const d = osloDate(date);
   let start: DateTime;
   let end: DateTime;
@@ -21,7 +34,7 @@ export function visibleRange(view: CalendarViewKind, date: string): { start: Dat
     start = d;
     end = d.plus({ days: 1 });
   } else if (view === "week") {
-    start = d.startOf("week");
+    start = weekStart(date, today);
     end = start.plus({ weeks: 1 });
   } else {
     // Samme 6-ukers rutenett som FullCalendar sin månedsvisning.
@@ -38,21 +51,18 @@ export function shiftDate(view: CalendarViewKind, date: string, direction: 1 | -
   return osloDate(date).plus(unit).toISODate()!;
 }
 
-const titleFormat: Record<CalendarViewKind, (d: DateTime) => string> = {
-  day: (d) => d.setLocale("nb").toFormat("cccc d. LLLL"),
-  week: (d) => {
-    const start = d.startOf("week");
-    const end = start.plus({ days: 6 });
-    const sameMonth = start.month === end.month;
-    return `Uke ${start.weekNumber} · ${start.setLocale("nb").toFormat(sameMonth ? "d." : "d. LLL")}–${end
-      .setLocale("nb")
-      .toFormat("d. LLL")}`;
-  },
-  month: (d) => d.setLocale("nb").toFormat("LLLL yyyy"),
-};
+function weekTitle(start: DateTime): string {
+  const end = start.plus({ days: 6 });
+  const sameMonth = start.month === end.month;
+  const weeks = start.weekNumber === end.weekNumber ? `${start.weekNumber}` : `${start.weekNumber}–${end.weekNumber}`;
+  return `Uke ${weeks} · ${start.setLocale("nb").toFormat(sameMonth ? "d." : "d. LLL")}–${end.setLocale("nb").toFormat("d. LLL")}`;
+}
 
-export function viewTitle(view: CalendarViewKind, date: string): string {
-  return titleFormat[view](osloDate(date));
+export function viewTitle(view: CalendarViewKind, date: string, today: string | null = null): string {
+  const d = osloDate(date);
+  if (view === "day") return d.setLocale("nb").toFormat("cccc d. LLLL");
+  if (view === "week") return weekTitle(weekStart(date, today));
+  return d.setLocale("nb").toFormat("LLLL yyyy");
 }
 
 // --- Skjema <-> lagring --------------------------------------------------------------

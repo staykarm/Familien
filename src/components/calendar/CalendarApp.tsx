@@ -108,7 +108,9 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
 
   const updatePrefs = (patch: Prefs) => writePrefs({ view, perPerson, hidden, ...patch });
 
-  const range = useMemo(() => visibleRange(view, date), [view, date]);
+  const today = osloToday();
+  // I inneværende uke starter ukevisningen i dag (se weekStart).
+  const range = useMemo(() => visibleRange(view, date, today), [view, date, today]);
   const rangeKey = `${range.start.toISO()}|${range.end.toISO()}`;
 
   // «Laster» er avledet: dataene som vises hører til en annen periode enn den som er valgt.
@@ -251,7 +253,6 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
     updatePrefs({ hidden: next });
   }
 
-  const today = osloToday();
   const showPersonView = perPerson && view !== "month";
 
   return (
@@ -271,7 +272,7 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
             </button>
           </div>
           <h2 className="ml-1 min-w-0 flex-1 wrap-break-word font-display text-lg font-bold first-letter:uppercase sm:text-2xl">
-            {viewTitle(view, date)}
+            {viewTitle(view, date, today)}
             {loading && <span className="ml-2 inline-block h-2.5 w-2.5 animate-ping rounded-full bg-primary align-middle" aria-label="Laster" />}
           </h2>
         </div>
@@ -376,7 +377,7 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
         <div className="rounded-3xl bg-card p-2 shadow-[0_2px_12px_rgba(120,90,60,0.08)] sm:p-4">
           <FullCalendarView
             view={view}
-            date={date}
+            date={view === "week" ? range.days[0] : date}
             events={visibleEvents}
             members={members}
             categories={categories}

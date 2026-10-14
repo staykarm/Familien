@@ -19,6 +19,15 @@ describe("visibleRange", () => {
     expect(r.days).toHaveLength(7);
   });
 
+  it("inneværende uke starter i dag og fylles på med de kommende dagene", () => {
+    const r = visibleRange("week", "2026-10-15", "2026-10-14");
+    expect(r.days[0]).toBe("2026-10-14");
+    expect(r.days.at(-1)).toBe("2026-10-20");
+    // Andre uker starter mandag som vanlig.
+    expect(visibleRange("week", "2026-10-22", "2026-10-14").days[0]).toBe("2026-10-19");
+    expect(viewTitle("week", "2026-10-15", "2026-10-14")).toMatch(/^Uke 42–43 · 14\.–20\. okt/);
+  });
+
   it("måned gir 6 uker fra mandagen før den 1.", () => {
     const r = visibleRange("month", "2026-10-15");
     expect(r.days[0]).toBe("2026-09-28");

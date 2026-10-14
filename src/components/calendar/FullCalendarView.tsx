@@ -20,7 +20,8 @@ import { FIT_FIRST_HOUR, FIT_HOURS, usePhoneDayFit } from "./usePhoneDayFit";
 
 const FC_VIEW: Record<CalendarViewKind, string> = {
   day: "timeGridDay",
-  week: "timeGridWeek",
+  // Sju dager fra `date` (ikke låst til mandag), så inneværende uke kan starte i dag.
+  week: "timeGridSevenDays",
   month: "dayGridMonth",
 };
 
@@ -120,7 +121,7 @@ export function FullCalendarView({ view, date, events, members, categories, onCr
     return (
       <span className="flex flex-wrap items-center justify-center gap-x-1">
         <span>{arg.text}</span>
-        {day && arg.view.type === "timeGridWeek" && <WeatherBadge day={day} size={22} onClick={() => onWeather(day.date)} />}
+        {day && arg.view.type === FC_VIEW.week && <WeatherBadge day={day} size={22} onClick={() => onWeather(day.date)} />}
       </span>
     );
   };
@@ -142,6 +143,7 @@ export function FullCalendarView({ view, date, events, members, categories, onCr
         ref={ref}
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, luxonPlugin]}
         initialView={FC_VIEW[view]}
+        views={{ timeGridSevenDays: { type: "timeGrid", duration: { days: 7 }, dateAlignment: "day" } }}
         initialDate={date}
         headerToolbar={false}
         locale={nbLocale}

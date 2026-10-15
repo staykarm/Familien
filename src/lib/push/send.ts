@@ -2,13 +2,10 @@ import "server-only";
 import { after } from "next/server";
 import webpush from "web-push";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
-import type { Json } from "@/lib/database.types";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { inQuietHours, pickRecipients, readPushSettings, type PushSettings, type PushType } from "./settings";
+import { pickRecipients, readPushPrefs, type PushPrefs, type PushType, type RecipientOptions } from "./settings";
 
 type Db = ReturnType<typeof createAdminClient>;
-
-export const PUSH_SETTINGS_KEY = "push";
 
 /** Det som vises i varselet. `url` åpnes når man trykker på det. */
 export interface PushMessage {
@@ -25,6 +22,7 @@ export interface PushSub {
   p256dh: string;
   auth: string;
   memberId: string | null;
+  prefs: PushPrefs;
 }
 
 /** VAPID-nøklene. Lages automatisk første gang og lagres (privatnøkkelen kryptert) i push_keys. */
@@ -52,23 +50,15 @@ export async function pushPublicKey(): Promise<string | null> {
   }
 }
 
-/** Innstillingene for varsler, med standardverdier (alle unntatt Felles får det som er på). */
-export async function loadPushSettings(db: Db = createAdminClient()): Promise<PushSettings> {
-  const [{ data }, { data: members }] = await Promise.all([
-    db.from("settings").select("value").eq("key", PUSH_SETTINGS_KEY).maybeSingle(),
-    db.from("members").select("id").eq("is_shared", false).order("sort_order"),
-  ]);
-  return readPushSettings(data?.value, (members ?? []).map((m) => m.id));
+export const SUB_COLUMNS = "id, endpoint, p256dh, auth, member_id, prefs";
+
+export function toSub(s: { id: string; endpoint: string; p256dh: string; auth: string; member_id: string | null; prefs: unknown }): PushSub {
+  return { id: s.id, endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth, memberId: s.member_id, prefs: readPushPrefs(s.prefs) };
 }
 
-export async function savePushSettingsValue(db: Db, settings: PushSettings): Promise<boolean> {
-  const { error } = await db.from("settings").upsert({ key: PUSH_SETTINGS_KEY, value: settings as unknown as Json });
-  return !error;
-}
-
-async function loadSubscriptions(db: Db): Promise<PushSub[]> {
-  const { data } = await db.from("push_subscriptions").select("id, endpoint, p256dh, auth, member_id");
-  return (data ?? []).map((s) => ({ id: s.id, endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth, memberId: s.member_id }));
+export async function loadSubscriptions(db: Db): Promise<PushSub[]> {
+  const { data } = await db.from("push_subscriptions").select(SUB_COLUMNS);
+  return (data ?? []).map(toSub);
 }
 
 function vapidSubject(): string {
@@ -95,17 +85,10 @@ export async function sendToSubscription(db: Db, sub: PushSub, message: PushMess
   }
 }
 
-export interface NotifyOptions {
-  /** Medlemmene det gjelder. Null = hele familien. */
-  targets?: string[] | null;
-  /** Den som gjorde endringen – får ikke varsel om sin egen endring. */
-  exclude?: string | null;
-  /** Sendes også i stille tid (f.eks. morgenoversikten på valgt klokkeslett). */
-  ignoreQuiet?: boolean;
-}
+export type NotifyOptions = RecipientOptions;
 
 /**
- * Sender et varsel av en gitt type til dem innstillingene sier. `message` kan være en funksjon som lager
+ * Sender et varsel av en gitt type til enhetene som har den slått på (se pickRecipients). `message` kan være en funksjon som lager
  * en egen tekst per medlem (null = enheten for hele familien); returnerer den null, hoppes enheten over.
  * Returnerer antall enheter som fikk varselet.
  */
@@ -115,9 +98,7 @@ export async function notify(
   opts: NotifyOptions = {}
 ): Promise<number> {
   const db = createAdminClient();
-  const settings = await loadPushSettings(db);
-  if (!opts.ignoreQuiet && inQuietHours(settings.quiet, new Date())) return 0;
-  const recipients = pickRecipients(await loadSubscriptions(db), settings.types[type], opts.targets ?? null, opts.exclude ?? null);
+  const recipients = pickRecipients(await loadSubscriptions(db), type, opts, new Date());
   const results = await Promise.all(
     recipients.map((sub) => {
       const msg = typeof message === "function" ? message(sub.memberId) : message;

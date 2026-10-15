@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
-  defaultPushSettings,
+  defaultPushPrefs,
   dueReminders,
   eventTargets,
   inMinutes,
   inQuietHours,
   morningDue,
   pickRecipients,
-  readPushSettings,
+  readPushPrefs,
 } from "./settings";
 
 // Midten av oktober 2026 er fortsatt sommertid i Oslo (UTC+2).
@@ -28,20 +28,25 @@ describe("inQuietHours", () => {
 });
 
 describe("pickRecipients", () => {
+  const on = defaultPushPrefs();
+  const noCalendar = { ...on, types: { ...on.types, calendar: false } };
+  const quietAllDay = { ...on, quiet: { enabled: true, from: "00:00", to: "23:59" } };
   const subs = [
-    { id: "a", memberId: "olav" },
-    { id: "b", memberId: "marius" },
-    { id: "c", memberId: null },
-    { id: "d", memberId: "ingvild" },
+    { id: "a", memberId: "olav", prefs: on },
+    { id: "b", memberId: "marius", prefs: on },
+    { id: "c", memberId: null, prefs: on },
+    { id: "d", memberId: "ingvild", prefs: noCalendar },
+    { id: "e", memberId: "marius", prefs: quietAllDay },
   ];
-  const type = { enabled: true, members: ["marius", "ingvild"] };
-  it("bare mål som har typen slått på, pluss familieenheter", () => {
-    expect(pickRecipients(subs, type, null).map((s) => s.id)).toEqual(["b", "c", "d"]);
-    expect(pickRecipients(subs, type, ["marius"]).map((s) => s.id)).toEqual(["b", "c"]);
+  const now = oslo("12:00");
+  it("hver enhet har sine egne valg", () => {
+    expect(pickRecipients(subs, "calendar", { targets: null }, now).map((s) => s.id)).toEqual(["a", "b", "c"]);
+    expect(pickRecipients(subs, "calendar", { targets: ["marius"] }, now).map((s) => s.id)).toEqual(["b", "c"]);
+    expect(pickRecipients(subs, "shopping", { targets: null }, now)).toEqual([]);
   });
-  it("ikke den som gjorde endringen, og ingenting når typen er av", () => {
-    expect(pickRecipients(subs, type, null, "marius").map((s) => s.id)).toEqual(["c", "d"]);
-    expect(pickRecipients(subs, { ...type, enabled: false }, null)).toEqual([]);
+  it("ikke den som gjorde endringen, og stille tid per enhet", () => {
+    expect(pickRecipients(subs, "calendar", { targets: null, exclude: "marius" }, now).map((s) => s.id)).toEqual(["a", "c"]);
+    expect(pickRecipients(subs, "calendar", { targets: ["marius"], ignoreQuiet: true }, now).map((s) => s.id)).toEqual(["b", "c", "e"]);
   });
 });
 
@@ -80,15 +85,13 @@ describe("morningDue og inMinutes", () => {
   });
 });
 
-const M = "11111111-1111-4111-8111-111111111111";
-
-describe("readPushSettings", () => {
+describe("readPushPrefs", () => {
   it("fyller inn standardverdier for nye typer og ugyldige verdier", () => {
-    const s = readPushSettings({ types: { shopping: { enabled: true, members: [] } }, reminderMinutes: 15 }, [M]);
-    expect(s.types.shopping).toEqual({ enabled: true, members: [] });
-    expect(s.types.calendar).toEqual({ enabled: true, members: [M] });
-    expect(s.reminderMinutes).toBe(15);
-    expect(readPushSettings({ reminderMinutes: 1 }, [M])).toEqual(defaultPushSettings([M]));
-    expect(readPushSettings(null, [])).toEqual(defaultPushSettings([]));
+    const p = readPushPrefs({ types: { shopping: true }, reminderMinutes: 15 });
+    expect(p.types.shopping).toBe(true);
+    expect(p.types.calendar).toBe(true);
+    expect(p.reminderMinutes).toBe(15);
+    expect(readPushPrefs({ reminderMinutes: 1 })).toEqual(defaultPushPrefs());
+    expect(readPushPrefs(null)).toEqual(defaultPushPrefs());
   });
 });

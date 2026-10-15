@@ -41,9 +41,9 @@ Arkitektur og faser står i README. Marius godkjenner hver fase før den startes
 
 ## Pushvarsler
 - Web Push med `web-push`. Service workeren er `public/sw.js`. Enhetene ligger i `push_subscriptions`. VAPID-nøklene lages automatisk (`push_keys`, privatnøkkelen er kryptert).
-- Hva som sendes og til hvem styres i Innstillinger (`settings.push`, `lib/push/settings.ts`). Nye varseltyper legges i `PUSH_TYPES`.
+- Hver enhet har egne valg (`push_subscriptions.prefs`, `lib/push/settings.ts`): hvem den tilhører, hvilke typer den får, minutter før, morgenklokkeslett og stille tid. Alle enhetene kan endres fra Innstillinger. Nye varseltyper legges i `PUSH_TYPES`.
 - Varsler fra server actions sendes med funksjonene i `lib/push/notify.ts`. De kjører etter svaret (`after()`) og stopper aldri selve handlingen. Den som gjorde endringen (`activeMember`), får ikke varsel.
-- Varsler på tid (påminnelser, levering/henting, morgen) ligger i `lib/push/jobs.ts`. De kalles fra `/api/cron/push` hvert 5. minutt (Supabase `pg_cron`). `push_log` sørger for at hvert varsel bare sendes én gang.
+- Varsler på tid (påminnelser, levering/henting, morgen) ligger i `lib/push/jobs.ts` og regnes ut per enhet. De kalles fra `/api/cron/push` hvert 5. minutt (Supabase `pg_cron`). `push_log` sørger for at hvert varsel bare sendes én gang per enhet.
 
 ## Lagring
 - Handleliste, oppgaver og notater lagres automatisk mens man skriver, som i iOS Notater. Dialogene har ingen «Lagre»-knapp, bare «Ferdig» som lukker etter at siste endring er lagret. Bruk `useAutosave` (`components/useAutosave.ts`, logikken ligger i `lib/autosave.ts`).

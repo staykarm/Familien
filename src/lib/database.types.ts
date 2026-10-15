@@ -396,6 +396,7 @@ export type Database = {
           auth: string;
           member_id: string | null;
           device: string | null;
+          prefs: Json;
           created_at: string;
           last_sent_at: string | null;
         };
@@ -406,6 +407,7 @@ export type Database = {
           auth: string;
           member_id?: string | null;
           device?: string | null;
+          prefs?: Json;
           last_sent_at?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["push_subscriptions"]["Insert"]>;

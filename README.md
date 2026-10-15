@@ -171,7 +171,7 @@ Oda har ikke noe hostet MCP-endepunkt, så appen har en egen Oda-klient på serv
 Varsler på mobil, nettbrett og PC, også når appen er lukket (Web Push).
 
 - **Slå på:** Innstillinger → **Varsler** → velg hvem enheten tilhører (eller «Hele familien» for et felles nettbrett) → **Slå på varsler**. På iPhone/iPad virker det bare når appen er lagt på Hjem-skjermen (iOS 16.4+).
-- **Hva sendes, og til hvem** styres samme sted, per type og per person:
+- **Hver enhet har egne valg**, og alle enhetene kan endres fra listen i Innstillinger. Man velger hvilke typer enheten får:
   - endringer i kalenderen
   - nytt fra Outlook
   - påminnelse før aktiviteter
@@ -182,14 +182,14 @@ Varsler på mobil, nettbrett og PC, også når appen er lukket (Web Push).
   - Les inn fil
   - feil i Outlook-synken
 
-  I tillegg finnes «Stille tid» (standard 22–07).
+  I tillegg velger man hvor lenge før påminnelsene kommer, klokkeslett for morgenoversikten og «Stille tid» (standard 22–07).
 - Den som gjør en endring, får ikke varsel om den selv. Felles-aktiviteter går til alle.
 - **Nøkler:** VAPID-nøklene lages automatisk første gang. Den private nøkkelen lagres kryptert med `TOKEN_ENCRYPTION_KEY` i `push_keys`. Ingen nye miljøvariabler.
 - **Påminnelser på tid** kjøres av `/api/cron/push`:
   - Vercel Cron på Hobby går bare én gang i døgnet (kl. 06 UTC, reserve for morgenoversikten).
   - Derfor kaller Supabase ruten hvert 5. minutt med `pg_cron` og `pg_net`, med `CRON_SECRET` lagret i Supabase Vault (se SQL-en i PR-en).
   - Uten dette kommer bare varslene som skjer straks (endringer, oppgaver, handleliste, filer, Outlook) og morgenoversikten.
-- Tabeller: `push_subscriptions`, `push_keys` og `push_log`. Alle er hemmelige og har ingen RLS-policyer. Innstillingene ligger i `settings` (nøkkel `push`).
+- Tabeller: `push_subscriptions` (valgene per enhet i `prefs`), `push_keys` og `push_log`. Alle er hemmelige og har ingen RLS-policyer.
 
 ## Del til appen (skjermbilder, PDF-er, tekst)
 Filer og tekst kan sendes rett til **Les inn fil** fra delingsmenyen på mobilen, uten å gå via filbehandleren. De lastes opp til `/api/del`, og «Les inn fil» åpnes og tolker dem med en gang.

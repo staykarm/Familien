@@ -29,7 +29,7 @@ import {
 } from "@/lib/calendar/dates";
 import type { CalendarCategory, CalendarEvent, CalendarMember } from "@/lib/calendar/types";
 import { useRouter } from "next/navigation";
-import { isPickupItemId, pickupChildId, pickupItems } from "@/lib/care/calendar";
+import { careChildId, careItems, isCareItemId } from "@/lib/care/calendar";
 import type { CareData } from "@/lib/care/plan";
 import { isTaskItemId, TASK_PREFIX, taskToCalendarItem } from "@/lib/tasks/calendar";
 import type { Task } from "@/lib/tasks/types";
@@ -81,14 +81,14 @@ function writePrefs(prefs: Prefs) {
 }
 
 /** Tom henteplan (stabil referanse, så useMemo ikke regner på nytt hver gang). */
-const NO_CARE: CareData = { plans: [], days: [] };
+const NO_CARE: CareData = { plans: [], overrides: [] };
 
 interface Props {
   members: CalendarMember[];
   categories: CalendarCategory[];
   taskCategories: CalendarCategory[];
   activeMemberId: string | null;
-  /** Henting på hverdager (heldagselement hos den som henter, og i barnets kolonne). */
+  /** Levering og henting på hverdager (heldagselementer hos den som har ansvaret, og i barnets kolonne). */
   care?: CareData;
 }
 
@@ -176,9 +176,9 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
   const fellesId = members.find((m) => m.isShared)?.id ?? null;
   const visibleEvents = useMemo(() => {
     const taskItems = tasks.map((t) => taskToCalendarItem(t, fellesId)).filter((t): t is CalendarEvent => t !== null);
-    // Henting (barnehage) vises som heldagselement hos den som henter.
-    const pickups = pickupItems(care, members, range.days);
-    return [...pickups, ...events, ...taskItems].filter((e) => e.participantIds.some((id) => !hidden.includes(id)));
+    // Levering og henting vises som heldagselementer hos den som har ansvaret.
+    const careList = careItems(care, members, range.days);
+    return [...careList, ...events, ...taskItems].filter((e) => e.participantIds.some((id) => !hidden.includes(id)));
   }, [events, tasks, hidden, fellesId, care, members, range.days]);
 
   // --- Åpne dialog -------------------------------------------------------------------
@@ -215,8 +215,8 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
   }
 
   function openExisting(id: string) {
-    if (isPickupItemId(id)) {
-      router.push(`/profiler/${pickupChildId(id)}#henting`);
+    if (isCareItemId(id)) {
+      router.push(`/profiler/${careChildId(id)}#levering`);
       return;
     }
     if (isTaskItemId(id)) {

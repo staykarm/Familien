@@ -7,7 +7,7 @@ import { minutesIntoDay, utcToOsloParts } from "@/lib/calendar/dates";
 import { layoutLanes } from "@/lib/calendar/layout";
 import type { CalendarCategory, CalendarEvent, CalendarMember } from "@/lib/calendar/types";
 import { CareBadge } from "@/components/care/CareBadge";
-import { pickupFor, type CareData } from "@/lib/care/plan";
+import { careFor, type CareData } from "@/lib/care/plan";
 import { HourWeather } from "@/components/weather/WeatherBadge";
 import type { HourlyWeather } from "@/lib/weather/yr";
 import { EventChipContent } from "./EventChip";
@@ -28,7 +28,7 @@ interface Props {
   onOpen: (id: string) => void;
   /** Været time for time denne dagen (vises ved timeaksen). */
   hourly?: Record<number, HourlyWeather>;
-  /** Henting (hverdager): «Hentes 16:00» øverst i barnets kolonne. */
+  /** Levering og henting (hverdager), øverst i barnets kolonne. */
   care?: CareData;
 }
 
@@ -105,8 +105,8 @@ export function PersonDayView({ date, events, members, categories, onCreateAt, o
             style={sticky ? { top: head.avatar } : undefined}
           >
             {(() => {
-              const pickup = care && pickupFor(care, m.id, date);
-              return pickup && <CareBadge pickup={pickup} members={members} compact={sticky} />;
+              const day = care && careFor(care, m.id, date);
+              return day && <CareBadge day={day} members={members} compact={sticky} />;
             })()}
             {allDay
               .filter((e) => e.participantIds.includes(m.id))

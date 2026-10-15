@@ -21,7 +21,7 @@ export interface CalendarEvent {
   seriesId?: string | null;
   recurrence?: RecurrenceRule | null;
   /** Satt for oppgaver med frist som vises i kalenderen. id er da «task:<oppgave-id>». */
-  kind?: "task" | "pickup";
+  kind?: "task" | "care";
   done?: boolean;
 }
 

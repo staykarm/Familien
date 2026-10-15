@@ -18,7 +18,7 @@ export default async function ProfilePage({ params }: PageProps<"/profiler/[id]"
   const others = session.members.filter((m) => !m.is_shared && m.id !== member.id);
   const [urls, plans] = await Promise.all([
     signAvatarUrls(await getDb(), [member.avatar_path, ...others.map((m) => m.avatar_path)]),
-    member.is_shared ? Promise.resolve({ plans: [], days: [] }) : loadCare(),
+    member.is_shared ? Promise.resolve({ plans: [], overrides: [] }) : loadCare(),
   ]);
 
   return (

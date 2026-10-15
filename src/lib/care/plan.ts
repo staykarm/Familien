@@ -1,39 +1,64 @@
 import { DateTime } from "luxon";
 
 /**
- * Henting (barnehage/skole) på hverdager. Den faste ukeplanen (`care_plans`) sier hvem som henter hver ukedag,
- * og enkeltdatoer framover (`care_days`) kan overstyre den. Klokkeslett er «tt:mm».
+ * Levering og henting (barnehage/skole) på hverdager. Den faste ukeplanen (`care_plans`) sier hvem som leverer
+ * og henter hver ukedag. Unntak (`care_overrides`) gjelder en periode og kan endre levering, henting eller begge.
+ * Klokkeslett er «tt:mm».
  */
+
+export type CarePart = "drop" | "pick";
+
+export const PART_LABEL: Record<CarePart, { noun: string; verb: string; passive: string; short: string }> = {
+  drop: { noun: "Levering", verb: "levere", passive: "Leveres", short: "Lev." },
+  pick: { noun: "Henting", verb: "hente", passive: "Hentes", short: "Hent" },
+};
+
+/** Hvem og når for én del. */
+export interface Slot {
+  by: string | null;
+  time: string | null;
+}
 
 /** Fast ukeplan for én ukedag. */
 export interface CarePlanDay {
   memberId: string;
   /** ISO-ukedag, 1 = mandag … 5 = fredag. */
   weekday: number;
-  pickBy: string | null;
-  pickTime: string | null;
+  drop: Slot;
+  pick: Slot;
 }
 
-/** Endring for én dato. Begge tomme = ingen henting den dagen. */
-export interface CareDay {
+/** Endring av én del i et unntak. null = som vanlig; ellers personen og tiden (begge tomme = ingen). */
+export type SlotChange = Slot | null;
+
+/** Unntak for en periode (fra og med – til og med). */
+export interface CareOverride {
+  id: string;
   memberId: string;
-  date: string;
-  pickBy: string | null;
-  pickTime: string | null;
+  from: string;
+  to: string;
+  note: string | null;
+  drop: SlotChange;
+  pick: SlotChange;
+  createdAt: string;
 }
 
 export interface CareData {
   plans: CarePlanDay[];
-  days: CareDay[];
+  overrides: CareOverride[];
 }
 
-/** Hvem som henter et barn en gitt dag. `changed` = avviker fra den faste ukeplanen. */
-export interface Pickup {
+/** Levering eller henting en gitt dag. `changed` = fra et unntak. */
+export interface CareSlot extends Slot {
   childId: string;
   date: string;
-  by: string | null;
-  time: string | null;
+  part: CarePart;
   changed: boolean;
+}
+
+export interface CareDayPlan {
+  drop: CareSlot | null;
+  pick: CareSlot | null;
 }
 
 export const WEEKDAYS = [
@@ -45,42 +70,64 @@ export const WEEKDAYS = [
 ] as const;
 
 export const isWeekday = (date: string) => DateTime.fromISO(date).weekday <= 5;
+const filled = (s: Slot | null | undefined): s is Slot => !!s && !!(s.by || s.time);
 
-/**
- * Hentingen for et barn en dato («åååå-mm-dd»). Bare hverdager. En endring for datoen går foran ukeplanen.
- * Null når ingen skal hente (ingen plan, eller dagen er satt til «ingen henting»).
- */
-export function pickupFor(care: CareData, childId: string, date: string): Pickup | null {
-  if (!isWeekday(date)) return null;
-  const override = care.days.find((d) => d.memberId === childId && d.date === date);
-  if (override) {
-    if (!override.pickBy && !override.pickTime) return null;
-    return { childId, date, by: override.pickBy, time: override.pickTime, changed: true };
+/** Det sist lagrede unntaket som endrer denne delen denne dagen. */
+function overrideFor(care: CareData, childId: string, date: string, part: CarePart): CareOverride | null {
+  let best: CareOverride | null = null;
+  for (const o of care.overrides) {
+    if (o.memberId !== childId || o[part] === null || date < o.from || date > o.to) continue;
+    if (!best || o.createdAt > best.createdAt) best = o;
   }
+  return best;
+}
+
+function slotFor(care: CareData, childId: string, date: string, part: CarePart): CareSlot | null {
+  const o = overrideFor(care, childId, date, part);
+  if (o) return filled(o[part]) ? { ...o[part]!, childId, date, part, changed: true } : null;
   const weekday = DateTime.fromISO(date).weekday;
   const plan = care.plans.find((p) => p.memberId === childId && p.weekday === weekday);
-  if (!plan || (!plan.pickBy && !plan.pickTime)) return null;
-  return { childId, date, by: plan.pickBy, time: plan.pickTime, changed: false };
+  return plan && filled(plan[part]) ? { ...plan[part], childId, date, part, changed: false } : null;
 }
 
-/** Alle hentinger en dato (for alle barn med plan). */
-export function pickupsOn(care: CareData, date: string): Pickup[] {
-  const children = [...new Set([...care.plans.map((p) => p.memberId), ...care.days.map((d) => d.memberId)])];
-  return children.map((id) => pickupFor(care, id, date)).filter((p): p is Pickup => p !== null);
+/** Levering og henting for et barn en dato («åååå-mm-dd»). Bare hverdager; null når ingenting skal skje. */
+export function careFor(care: CareData, childId: string, date: string): CareDayPlan | null {
+  if (!isWeekday(date)) return null;
+  const drop = slotFor(care, childId, date, "drop");
+  const pick = slotFor(care, childId, date, "pick");
+  return drop || pick ? { drop, pick } : null;
 }
 
-/** Hverdagene fra og med `from` i `weeks` uker framover. */
-export function upcomingWeekdays(from: string, weeks: number): string[] {
-  const start = DateTime.fromISO(from);
+/** Barna som har en plan eller unntak. */
+export function careChildren(care: CareData): string[] {
+  return [...new Set([...care.plans.map((p) => p.memberId), ...care.overrides.map((o) => o.memberId)])];
+}
+
+/** Alle leveringer og hentinger en dato. */
+export function careSlotsOn(care: CareData, date: string): CareSlot[] {
+  return careChildren(care).flatMap((id) => {
+    const day = careFor(care, id, date);
+    return day ? [day.drop, day.pick].filter((s): s is CareSlot => s !== null) : [];
+  });
+}
+
+/** Hverdagene fra og med `from` i `count` hverdager framover. */
+export function nextWeekdays(from: string, count: number): string[] {
   const out: string[] = [];
-  for (let i = 0; i < weeks * 7; i++) {
-    const d = start.plus({ days: i });
-    if (d.weekday <= 5) out.push(d.toISODate()!);
-  }
+  for (let d = DateTime.fromISO(from); out.length < count; d = d.plus({ days: 1 })) if (d.weekday <= 5) out.push(d.toISODate()!);
   return out;
 }
 
 /** «08:00:00» fra databasen → «08:00». */
 export function shortTime(t: string | null): string | null {
   return t ? t.slice(0, 5) : null;
+}
+
+/** «20.–24. okt», «30. okt–3. nov» eller «tir. 20. okt». */
+export function periodText(from: string, to: string): string {
+  const a = DateTime.fromISO(from).setLocale("nb");
+  const b = DateTime.fromISO(to).setLocale("nb");
+  if (from === to) return a.toFormat("ccc d. LLL");
+  if (a.month === b.month) return `${a.day}.–${b.toFormat("d. LLL")}`;
+  return `${a.toFormat("d. LLL")}–${b.toFormat("d. LLL")}`;
 }

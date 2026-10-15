@@ -1,6 +1,6 @@
 import "server-only";
 import { DateTime } from "luxon";
-import { pickupFor, shortTime, type CareData } from "@/lib/care/plan";
+import { careFor, PART_LABEL, shortTime, type CareData } from "@/lib/care/plan";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { TIME_ZONE } from "@/lib/time";
 import { claimOnce, loadSubscriptions, sendToSubscription, type PushMessage, type PushSub } from "./send";
@@ -89,19 +89,38 @@ async function reminders(db: Db, subs: PushSub[], members: MemberRow[], now: Dat
   return sent;
 }
 
+/** Ukeplanene og unntakene som gjelder denne datoen. */
 async function loadCareData(db: Db, date: string): Promise<CareData> {
-  const [{ data: plans, error }, { data: days }] = await Promise.all([
-    db.from("care_plans").select("member_id, weekday, pick_by, pick_time"),
-    db.from("care_days").select("member_id, date, pick_by, pick_time").eq("date", date),
+  const [{ data: plans, error }, { data: overrides }] = await Promise.all([
+    db.from("care_plans").select("member_id, weekday, drop_by, drop_time, pick_by, pick_time"),
+    db
+      .from("care_overrides")
+      .select("id, member_id, from_date, to_date, drop_override, drop_by, drop_time, pick_override, pick_by, pick_time, created_at")
+      .lte("from_date", date)
+      .gte("to_date", date),
   ]);
-  if (error) return { plans: [], days: [] };
+  if (error) return { plans: [], overrides: [] };
   return {
-    plans: (plans ?? []).map((r) => ({ memberId: r.member_id, weekday: r.weekday, pickBy: r.pick_by, pickTime: shortTime(r.pick_time) })),
-    days: (days ?? []).map((r) => ({ memberId: r.member_id, date: r.date, pickBy: r.pick_by, pickTime: shortTime(r.pick_time) })),
+    plans: (plans ?? []).map((r) => ({
+      memberId: r.member_id,
+      weekday: r.weekday,
+      drop: { by: r.drop_by, time: shortTime(r.drop_time) },
+      pick: { by: r.pick_by, time: shortTime(r.pick_time) },
+    })),
+    overrides: (overrides ?? []).map((r) => ({
+      id: r.id,
+      memberId: r.member_id,
+      from: r.from_date,
+      to: r.to_date,
+      note: null,
+      drop: r.drop_override ? { by: r.drop_by, time: shortTime(r.drop_time) } : null,
+      pick: r.pick_override ? { by: r.pick_by, time: shortTime(r.pick_time) } : null,
+      createdAt: r.created_at,
+    })),
   };
 }
 
-/** Påminnelse til den som skal hente (ukeplan eller endring for dagen). */
+/** Påminnelse til den som skal levere eller hente (ukeplan eller unntak for dagen). */
 async function care(db: Db, subs: PushSub[], members: MemberRow[], now: Date): Promise<number> {
   const wanting = subs.filter((s) => s.prefs.types.care);
   if (!wanting.length) return 0;
@@ -109,21 +128,24 @@ async function care(db: Db, subs: PushSub[], members: MemberRow[], now: Date): P
   const data = await loadCareData(db, date);
   let sent = 0;
   for (const child of members) {
-    const p = pickupFor(data, child.id, date);
-    if (!p?.by || !p.time) continue;
-    const at = DateTime.fromISO(`${date}T${p.time}`, { zone: TIME_ZONE });
-    const diff = at.toMillis() - now.getTime();
-    if (diff <= 0) continue;
-    const start = at.toUTC().toISO()!;
-    const who = members.find((m) => m.id === p.by)?.name ?? "";
-    for (const sub of wanting) {
-      if (diff > sub.prefs.careMinutes * 60_000) continue;
-      sent += await sendOnce(db, sub, "care", { targets: [p.by] }, now, `care:${child.id}:${date}:hente`, {
-        // Felles enhet: si hvem som skal hente.
-        title: sub.memberId ? `🚸 Du skal hente ${child.name} kl. ${p.time}` : `🚸 ${who} skal hente ${child.name} kl. ${p.time}`,
-        body: `Om ${inMinutes(start, now).slice(3)}`,
-        url: "/i-dag",
-      });
+    const day = careFor(data, child.id, date);
+    for (const slot of [day?.drop, day?.pick]) {
+      if (!slot?.by || !slot.time) continue;
+      const at = DateTime.fromISO(`${date}T${slot.time}`, { zone: TIME_ZONE });
+      const diff = at.toMillis() - now.getTime();
+      if (diff <= 0) continue;
+      const start = at.toUTC().toISO()!;
+      const who = members.find((m) => m.id === slot.by)?.name ?? "";
+      const verb = PART_LABEL[slot.part].verb;
+      for (const sub of wanting) {
+        if (diff > sub.prefs.careMinutes * 60_000) continue;
+        sent += await sendOnce(db, sub, "care", { targets: [slot.by] }, now, `care:${child.id}:${date}:${slot.part}`, {
+          // Felles enhet: si hvem som skal levere/hente.
+          title: sub.memberId ? `🚸 Du skal ${verb} ${child.name} kl. ${slot.time}` : `🚸 ${who} skal ${verb} ${child.name} kl. ${slot.time}`,
+          body: `Om ${inMinutes(start, now).slice(3)}`,
+          url: "/i-dag",
+        });
+      }
     }
   }
   return sent;
@@ -150,9 +172,12 @@ async function morning(db: Db, subs: PushSub[], members: MemberRow[], now: Date)
     const mine = memberId ? events.filter((e) => e.participantIds.includes(memberId) || e.participantIds.some((p) => shared.includes(p))) : events;
     const myTasks = (tasks ?? []).filter((t) => !memberId || t.assignee_id === memberId || !t.assignee_id);
     const careLines = members.flatMap((child) => {
-      const p = pickupFor(careData, child.id, date);
-      if (!p?.by || (memberId && p.by !== memberId)) return [];
-      return [`${memberId ? "Du" : nameOf(p.by)} henter ${child.name}${p.time ? ` ${p.time}` : ""}`];
+      const day = careFor(careData, child.id, date);
+      return [day?.drop, day?.pick].flatMap((slot) => {
+        if (!slot?.by || (memberId && slot.by !== memberId)) return [];
+        const verb = slot.part === "drop" ? "leverer" : "henter";
+        return [`${memberId ? "Du" : nameOf(slot.by)} ${verb} ${child.name}${slot.time ? ` ${slot.time}` : ""}`];
+      });
     });
     const parts = [
       mine.length ? mine.slice(0, 5).map(line).join(" · ") + (mine.length > 5 ? ` (+${mine.length - 5})` : "") : "Ingenting i kalenderen",

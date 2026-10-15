@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { notifyTaskAssigned } from "@/lib/push/notify";
 import { requireFamily } from "@/lib/session";
 import { getDb } from "@/lib/supabase/db";
 import type { Tables } from "@/lib/database.types";
@@ -77,7 +78,7 @@ function statusFields(status: TaskStatus, previous?: { status: TaskStatus; compl
 }
 
 export async function saveTask(input: TaskFormInput): Promise<TaskResult> {
-  await requireFamily();
+  const session = await requireFamily();
   const parsed = taskFormSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
   const { id, title, notes, assigneeId, categoryId, dueDate, dueTime, status } = parsed.data;
@@ -85,9 +86,11 @@ export async function saveTask(input: TaskFormInput): Promise<TaskResult> {
 
   const db = await getDb();
   let row: TaskRow | null = null;
+  let previousAssignee: string | null = null;
   if (id) {
-    const { data: prev } = await db.from("tasks").select("status, completed_at").eq("id", id).maybeSingle();
+    const { data: prev } = await db.from("tasks").select("status, completed_at, assignee_id").eq("id", id).maybeSingle();
     if (!prev) return { ok: false, message: "Fant ikke oppgaven" };
+    previousAssignee = prev.assignee_id;
     const { data } = await db
       .from("tasks")
       .update({ ...fields, ...statusFields(status, prev) })
@@ -104,6 +107,10 @@ export async function saveTask(input: TaskFormInput): Promise<TaskResult> {
     row = data;
   }
   if (!row) return { ok: false, message: "Kunne ikke lagre oppgaven" };
+  // Varsel bare når oppgaven får en ny ansvarlig (ikke ved hver lagring – dialogen lagrer mens man skriver).
+  if (assigneeId && assigneeId !== previousAssignee && status !== "done") {
+    notifyTaskAssigned(row.id, assigneeId, { actor: session.activeMember });
+  }
 
   revalidate();
   return { ok: true, message: id ? "Oppgaven er lagret" : "Oppgaven er lagt til", task: toTask(row) };

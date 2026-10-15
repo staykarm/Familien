@@ -4,7 +4,7 @@ import type { Database } from "@/lib/database.types";
 import { AUTH_ENABLED, publicSupabaseEnv } from "@/lib/env";
 
 /** Stier som skal virke uten innlogging. API-ruter har egen autentisering (webhook-hemmelighet, CRON_SECRET, sesjon). */
-const PUBLIC_PREFIXES = ["/logg-inn", "/auth/", "/api/", "/manifest.webmanifest", "/icon", "/apple-icon", "/weather/"];
+const PUBLIC_PREFIXES = ["/logg-inn", "/auth/", "/api/", "/manifest.webmanifest", "/icon", "/apple-icon", "/weather/", "/sw.js"];
 
 export async function updateSession(request: NextRequest) {
   if (!AUTH_ENABLED) return NextResponse.next({ request });

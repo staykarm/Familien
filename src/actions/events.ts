@@ -5,7 +5,8 @@ import { after } from "next/server";
 import { pushEvent } from "@/lib/outlook/sync";
 import { broadcastChange } from "@/lib/realtime";
 import { CALENDAR_TOPIC } from "@/lib/realtimeTopics";
-import { requireFamily } from "@/lib/session";
+import { notifyEventSaved, notifyEventsDeleted } from "@/lib/push/notify";
+import { requireFamily, type Member } from "@/lib/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getDb } from "@/lib/supabase/db";
 import { z } from "zod";
@@ -150,7 +151,7 @@ async function saveSeries(db: Db, v: EventToSave & { recurrence: RecurrenceRule 
 const count = (n: number) => (n === 1 ? "1 aktivitet" : `${n} aktiviteter`);
 
 export async function saveEvent(input: EventFormInput): Promise<EventResult> {
-  await requireFamily();
+  const session = await requireFamily();
   const parsed = eventFormSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
   const v = parsed.data;
@@ -158,6 +159,12 @@ export async function saveEvent(input: EventFormInput): Promise<EventResult> {
   const fail = (message = "Kunne ikke lagre aktiviteten"): EventResult => ({ ok: false, message });
   const done = (message: string, id?: string, push: string[] = id ? [id] : []): EventResult => {
     afterChange(push);
+    if (v.start) {
+      notifyEventSaved(
+        { title: v.title, participantIds: v.participantIds, start: v.start, allDay: v.allDay },
+        { isNew: !v.id, count: v.recurrence ? v.occurrences?.length : undefined, actor: session.activeMember, members: session.members }
+      );
+    }
     revalidatePath("/");
     return { ok: true, message, id };
   };
@@ -223,13 +230,16 @@ export async function saveEvent(input: EventFormInput): Promise<EventResult> {
 }
 
 export async function moveEvent(input: { id: string; start: string; end: string; allDay: boolean }): Promise<EventResult> {
-  await requireFamily();
+  const session = await requireFamily();
   const parsed = moveEventSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Ugyldig tidspunkt" };
   const { id, start, end, allDay } = parsed.data;
 
   const db = await getDb();
-  const { data: existing } = await db.from("events").select("outlook_id").eq("id", id).maybeSingle();
+  const [{ data: existing }, { data: parts }] = await Promise.all([
+    db.from("events").select("outlook_id, title").eq("id", id).maybeSingle(),
+    db.from("event_participants").select("member_id").eq("event_id", id),
+  ]);
   if (!existing) return { ok: false, message: "Fant ikke aktiviteten" };
   const { error } = await db
     .from("events")
@@ -243,11 +253,15 @@ export async function moveEvent(input: { id: string; start: string; end: string;
     .is("deleted_at", null);
   if (error) return { ok: false, message: "Kunne ikke flytte aktiviteten" };
   afterChange(id);
+  notifyEventSaved(
+    { title: existing.title, participantIds: (parts ?? []).map((p) => p.member_id), start, allDay },
+    { isNew: false, actor: session.activeMember, members: session.members }
+  );
   return { ok: true, message: "Flyttet" };
 }
 
 export async function deleteEvent(id: string, scope: "one" | "following" | "all" = "one"): Promise<EventResult> {
-  await requireFamily();
+  const session = await requireFamily();
   if (!/^[0-9a-f-]{36}$/i.test(id) || !["one", "following", "all"].includes(scope)) return { ok: false, message: "Ugyldig aktivitet" };
 
   const db = await getDb();
@@ -274,7 +288,7 @@ export async function deleteEvent(id: string, scope: "one" | "following" | "all"
     local.length ? db.from("events").update({ deleted_at: now }).in("id", local) : null,
   ]);
   if (results.some((r) => r?.error)) return { ok: false, message: "Kunne ikke slette aktiviteten" };
-  finalizeDeletes(ids);
+  finalizeDeletes(ids, { actor: session.activeMember, members: session.members });
   await broadcastChange(CALENDAR_TOPIC);
   revalidatePath("/");
   return { ok: true, message: rows.length > 1 ? `${count(rows.length)} er slettet` : "Aktiviteten er slettet", undoIds: ids };
@@ -284,12 +298,25 @@ export async function deleteEvent(id: string, scope: "one" | "following" | "all"
  * Etter angrefristen: aktiviteter som fortsatt er slettet, fjernes i Outlook (via synken) eller fra databasen.
  * Bruker admin-klienten, siden dette kjører etter at svaret er sendt.
  */
-function finalizeDeletes(ids: string[]) {
+function finalizeDeletes(ids: string[], who: { actor: Member | null; members: Member[] }) {
   after(async () => {
     await new Promise((r) => setTimeout(r, UNDO_GRACE_MS));
     const db = createAdminClient();
-    const { data } = await db.from("events").select("id, outlook_id, deleted_at").in("id", ids);
+    const [{ data }, { data: parts }] = await Promise.all([
+      db.from("events").select("id, outlook_id, deleted_at, title, start_at, all_day").in("id", ids).order("start_at"),
+      db.from("event_participants").select("event_id, member_id").in("event_id", ids),
+    ]);
     const still = (data ?? []).filter((r) => r.deleted_at);
+    // Varsel først nå, så en sletting som angres ikke gir varsel.
+    await notifyEventsDeleted(
+      still.map((r) => ({
+        title: r.title,
+        start: r.start_at,
+        allDay: r.all_day,
+        participantIds: (parts ?? []).filter((p) => p.event_id === r.id).map((p) => p.member_id),
+      })),
+      who
+    ).catch((err) => console.warn("Kunne ikke sende pushvarsel", err));
     const local = still.filter((r) => !r.outlook_id).map((r) => r.id);
     if (local.length) await db.from("events").delete().in("id", local);
     for (const r of still.filter((x) => x.outlook_id)) await pushEvent(r.id);

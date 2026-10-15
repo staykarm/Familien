@@ -39,6 +39,12 @@ Arkitektur og faser står i README. Marius godkjenner hver fase før den startes
 - Handlemodus («Handle»): store avkrysningsknapper, framdrift og skjermen holdes våken (Wake Lock). Avdelingene sorteres i butikkrekkefølge (`categories.sort_order`, endres i «Butikkrekkefølge»).
 - Levering og henting (barnehage/skole) lagres per barn og hverdag i `care_plans` (1 = mandag … 5 = fredag) og redigeres på profilsiden. Den vises øverst i barnets kolonne/rad i «Per person» og under «I dag», bare på hverdager (`lib/care/plan.ts`, `components/care/CareBadge.tsx`).
 
+## Pushvarsler
+- Web Push med `web-push`. Service workeren er `public/sw.js`. Enhetene ligger i `push_subscriptions`. VAPID-nøklene lages automatisk (`push_keys`, privatnøkkelen er kryptert).
+- Hver enhet har egne valg (`push_subscriptions.prefs`, `lib/push/settings.ts`): hvem den tilhører, hvilke typer den får, minutter før, morgenklokkeslett og stille tid. Alle enhetene kan endres fra Innstillinger. Nye varseltyper legges i `PUSH_TYPES`.
+- Varsler fra server actions sendes med funksjonene i `lib/push/notify.ts`. De kjører etter svaret (`after()`) og stopper aldri selve handlingen. Den som gjorde endringen (`activeMember`), får ikke varsel.
+- Varsler på tid (påminnelser, levering/henting, morgen) ligger i `lib/push/jobs.ts` og regnes ut per enhet. De kalles fra `/api/cron/push` hvert 5. minutt (Supabase `pg_cron`). `push_log` sørger for at hvert varsel bare sendes én gang per enhet.
+
 ## Lagring
 - Handleliste, oppgaver og notater lagres automatisk mens man skriver, som i iOS Notater. Dialogene har ingen «Lagre»-knapp, bare «Ferdig» som lukker etter at siste endring er lagret. Bruk `useAutosave` (`components/useAutosave.ts`, logikken ligger i `lib/autosave.ts`).
 - Unntak: forslag som skal godkjennes (Les inn fil) og kalenderaktiviteter, siden de synkes til Outlook.

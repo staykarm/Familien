@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { broadcastChange, SHOPPING_TOPIC } from "@/lib/realtime";
+import { notifyShopping } from "@/lib/push/notify";
 import { requireFamily } from "@/lib/session";
 import { getDb } from "@/lib/supabase/db";
 import { guessCategoryName } from "@/lib/shopping/categorize";
@@ -105,6 +106,7 @@ export async function addItem(input: ItemInput): Promise<ShoppingResult> {
   });
   if (error) return { ok: false, message: "Kunne ikke legge til varen" };
   await broadcastChange(SHOPPING_TOPIC);
+  notifyShopping([name], { actor: session.activeMember });
   return { ok: true };
 }
 
@@ -213,6 +215,10 @@ export async function addTemplateToList(templateId: string): Promise<ShoppingRes
   );
   if (error) return { ok: false, message: "Kunne ikke legge til varene" };
   await broadcastChange(SHOPPING_TOPIC);
+  notifyShopping(
+    toAdd.map((i) => i.name),
+    { actor: session.activeMember, template: template.name }
+  );
   const skipped = (items?.length ?? 0) - toAdd.length;
   return {
     ok: true,

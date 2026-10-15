@@ -149,3 +149,18 @@ export async function notifySyncError(message: string): Promise<void> {
   if (!(await claimOnce(db, `sync-error:${slot}`))) return;
   await notify("sync", { title: "⚠️ Outlook-synken feilet", body: message.slice(0, 160), url: "/innstillinger#outlook" }, { targets: null });
 }
+
+/** Noen er satt opp til å hente på en bestemt dag (endring fra profilen). */
+export function notifyPickupAssigned(p: { childName: string; date: string; time: string | null; by: string }, opts: { actor: Member | null }) {
+  if (p.by === opts.actor?.id) return;
+  const when = whenText(`${p.date}T${p.time ?? "12:00"}:00`, !p.time);
+  notifyLater(
+    "care",
+    {
+      title: `🚸 Du skal hente ${p.childName} ${when}`,
+      body: opts.actor ? `Satt opp av ${opts.actor.name}` : "Endret i henteplanen",
+      url: "/i-dag",
+    },
+    { targets: [p.by], exclude: opts.actor?.id ?? null }
+  );
+}

@@ -20,6 +20,7 @@ Familieapp for planlegging for Ingvild, Marius, Edvard og Olav (+ Felles): kalen
 | 9 | «I dag»-oversikt og «Angre» i stedet for «Er du sikker?» | ✅ |
 | 10 | Handlemodus i butikken, butikkrekkefølge, og levering/henting i barnehagen | ✅ |
 | 11 | Pushvarsler, styrt fra Innstillinger | ✅ |
+| 12 | Henting av barna: fast ukeplan og endringer dag for dag, vist i kalenderen | ✅ |
 
 ## Kom i gang lokalt
 

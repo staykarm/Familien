@@ -166,6 +166,12 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["care_plans"]["Insert"]>;
         Relationships: [];
       };
+      care_days: {
+        Row: { member_id: string; date: string; pick_by: string | null; pick_time: string | null; updated_at: string };
+        Insert: { member_id: string; date: string; pick_by?: string | null; pick_time?: string | null };
+        Update: Partial<Database["public"]["Tables"]["care_days"]["Insert"]>;
+        Relationships: [];
+      };
       event_participants: {
         Row: { event_id: string; member_id: string };
         Insert: { event_id: string; member_id: string };

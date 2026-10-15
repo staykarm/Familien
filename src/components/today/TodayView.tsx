@@ -20,7 +20,7 @@ import type {
   CalendarEvent,
   CalendarMember,
 } from "@/lib/calendar/types";
-import { planForDate, type CarePlanDay } from "@/lib/care/plan";
+import { pickupFor, type CareData } from "@/lib/care/plan";
 import type { Task } from "@/lib/tasks/types";
 import { TIME_ZONE } from "@/lib/time";
 import { symbolLabel } from "@/lib/weather/symbols";
@@ -36,7 +36,7 @@ interface Props {
   tasks: Task[];
   shopping: string[];
   weather: Forecast | null;
-  carePlans?: CarePlanDay[];
+  care?: CareData;
 }
 
 const hhmm = (iso: string) =>
@@ -62,7 +62,7 @@ export function TodayView({
   tasks: initialTasks,
   shopping,
   weather,
-  carePlans = [],
+  care = { plans: [], days: [] },
 }: Props) {
   const [tasks, setTasks] = useState(initialTasks);
   const [toast, setToast] = useState<string | null>(null);
@@ -153,7 +153,7 @@ export function TodayView({
           members={members}
           categories={categories}
           events={events}
-          carePlans={carePlans}
+          care={care}
         />
         <DaySection
           label="I morgen"
@@ -161,7 +161,7 @@ export function TodayView({
           members={members}
           categories={categories}
           events={events}
-          carePlans={carePlans}
+          care={care}
         />
 
         <section className={`${card} flex flex-col gap-2`}>
@@ -271,14 +271,14 @@ function DaySection({
   members,
   categories,
   events,
-  carePlans,
+  care,
 }: {
   label: string;
   day: string;
   members: CalendarMember[];
   categories: CalendarCategory[];
   events: CalendarEvent[];
-  carePlans: CarePlanDay[];
+  care: CareData;
 }) {
   const onDay = events
     .filter((e) => touchesDay(e, day))
@@ -290,7 +290,7 @@ function DaySection({
     .map((m) => ({
       m,
       list: onDay.filter((e) => e.participantIds.includes(m.id)),
-      plan: planForDate(carePlans, m.id, day),
+      plan: pickupFor(care, m.id, day),
     }))
     .filter((p) => p.list.length || p.plan);
 
@@ -326,7 +326,7 @@ function DaySection({
                 </p>
                 {plan && (
                   <div className="my-0.5 w-fit max-w-full">
-                    <CareBadge plan={plan} members={members} />
+                    <CareBadge pickup={plan} members={members} />
                   </div>
                 )}
                 <ul className="flex flex-col gap-0.5">

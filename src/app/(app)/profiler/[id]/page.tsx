@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { listCarePlans } from "@/actions/care";
+import { loadCare } from "@/actions/care";
 import { CarePlanEditor } from "@/components/care/CarePlanEditor";
 import { ProfileForm } from "@/components/profile/ProfileForm";
 import { buttonGhost } from "@/components/ui/styles";
@@ -18,7 +18,7 @@ export default async function ProfilePage({ params }: PageProps<"/profiler/[id]"
   const others = session.members.filter((m) => !m.is_shared && m.id !== member.id);
   const [urls, plans] = await Promise.all([
     signAvatarUrls(await getDb(), [member.avatar_path, ...others.map((m) => m.avatar_path)]),
-    member.is_shared ? Promise.resolve([]) : listCarePlans(),
+    member.is_shared ? Promise.resolve({ plans: [], days: [] }) : loadCare(),
   ]);
 
   return (
@@ -48,7 +48,7 @@ export default async function ProfilePage({ params }: PageProps<"/profiler/[id]"
             icon: m.icon,
             avatarUrl: m.avatar_path ? (urls[m.avatar_path] ?? null) : null,
           }))}
-          initial={plans.filter((p) => p.memberId === member.id)}
+          initial={plans}
         />
       )}
     </div>

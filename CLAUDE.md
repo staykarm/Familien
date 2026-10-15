@@ -37,7 +37,8 @@ Arkitektur og faser står i README. Marius godkjenner hver fase før den startes
 
 ## Handleliste og levering
 - Handlemodus («Handle»): store avkrysningsknapper, framdrift og skjermen holdes våken (Wake Lock). Avdelingene sorteres i butikkrekkefølge (`categories.sort_order`, endres i «Butikkrekkefølge»).
-- Levering og henting (barnehage/skole) lagres per barn og hverdag i `care_plans` (1 = mandag … 5 = fredag) og redigeres på profilsiden. Den vises øverst i barnets kolonne/rad i «Per person» og under «I dag», bare på hverdager (`lib/care/plan.ts`, `components/care/CareBadge.tsx`).
+- Henting (barnehage/skole), bare hverdager. Det finnes en fast ukeplan per barn (`care_plans`, 1 = mandag … 5 = fredag). Enkeltdatoer framover kan overstyre den (`care_days`; tom = ingen henting). Begge redigeres på barnets profil. `pickupFor` (`lib/care/plan.ts`) gir hentingen en dato. Kolonnene `drop_*` i `care_plans` brukes ikke lenger.
+- I kalenderen vises hentingen som et heldagselement hos den som henter («🚸 Hente Olav 16:00», `lib/care/calendar.ts`, `kind: "pickup"`). Det kan ikke dras, og trykk åpner barnets profil. Barnets egen kolonne/rad i «Per person» og «I dag» viser «Hentes 16:00 · Marius» (`CareBadge`).
 
 ## Pushvarsler
 - Web Push med `web-push`. Service workeren er `public/sw.js`. Enhetene ligger i `push_subscriptions`. VAPID-nøklene lages automatisk (`push_keys`, privatnøkkelen er kryptert).

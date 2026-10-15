@@ -1,6 +1,6 @@
 import "server-only";
 import { DateTime } from "luxon";
-import { planForDate, shortTime } from "@/lib/care/plan";
+import { pickupFor, shortTime, type CareData } from "@/lib/care/plan";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { TIME_ZONE } from "@/lib/time";
 import { claimOnce, loadSubscriptions, sendToSubscription, type PushMessage, type PushSub } from "./send";
@@ -15,7 +15,7 @@ interface MemberRow {
 }
 
 /**
- * Det som skal sendes på tid: påminnelser før aktiviteter, levering/henting og morgenoversikten.
+ * Det som skal sendes på tid: påminnelser før aktiviteter, henting og morgenoversikten.
  * Hver enhet har egne valg (typer, minutter før, klokkeslett, stille tid), så alt regnes ut per enhet.
  * Kjøres ofte (hvert 5. minutt via Supabase, se README). Hvert varsel sendes bare én gang per enhet (push_log).
  */
@@ -89,47 +89,41 @@ async function reminders(db: Db, subs: PushSub[], members: MemberRow[], now: Dat
   return sent;
 }
 
-async function loadPlans(db: Db) {
-  const { data, error } = await db.from("care_plans").select("member_id, weekday, drop_by, drop_time, pick_by, pick_time");
-  if (error || !data) return [];
-  return data.map((r) => ({
-    memberId: r.member_id,
-    weekday: r.weekday,
-    dropBy: r.drop_by,
-    dropTime: shortTime(r.drop_time),
-    pickBy: r.pick_by,
-    pickTime: shortTime(r.pick_time),
-  }));
+async function loadCareData(db: Db, date: string): Promise<CareData> {
+  const [{ data: plans, error }, { data: days }] = await Promise.all([
+    db.from("care_plans").select("member_id, weekday, pick_by, pick_time"),
+    db.from("care_days").select("member_id, date, pick_by, pick_time").eq("date", date),
+  ]);
+  if (error) return { plans: [], days: [] };
+  return {
+    plans: (plans ?? []).map((r) => ({ memberId: r.member_id, weekday: r.weekday, pickBy: r.pick_by, pickTime: shortTime(r.pick_time) })),
+    days: (days ?? []).map((r) => ({ memberId: r.member_id, date: r.date, pickBy: r.pick_by, pickTime: shortTime(r.pick_time) })),
+  };
 }
 
+/** Påminnelse til den som skal hente (ukeplan eller endring for dagen). */
 async function care(db: Db, subs: PushSub[], members: MemberRow[], now: Date): Promise<number> {
   const wanting = subs.filter((s) => s.prefs.types.care);
   if (!wanting.length) return 0;
   const date = DateTime.fromJSDate(now).setZone(TIME_ZONE).toISODate()!;
-  const plans = await loadPlans(db);
+  const data = await loadCareData(db, date);
   let sent = 0;
   for (const child of members) {
-    const plan = planForDate(plans, child.id, date);
-    if (!plan) continue;
-    for (const [what, by, time] of [
-      ["levere", plan.dropBy, plan.dropTime],
-      ["hente", plan.pickBy, plan.pickTime],
-    ] as const) {
-      if (!by || !time) continue;
-      const at = DateTime.fromISO(`${date}T${time}`, { zone: TIME_ZONE });
-      const diff = at.toMillis() - now.getTime();
-      if (diff <= 0) continue;
-      const start = at.toUTC().toISO()!;
-      for (const sub of wanting) {
-        if (diff > sub.prefs.careMinutes * 60_000) continue;
-        const who = members.find((m) => m.id === by)?.name ?? "";
-        sent += await sendOnce(db, sub, "care", { targets: [by] }, now, `care:${child.id}:${date}:${what}`, {
-          // Felles enhet: si hvem som skal levere/hente.
-          title: sub.memberId ? `🚸 Du skal ${what} ${child.name} kl. ${time}` : `🚸 ${who} skal ${what} ${child.name} kl. ${time}`,
-          body: `Om ${inMinutes(start, now).slice(3)}`,
-          url: "/i-dag",
-        });
-      }
+    const p = pickupFor(data, child.id, date);
+    if (!p?.by || !p.time) continue;
+    const at = DateTime.fromISO(`${date}T${p.time}`, { zone: TIME_ZONE });
+    const diff = at.toMillis() - now.getTime();
+    if (diff <= 0) continue;
+    const start = at.toUTC().toISO()!;
+    const who = members.find((m) => m.id === p.by)?.name ?? "";
+    for (const sub of wanting) {
+      if (diff > sub.prefs.careMinutes * 60_000) continue;
+      sent += await sendOnce(db, sub, "care", { targets: [p.by] }, now, `care:${child.id}:${date}:hente`, {
+        // Felles enhet: si hvem som skal hente.
+        title: sub.memberId ? `🚸 Du skal hente ${child.name} kl. ${p.time}` : `🚸 ${who} skal hente ${child.name} kl. ${p.time}`,
+        body: `Om ${inMinutes(start, now).slice(3)}`,
+        url: "/i-dag",
+      });
     }
   }
   return sent;
@@ -142,10 +136,10 @@ async function morning(db: Db, subs: PushSub[], members: MemberRow[], now: Date)
   const date = local.toISODate()!;
 
   const dayStart = local.startOf("day");
-  const [events, { data: tasks }, plans] = await Promise.all([
+  const [events, { data: tasks }, careData] = await Promise.all([
     loadEvents(db, dayStart.toJSDate(), dayStart.plus({ days: 1 }).toJSDate()),
     db.from("tasks").select("title, assignee_id, due_date").neq("status", "done").not("due_date", "is", null).lte("due_date", date),
-    loadPlans(db),
+    loadCareData(db, date),
   ]);
   const shared = members.filter((m) => m.is_shared).map((m) => m.id);
   const nameOf = (id: string | null) => members.find((m) => m.id === id)?.name ?? "";
@@ -156,14 +150,9 @@ async function morning(db: Db, subs: PushSub[], members: MemberRow[], now: Date)
     const mine = memberId ? events.filter((e) => e.participantIds.includes(memberId) || e.participantIds.some((p) => shared.includes(p))) : events;
     const myTasks = (tasks ?? []).filter((t) => !memberId || t.assignee_id === memberId || !t.assignee_id);
     const careLines = members.flatMap((child) => {
-      const p = planForDate(plans, child.id, date);
-      if (!p) return [];
-      const drop = p.dropBy && (!memberId || p.dropBy === memberId);
-      const pick = p.pickBy && (!memberId || p.pickBy === memberId);
-      return [
-        drop ? `${memberId ? "Du" : nameOf(p.dropBy)} leverer ${child.name}${p.dropTime ? ` ${p.dropTime}` : ""}` : null,
-        pick ? `${memberId ? "Du" : nameOf(p.pickBy)} henter ${child.name}${p.pickTime ? ` ${p.pickTime}` : ""}` : null,
-      ].filter((x): x is string => !!x);
+      const p = pickupFor(careData, child.id, date);
+      if (!p?.by || (memberId && p.by !== memberId)) return [];
+      return [`${memberId ? "Du" : nameOf(p.by)} henter ${child.name}${p.time ? ` ${p.time}` : ""}`];
     });
     const parts = [
       mine.length ? mine.slice(0, 5).map(line).join(" · ") + (mine.length > 5 ? ` (+${mine.length - 5})` : "") : "Ingenting i kalenderen",

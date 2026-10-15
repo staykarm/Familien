@@ -4,7 +4,7 @@ import { runPushJobs } from "@/lib/push/jobs";
 export const maxDuration = 60;
 
 /**
- * Pushvarsler på tid: påminnelser, levering/henting og morgenoversikten.
+ * Pushvarsler på tid: påminnelser, henting og morgenoversikten.
  * Kalles hvert 5. minutt fra Supabase (pg_cron, se README) og én gang om morgenen fra Vercel som reserve.
  * Krever `Authorization: Bearer <CRON_SECRET>`.
  */

@@ -6,7 +6,8 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Familien",
     description: "Familiens kalender, oppgaver og handleliste",
     lang: "nb",
-    start_url: "/",
+    // Appen åpner på «I dag»-oversikten.
+    start_url: "/i-dag",
     display: "standalone",
     background_color: "#fff8ef",
     theme_color: "#fff8ef",

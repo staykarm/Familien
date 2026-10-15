@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { Check, ChevronDown, Pencil, Plus, ShoppingCart } from "lucide-react";
-import { addItem, addTemplateToList, clearChecked, getShopping, toggleItem, type ShoppingData } from "@/actions/shopping";
+import { addItem, addTemplateToList, clearChecked, getShopping, restoreItems, toggleItem, type ShoppingData } from "@/actions/shopping";
+import { useUndo } from "@/components/ui/UndoToast";
 import { buttonGhost, buttonPrimary, buttonSecondary, card, input } from "@/components/ui/styles";
 import type { CalendarCategory } from "@/lib/calendar/types";
 import { checkedItems, groupOpenItems } from "@/lib/shopping/group";
@@ -28,6 +29,7 @@ export function ShoppingList({ initial, categories }: Props) {
   const [editing, setEditing] = useState<ShoppingItem | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<ShoppingTemplate | "new" | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const { offer: offerUndo, node: undoNode } = useUndo((m) => setToast(m ?? null));
   // null = lukket, "" = handlelisten, ellers id til en fast liste
   const [oda, setOda] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -169,7 +171,25 @@ export function ShoppingList({ initial, categories }: Props) {
                 >
                   <ChevronDown size={20} className={`transition ${showChecked ? "rotate-180" : ""}`} aria-hidden />I kurven ({done.length})
                 </button>
-                <button className={buttonGhost} disabled={pending} onClick={() => runAndRefresh(clearChecked)}>
+                <button
+                  className={buttonGhost}
+                  disabled={pending}
+                  onClick={() =>
+                    start(async () => {
+                      const res = await clearChecked();
+                      const deleted = res.deleted;
+                      if (res.ok && deleted?.length) {
+                        setToast(null);
+                        offerUndo({ text: res.message ?? "Fjernet", run: async () => {
+                          const r = await restoreItems(deleted);
+                          refetch();
+                          return r;
+                        } });
+                      } else if (res.message) setToast(res.message);
+                      refetch();
+                    })
+                  }
+                >
                   Fjern avhukede
                 </button>
               </div>
@@ -261,9 +281,16 @@ export function ShoppingList({ initial, categories }: Props) {
           key={editing.id}
           item={editing}
           categories={categories}
-          onDone={(message) => {
+          onDone={(message, undo) => {
             setEditing(null);
-            if (message) setToast(message);
+            if (undo) {
+              setToast(null);
+              offerUndo({ text: message ?? "Fjernet", run: async () => {
+                const r = await undo();
+                refetch();
+                return r;
+              } });
+            } else if (message) setToast(message);
             refetch();
           }}
         />
@@ -283,6 +310,7 @@ export function ShoppingList({ initial, categories }: Props) {
         />
       )}
 
+      {undoNode}
       {toast && (
         <div role="status" className="fixed inset-x-0 bottom-24 z-50 mx-auto w-fit max-w-[90vw] rounded-full bg-ink px-5 py-3 text-center font-bold text-white shadow-lg md:bottom-8">
           {toast}

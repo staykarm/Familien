@@ -5,7 +5,7 @@ import { DateTime } from "luxon";
 import { Plus } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { tint } from "@/lib/calendar/colors";
-import { osloDate } from "@/lib/calendar/dates";
+import { osloDate, touchesDay } from "@/lib/calendar/dates";
 import type { CalendarCategory, CalendarEvent, CalendarMember } from "@/lib/calendar/types";
 import { TIME_ZONE } from "@/lib/time";
 import { WeatherBadge } from "@/components/weather/WeatherBadge";
@@ -24,15 +24,6 @@ interface Props {
   onDayClick: (date: string) => void;
   weather: Record<string, DailyWeather>;
   onWeather: (date: string) => void;
-}
-
-function touchesDay(e: CalendarEvent, day: string): boolean {
-  const start = osloDate(day);
-  const end = start.plus({ days: 1 });
-  const s = DateTime.fromISO(e.start);
-  const en = DateTime.fromISO(e.end);
-  // Slutt er eksklusiv; null-varighet teller på startdagen.
-  return s < end && (en > start || (en.equals(s) && s >= start));
 }
 
 /** Én rad per familiemedlem, én kolonne per ukedag. */

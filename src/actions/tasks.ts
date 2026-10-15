@@ -12,6 +12,8 @@ export interface TaskResult {
   ok: boolean;
   message?: string;
   task?: Task;
+  /** Oppgaven slik den var før den ble slettet – til «Angre». */
+  deleted?: Task;
 }
 
 const COLUMNS = "id, title, notes, assignee_id, category_id, due_date, due_time, status, completed_at";
@@ -131,8 +133,48 @@ export async function deleteTask(id: string): Promise<TaskResult> {
   await requireFamily();
   if (!z.uuid().safeParse(id).success) return { ok: false, message: "Ugyldig oppgave" };
   const db = await getDb();
+  const { data: row } = await db.from("tasks").select(COLUMNS).eq("id", id).maybeSingle();
   const { error } = await db.from("tasks").delete().eq("id", id);
   if (error) return { ok: false, message: "Kunne ikke slette oppgaven" };
   revalidate();
-  return { ok: true, message: "Oppgaven er slettet" };
+  return { ok: true, message: "Oppgaven er slettet", deleted: row ? toTask(row) : undefined };
+}
+
+const restoreTaskSchema = z.object({
+  id: z.uuid(),
+  title: z.string().trim().min(1).max(200),
+  notes: z.string().max(2000).nullable(),
+  assigneeId: z.uuid().nullable(),
+  categoryId: z.uuid().nullable(),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+  dueTime: z.string().regex(/^\d{2}:\d{2}$/).nullable(),
+  status: taskStatusSchema,
+  completedAt: z.string().nullable(),
+});
+
+/** «Angre» etter sletting: legger oppgaven tilbake slik den var (samme id). */
+export async function restoreTask(task: Task): Promise<TaskResult> {
+  await requireFamily();
+  const parsed = restoreTaskSchema.safeParse(task);
+  if (!parsed.success) return { ok: false, message: "Kunne ikke angre" };
+  const t = parsed.data;
+  const db = await getDb();
+  const { data } = await db
+    .from("tasks")
+    .upsert({
+      id: t.id,
+      title: t.title,
+      notes: t.notes,
+      assignee_id: t.assigneeId,
+      category_id: t.categoryId,
+      due_date: t.dueDate,
+      due_time: t.dueTime,
+      status: t.status,
+      completed_at: t.completedAt,
+    })
+    .select(COLUMNS)
+    .maybeSingle();
+  if (!data) return { ok: false, message: "Kunne ikke angre" };
+  revalidate();
+  return { ok: true, message: "Oppgaven er tilbake", task: toTask(data) };
 }

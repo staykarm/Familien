@@ -110,3 +110,12 @@ export function formatDuration(minutes: number): string {
   if (h === 0) return `${m} min`;
   return m === 0 ? `${h} t` : `${h} t ${m} min`;
 }
+
+/** Om en aktivitet berører en dag (Oslo). Slutt er eksklusiv; null-varighet teller på startdagen. */
+export function touchesDay(e: { start: string; end: string }, day: string): boolean {
+  const start = osloDate(day);
+  const end = start.plus({ days: 1 });
+  const s = DateTime.fromISO(e.start);
+  const en = DateTime.fromISO(e.end);
+  return s < end && (en > start || (en.equals(s) && s >= start));
+}

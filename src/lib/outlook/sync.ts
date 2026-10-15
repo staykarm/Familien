@@ -179,12 +179,17 @@ async function markConflict(ctx: Ctx, id: string, g: GraphEvent, participantIds:
   await syncLog("system", `«${title}» er endret både i appen og i Outlook – velg hvilken som gjelder`, false, id);
 }
 
+/** Slettinger yngre enn dette kan fortsatt angres i appen, og venter (se finalizeDeletes i actions/events.ts). */
+const UNDO_WINDOW_MS = 30_000;
+
 /** Sender alt som venter (nye, endrede, slettede og tidligere feil). */
 async function pushPending(ctx: Ctx): Promise<number> {
+  const undoable = new Date(Date.now() - UNDO_WINDOW_MS).toISOString();
   const { data } = await ctx.db
     .from("events")
     .select("id")
     .in("sync_status", ["local", "pending", "error"])
+    .or(`deleted_at.is.null,deleted_at.lt.${undoable}`)
     .order("updated_at")
     .limit(100);
   let pushed = 0;

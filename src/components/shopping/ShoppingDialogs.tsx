@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { autosaveLabel, useAutosave } from "@/components/useAutosave";
 import { Plus, Trash2 } from "lucide-react";
-import { deleteItem, deleteTemplate, saveTemplate, updateItem } from "@/actions/shopping";
+import { deleteItem, deleteTemplate, restoreItems, saveTemplate, updateItem } from "@/actions/shopping";
 import { DeleteButton, Sheet } from "@/components/ui/Sheet";
 import { buttonGhost, buttonPrimary, buttonSecondary, input, label } from "@/components/ui/styles";
 import type { CalendarCategory } from "@/lib/calendar/types";
@@ -48,8 +48,8 @@ export function ItemDialog({
 }: {
   item: ShoppingItem;
   categories: CalendarCategory[];
-  /** Kalles når dialogen lukkes (etter at siste endring er lagret), eller når varen er fjernet. */
-  onDone: (message?: string) => void;
+  /** Kalles når dialogen lukkes (etter at siste endring er lagret), eller når varen er fjernet (da med `undo`). */
+  onDone: (message?: string, undo?: () => Promise<{ ok: boolean; message?: string }>) => void;
 }) {
   const [name, setName] = useState(item.name);
   const [quantity, setQuantity] = useState(item.quantity ?? "");
@@ -87,7 +87,8 @@ export function ItemDialog({
             onClick={() =>
               start(async () => {
                 const res = await deleteItem(item.id);
-                if (res.ok) onDone(res.message);
+                const deleted = res.deleted;
+                if (res.ok) onDone(res.message, deleted?.length ? () => restoreItems(deleted) : undefined);
                 else setError(res.message ?? "Noe gikk galt");
               })
             }

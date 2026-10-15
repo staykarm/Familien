@@ -9,6 +9,10 @@ import { OdaSettings } from "@/components/settings/OdaSettings";
 import { odaStatus } from "@/lib/oda/session";
 import { OutlookSettings } from "@/components/settings/OutlookSettings";
 import { getOutlookStatus } from "@/actions/outlook";
+import { listPushDevices } from "@/actions/push";
+import { PushSettings } from "@/components/settings/PushSettings";
+import { loadFamilyUi } from "@/lib/familyUi";
+import { loadPushSettings, pushPublicKey } from "@/lib/push/send";
 
 export const metadata = { title: "Innstillinger – Familien" };
 // Første synk med Outlook kjører i bakgrunnen etter at kalenderen er valgt, og kan ta litt tid.
@@ -16,7 +20,16 @@ export const maxDuration = 300;
 
 export default async function SettingsPage({ searchParams }: PageProps<"/innstillinger">) {
   const session = await requireFamily();
-  const [weatherLocation, oda, outlook, params] = await Promise.all([getWeatherLocation(), odaStatus(), getOutlookStatus(), searchParams]);
+  const [weatherLocation, oda, outlook, params, publicKey, pushSettings, devices, { members }] = await Promise.all([
+    getWeatherLocation(),
+    odaStatus(),
+    getOutlookStatus(),
+    searchParams,
+    pushPublicKey(),
+    loadPushSettings(),
+    listPushDevices(),
+    loadFamilyUi(session),
+  ]);
   const outlookReturn = typeof params.outlook === "string" ? params.outlook : null;
 
   return (
@@ -42,6 +55,17 @@ export default async function SettingsPage({ searchParams }: PageProps<"/innstil
           </Link>
           {AUTH_ENABLED && <LogoutButton />}
         </div>
+      </section>
+
+      <section id="varsler" className={`${card} flex flex-col gap-3`}>
+        <h2 className="font-display text-lg font-bold">🔔 Varsler</h2>
+        <PushSettings
+          publicKey={publicKey}
+          settings={pushSettings}
+          members={members}
+          devices={devices}
+          activeMemberId={session.activeMember?.id ?? null}
+        />
       </section>
 
       <section className={`${card} flex flex-col gap-3`}>

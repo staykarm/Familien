@@ -388,6 +388,41 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["sync_log"]["Insert"]>;
         Relationships: [];
       };
+      push_subscriptions: {
+        Row: {
+          id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          member_id: string | null;
+          device: string | null;
+          created_at: string;
+          last_sent_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          member_id?: string | null;
+          device?: string | null;
+          last_sent_at?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["push_subscriptions"]["Insert"]>;
+        Relationships: [];
+      };
+      push_keys: {
+        Row: { id: number; public_key: string; private_key_encrypted: string; created_at: string };
+        Insert: { id?: number; public_key: string; private_key_encrypted: string };
+        Update: Partial<Database["public"]["Tables"]["push_keys"]["Insert"]>;
+        Relationships: [];
+      };
+      push_log: {
+        Row: { key: string; sent_at: string };
+        Insert: { key: string; sent_at?: string };
+        Update: Partial<Database["public"]["Tables"]["push_log"]["Insert"]>;
+        Relationships: [];
+      };
       settings: {
         Row: { key: string; value: Json; updated_at: string };
         Insert: { key: string; value: Json };

@@ -5,6 +5,7 @@ import type { Json } from "@/lib/database.types";
 import { serverEnv } from "@/lib/env";
 import { broadcastChange } from "@/lib/realtime";
 import { CALENDAR_TOPIC } from "@/lib/realtimeTopics";
+import { notifyOutlookChanges, notifySyncError, type OutlookChange } from "@/lib/push/notify";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { OutlookAuthError } from "./auth";
 import { acquireSyncLock, graphFor, loadConnection, releaseSyncLock, syncLog, updateConnection, type OutlookConnection } from "./connection";
@@ -29,6 +30,8 @@ interface Ctx {
   conn: OutlookConnection & { calendar_id: string };
   members: MemberRef[];
   categories: (CategoryRef & { color: string })[];
+  /** Endringer som kom inn fra Outlook i denne runden (til pushvarsel). */
+  incoming: OutlookChange[];
 }
 
 export interface SyncSummary {
@@ -62,6 +65,7 @@ async function context(conn: OutlookConnection & { calendar_id: string }): Promi
     conn,
     members: (members ?? []).map((m) => ({ id: m.id, name: m.name, isShared: m.is_shared })),
     categories: (categories ?? []).map((c) => ({ id: c.id, name: c.name, outlookCategory: c.outlook_category, color: c.color })),
+    incoming: [],
   };
 }
 
@@ -267,8 +271,10 @@ async function applyItem(ctx: Ctx, g: GraphEvent): Promise<boolean> {
 
   if (g["@removed"] || g.isCancelled) {
     if (!row || row.sync_status !== "synced") return false;
+    const { data: parts } = await db.from("event_participants").select("member_id").eq("event_id", row.id);
     await db.from("events").delete().eq("id", row.id);
     await syncLog("in", `«${row.title}» ble slettet i Outlook`, true, null);
+    ctx.incoming.push({ kind: "deleted", title: row.title, start: row.start_at, allDay: row.all_day, participantIds: (parts ?? []).map((p) => p.member_id) });
     return true;
   }
 
@@ -326,6 +332,7 @@ async function applyItem(ctx: Ctx, g: GraphEvent): Promise<boolean> {
     await db.from("events").update(fields).eq("id", row.id);
     await replaceParticipants(db, row.id, data.participantIds);
     await syncLog("in", `«${data.title}» ble oppdatert fra Outlook`, true, row.id);
+    ctx.incoming.push({ kind: "updated", title: data.title, start: data.start, allDay: data.allDay, participantIds: data.participantIds });
     return true;
   }
 
@@ -337,6 +344,7 @@ async function applyItem(ctx: Ctx, g: GraphEvent): Promise<boolean> {
   if (error || !inserted) return false; // f.eks. samme outlook_id satt inn av en samtidig synk
   await replaceParticipants(db, inserted.id, data.participantIds);
   await syncLog("in", `«${data.title}» kom inn fra Outlook`, true, inserted.id);
+  ctx.incoming.push({ kind: "new", title: data.title, start: data.start, allDay: data.allDay, participantIds: data.participantIds });
   return true;
 }
 
@@ -373,21 +381,27 @@ export async function syncAll(): Promise<SyncSummary> {
 
   let pulled = 0;
   let pushed = 0;
+  // Første synk henter alt som finnes – det skal ikke gi varsler.
+  const firstSync = !conn.delta_link;
+  const incoming: OutlookChange[] = [];
   try {
     // Kom det varsler mens vi holdt på, tar vi en runde til (maks tre).
     let again = true;
     for (let round = 1; again; round++) {
       const ctx = await context((await loadConnection()) as Ctx["conn"]);
       pulled += await pullChanges(ctx);
+      incoming.push(...ctx.incoming);
       pushed += await pushPending(ctx);
       again = (await releaseSyncLock()) && round < 3 && (await acquireSyncLock());
     }
     if (pulled) await broadcastChange(CALENDAR_TOPIC);
+    if (!firstSync && incoming.length) await notifyOutlookChanges(incoming).catch((err) => console.warn("Kunne ikke sende pushvarsel", err));
     return { ok: true, pulled, pushed, message: pulled || pushed ? `Synket: ${pulled} inn, ${pushed} ut` : "Alt er oppdatert" };
   } catch (e) {
     const message = errorText(e);
     await updateConnection({ last_error: message, sync_lock_until: null });
     await syncLog("system", `Synken feilet: ${message}`, false);
+    await notifySyncError(message).catch((err) => console.warn("Kunne ikke sende pushvarsel", err));
     return { ok: false, message };
   }
 }

@@ -19,6 +19,7 @@ Familieapp for planlegging for Ingvild, Marius, Edvard og Olav (+ Felles): kalen
 | 8 | Oda-handlekurv med Claude-agent | ✅ |
 | 9 | «I dag»-oversikt og «Angre» i stedet for «Er du sikker?» | ✅ |
 | 10 | Handlemodus i butikken, butikkrekkefølge, og levering/henting i barnehagen | ✅ |
+| 11 | Pushvarsler, styrt fra Innstillinger | ✅ |
 
 ## Kom i gang lokalt
 
@@ -165,6 +166,30 @@ Oda har ikke noe hostet MCP-endepunkt, så appen har en egen Oda-klient på serv
 - Forslaget vises for godkjenning: man kan endre antall, velge alternativ eller fjerne linjer. Først ved «Legg i handlekurven» legges varene i Oda-kurven. **Ingenting bestilles.** Man fullfører kjøpet selv i Oda-appen eller på oda.com. Varene kan hukes av på handlelisten samtidig.
 - **Risiko:** Oda har ikke noe offentlig API. Klienten bruker de samme kallene som nettsiden, og kan slutte å virke hvis Oda endrer noe. Da får man en feilmelding, og handlelisten fungerer som før.
 - Krever `ANTHROPIC_API_KEY` og `TOKEN_ENCRYPTION_KEY` i Vercel, og migrasjonene `0011_oda.sql` og `0012_oda_password.sql`.
+
+## Pushvarsler
+Varsler på mobil, nettbrett og PC, også når appen er lukket (Web Push).
+
+- **Slå på:** Innstillinger → **Varsler** → velg hvem enheten tilhører (eller «Hele familien» for et felles nettbrett) → **Slå på varsler**. På iPhone/iPad virker det bare når appen er lagt på Hjem-skjermen (iOS 16.4+).
+- **Hva sendes, og til hvem** styres samme sted, per type og per person:
+  - endringer i kalenderen
+  - nytt fra Outlook
+  - påminnelse før aktiviteter
+  - morgenoversikt
+  - levering og henting
+  - oppgaver
+  - handlelisten
+  - Les inn fil
+  - feil i Outlook-synken
+
+  I tillegg finnes «Stille tid» (standard 22–07).
+- Den som gjør en endring, får ikke varsel om den selv. Felles-aktiviteter går til alle.
+- **Nøkler:** VAPID-nøklene lages automatisk første gang. Den private nøkkelen lagres kryptert med `TOKEN_ENCRYPTION_KEY` i `push_keys`. Ingen nye miljøvariabler.
+- **Påminnelser på tid** kjøres av `/api/cron/push`:
+  - Vercel Cron på Hobby går bare én gang i døgnet (kl. 06 UTC, reserve for morgenoversikten).
+  - Derfor kaller Supabase ruten hvert 5. minutt med `pg_cron` og `pg_net`, med `CRON_SECRET` lagret i Supabase Vault (se SQL-en i PR-en).
+  - Uten dette kommer bare varslene som skjer straks (endringer, oppgaver, handleliste, filer, Outlook) og morgenoversikten.
+- Tabeller: `push_subscriptions`, `push_keys` og `push_log`. Alle er hemmelige og har ingen RLS-policyer. Innstillingene ligger i `settings` (nøkkel `push`).
 
 ## Del til appen (skjermbilder, PDF-er, tekst)
 Filer og tekst kan sendes rett til **Les inn fil** fra delingsmenyen på mobilen, uten å gå via filbehandleren. De lastes opp til `/api/del`, og «Les inn fil» åpnes og tolker dem med en gang.

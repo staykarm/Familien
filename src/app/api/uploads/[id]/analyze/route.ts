@@ -4,6 +4,7 @@ import type { Json } from "@/lib/database.types";
 import { ExtractionError, extractSuggestions } from "@/lib/ai/extract";
 import { loadLearning } from "@/lib/ai/learningDb";
 import { applyPeople } from "@/lib/ai/map";
+import { notifyFileReady } from "@/lib/push/notify";
 import { requireFamily } from "@/lib/session";
 import { getDb } from "@/lib/supabase/db";
 import { parseDetails } from "@/lib/validation/profile";
@@ -70,6 +71,7 @@ export async function POST(_req: Request, ctx: RouteContext<"/api/uploads/[id]/a
       .from("uploads")
       .update({ status: "done", summary: result.summary, analyzed_at: new Date().toISOString() })
       .eq("id", id);
+    notifyFileReady(upload.filename, rows.length, { actor: session.activeMember });
     return NextResponse.json({ ok: true, message: rows.length ? `${rows.length} forslag klare` : "Fant ingenting å legge inn" });
   } catch (err) {
     if (err instanceof ExtractionError) return fail(err.message);

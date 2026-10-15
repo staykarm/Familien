@@ -133,7 +133,7 @@ function PlanLine({
       <input
         type="time"
         aria-label={`${label} klokkeslett`}
-        className={`${input} w-28`}
+        className={`${input} max-w-36`}
         value={time ?? ""}
         onChange={(e) => onTime(e.target.value ? e.target.value.slice(0, 5) : null)}
       />

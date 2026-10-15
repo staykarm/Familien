@@ -1,4 +1,5 @@
 import { DateTime } from "luxon";
+import { listCarePlans } from "@/actions/care";
 import { listEvents } from "@/actions/events";
 import { getShopping } from "@/actions/shopping";
 import { listTasks } from "@/actions/tasks";
@@ -16,12 +17,13 @@ export default async function TodayPage() {
   const session = await requireFamily();
   const today = osloToday();
   const tomorrow = osloDate(today).plus({ days: 1 }).toISODate()!;
-  const [{ members, categories }, events, tasks, shopping, weather] = await Promise.all([
+  const [{ members, categories }, events, tasks, shopping, weather, carePlans] = await Promise.all([
     loadFamilyUi(session),
     listEvents({ start: osloDate(today).toUTC().toISO()!, end: osloDate(today).plus({ days: 2 }).toUTC().toISO()! }),
     listTasks(),
     getShopping(),
     getWeather().catch(() => null),
+    listCarePlans(),
   ]);
 
   return (
@@ -35,6 +37,7 @@ export default async function TodayPage() {
       tasks={tasks.filter((t) => t.status !== "done" && t.dueDate && t.dueDate <= tomorrow)}
       shopping={shopping.items.filter((i) => !i.checked).map((i) => (i.quantity ? `${i.name} (${i.quantity})` : i.name))}
       weather={weather?.forecast ?? null}
+      carePlans={carePlans}
     />
   );
 }

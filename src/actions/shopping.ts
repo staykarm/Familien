@@ -264,3 +264,17 @@ export async function deleteTemplate(id: string): Promise<ShoppingResult> {
   await broadcastChange(SHOPPING_TOPIC);
   return { ok: true, message: "Listen er slettet" };
 }
+
+/** «Butikkrekkefølge»: avdelingene (handlelistekategoriene) i den rekkefølgen man går gjennom butikken. */
+export async function reorderShoppingCategories(ids: string[]): Promise<ShoppingResult> {
+  await requireFamily();
+  const parsed = z.array(z.uuid()).min(1).max(100).safeParse(ids);
+  if (!parsed.success) return { ok: false, message: "Ugyldig rekkefølge" };
+  const db = await getDb();
+  const results = await Promise.all(
+    parsed.data.map((id, i) => db.from("categories").update({ sort_order: i + 1 }).eq("id", id).eq("scope", "shopping"))
+  );
+  if (results.some((r) => r.error)) return { ok: false, message: "Kunne ikke lagre rekkefølgen" };
+  await broadcastChange(SHOPPING_TOPIC);
+  return { ok: true };
+}

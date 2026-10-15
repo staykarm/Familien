@@ -41,3 +41,12 @@ describe("checkedItems", () => {
     expect(list.map((i) => i.name)).toEqual(["B", "A"]);
   });
 });
+
+describe("moveInList", () => {
+  it("flytter opp og ned, men ikke ut av listen", async () => {
+    const { moveInList } = await import("./group");
+    expect(moveInList(["a", "b", "c"], 1, -1)).toEqual(["b", "a", "c"]);
+    expect(moveInList(["a", "b", "c"], 1, 1)).toEqual(["a", "c", "b"]);
+    expect(moveInList(["a", "b"], 0, -1)).toEqual(["a", "b"]);
+  });
+});

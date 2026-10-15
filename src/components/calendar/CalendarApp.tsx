@@ -28,6 +28,7 @@ import {
   type CalendarViewKind,
 } from "@/lib/calendar/dates";
 import type { CalendarCategory, CalendarEvent, CalendarMember } from "@/lib/calendar/types";
+import type { CarePlanDay } from "@/lib/care/plan";
 import { isTaskItemId, TASK_PREFIX, taskToCalendarItem } from "@/lib/tasks/calendar";
 import type { Task } from "@/lib/tasks/types";
 import { TIME_ZONE } from "@/lib/time";
@@ -82,9 +83,11 @@ interface Props {
   categories: CalendarCategory[];
   taskCategories: CalendarCategory[];
   activeMemberId: string | null;
+  /** Levering og henting på hverdager (vises i «Per person»). */
+  carePlans?: CarePlanDay[];
 }
 
-export function CalendarApp({ members, categories, taskCategories, activeMemberId }: Props) {
+export function CalendarApp({ members, categories, taskCategories, activeMemberId, carePlans = [] }: Props) {
   const [view, setView] = useState<CalendarViewKind>("week");
   const [perPerson, setPerPerson] = useState(false);
   const [hidden, setHidden] = useState<string[]>([]);
@@ -355,6 +358,7 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
           categories={categories}
           onOpen={openExisting}
           hourly={hourlyToday}
+          carePlans={carePlans}
           onCreateAt={(memberId, hour, minute) =>
             setDraft(
               newDraft({
@@ -377,6 +381,7 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
           onCreateOn={(memberId, d) => setDraft(newDraft({ participantIds: [memberId], date: d }))}
           weather={weatherByDate}
           onWeather={setWeatherDate}
+          carePlans={carePlans}
         />
       ) : (
         <div className="rounded-3xl bg-card p-2 shadow-[0_2px_12px_rgba(120,90,60,0.08)] sm:p-4">

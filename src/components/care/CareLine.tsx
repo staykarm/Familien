@@ -15,7 +15,7 @@ interface Props {
 export function CareLine({ care, date, members, compact = false, className = "" }: Props) {
   const summary = careSummary(care, date);
   if (!summary.length) return null;
-  const member = (id: string) => members.find((m) => m.id === id);
+  const member = (id: string | null) => (id ? members.find((m) => m.id === id) : undefined);
   const text = careText(summary, (id) => member(id)?.name ?? "");
   const multi = summary.length > 1;
 
@@ -28,7 +28,14 @@ export function CareLine({ care, date, members, compact = false, className = "" 
         {summary.flatMap((c) =>
           c.duties.map((d) => {
             const m = member(d.by);
-            return m ? <Avatar key={`${c.childId}-${d.by}`} name={m.name} color={m.color} icon={m.icon} url={m.avatarUrl} size={16} ring={false} /> : null;
+            const key = `${c.childId}-${d.by ?? d.other}`;
+            if (m) return <Avatar key={key} name={m.name} color={m.color} icon={m.icon} url={m.avatarUrl} size={16} ring={false} />;
+            // Fritekst («Farmor»): forbokstaven i en nøytral sirkel.
+            return (
+              <span key={key} className="flex h-4 w-4 items-center justify-center rounded-full bg-line text-[9px] font-bold text-ink">
+                {d.other?.[0]?.toUpperCase()}
+              </span>
+            );
           })
         )}
       </span>
@@ -45,10 +52,10 @@ export function CareLine({ care, date, members, compact = false, className = "" 
           {c.duties.map((d, j) => {
             const m = member(d.by);
             return (
-              <span key={d.by}>
+              <span key={d.by ?? d.other}>
                 {j > 0 && ", "}
-                <strong className="font-bold" style={{ color: m?.color }}>
-                  {m?.name}
+                <strong className={`font-bold ${m ? "" : "text-ink"}`} style={m ? { color: m.color } : undefined}>
+                  {m?.name ?? d.other}
                 </strong>{" "}
                 {dutyVerb(d.parts)}
               </span>

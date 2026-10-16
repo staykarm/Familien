@@ -12,9 +12,10 @@ export const PART_LABEL: Record<CarePart, { noun: string; verb: string; doer: st
   pick: { noun: "Henting", verb: "hente", doer: "Henter", short: "Hent" },
 };
 
-/** Hvem og når for én del. */
+/** Hvem og når for én del. `other` er fritekst for noen utenfor appen («Farmor»); da er `by` tom. */
 export interface Slot {
   by: string | null;
+  other: string | null;
   time: string | null;
 }
 
@@ -42,10 +43,12 @@ export interface CareDayPlan {
   pick: CareSlot | null;
 }
 
-export const EMPTY_SLOT: Slot = { by: null, time: null };
+export const EMPTY_SLOT: Slot = { by: null, other: null, time: null };
 
 export const isWeekday = (date: string) => DateTime.fromISO(date).weekday <= 5;
-export const hasSlot = (s: Slot | null | undefined): s is Slot => !!s && !!(s.by || s.time);
+export const hasSlot = (s: Slot | null | undefined): s is Slot => !!s && !!(s.by || s.other || s.time);
+/** Er noen satt opp (et medlem eller fritekst)? */
+export const hasPerson = (s: Slot | null | undefined): boolean => !!s && !!(s.by || s.other);
 
 /** Levering og henting for et barn en dato («åååå-mm-dd»). Bare hverdager; null når ingenting er registrert. */
 export function careFor(care: CareData, childId: string, date: string): CareDayPlan | null {
@@ -99,18 +102,37 @@ export function toCareEntry(r: {
   drop_time: string | null;
   pick_by: string | null;
   pick_time: string | null;
+  drop_other?: string | null;
+  pick_other?: string | null;
 }): CareEntry {
   return {
     memberId: r.member_id,
     date: r.date,
-    drop: { by: r.drop_by, time: shortTime(r.drop_time) },
-    pick: { by: r.pick_by, time: shortTime(r.pick_time) },
+    drop: { by: r.drop_by, other: r.drop_by ? null : (r.drop_other ?? null), time: shortTime(r.drop_time) },
+    pick: { by: r.pick_by, other: r.pick_by ? null : (r.pick_other ?? null), time: shortTime(r.pick_time) },
   };
 }
 
-/** Én person og hva hen gjør en dag («Ingvild leverer og henter»). */
+/** Navn skrevet inn før (fritekst), de mest brukte først – til hurtigvalg. */
+export function usedOthers(entries: CareEntry[]): string[] {
+  const counts = new Map<string, { name: string; n: number }>();
+  for (const e of entries) {
+    for (const s of [e.drop, e.pick]) {
+      if (!s.other) continue;
+      const key = s.other.toLowerCase();
+      counts.set(key, { name: counts.get(key)?.name ?? s.other, n: (counts.get(key)?.n ?? 0) + 1 });
+    }
+  }
+  return [...counts.values()].sort((a, b) => b.n - a.n).map((c) => c.name);
+}
+
+/** Hurtigvalg for fritekst. */
+export const OTHER_SUGGESTIONS = ["Farmor", "Farfar", "Mormor", "Morfar", "Bestemor", "Bestefar"];
+
+/** Én person og hva hen gjør en dag («Ingvild leverer og henter»). Enten et medlem (`by`) eller fritekst (`other`). */
 export interface CareDuty {
-  by: string;
+  by: string | null;
+  other: string | null;
   parts: CarePart[];
 }
 
@@ -123,13 +145,13 @@ export interface CareSummary {
 /** Hvem som leverer og henter en dato, per barn. Tom liste når ingenting er registrert. */
 export function careSummary(care: CareData, date: string): CareSummary[] {
   return careSlotsOn(care, date)
-    .filter((s) => s.by)
+    .filter((s) => hasPerson(s))
     .reduce<CareSummary[]>((list, s) => {
       let child = list.find((c) => c.childId === s.childId);
       if (!child) list.push((child = { childId: s.childId, duties: [] }));
-      const duty = child.duties.find((d) => d.by === s.by);
+      const duty = child.duties.find((d) => (s.by ? d.by === s.by : d.other?.toLowerCase() === s.other?.toLowerCase()));
       if (duty) duty.parts.push(s.part);
-      else child.duties.push({ by: s.by!, parts: [s.part] });
+      else child.duties.push({ by: s.by, other: s.by ? null : s.other, parts: [s.part] });
       return list;
     }, []);
 }
@@ -143,7 +165,7 @@ export function dutyVerb(parts: CarePart[]): string {
 export function careText(summary: CareSummary[], nameOf: (id: string) => string): string {
   return summary
     .map((c) => {
-      const text = c.duties.map((d) => `${nameOf(d.by)} ${dutyVerb(d.parts)}`).join(", ");
+      const text = c.duties.map((d) => `${d.by ? nameOf(d.by) : d.other} ${dutyVerb(d.parts)}`).join(", ");
       return summary.length > 1 ? `${nameOf(c.childId)}: ${text}` : text;
     })
     .join(" · ");

@@ -93,7 +93,7 @@ async function reminders(db: Db, subs: PushSub[], members: MemberRow[], now: Dat
 async function loadCareData(db: Db, date: string): Promise<CareData> {
   const { data, error } = await db
     .from("care_entries")
-    .select("member_id, date, drop_by, drop_time, pick_by, pick_time")
+    .select("member_id, date, drop_by, drop_time, pick_by, pick_time, drop_other, pick_other")
     .eq("date", date);
   return { entries: error ? [] : (data ?? []).map(toCareEntry) };
 }
@@ -152,9 +152,13 @@ async function morning(db: Db, subs: PushSub[], members: MemberRow[], now: Date)
     const careLines = members.flatMap((child) => {
       const day = careFor(careData, child.id, date);
       return [day?.drop, day?.pick].flatMap((slot) => {
-        if (!slot?.by || (memberId && slot.by !== memberId)) return [];
+        if (!slot) return [];
         const verb = slot.part === "drop" ? "leverer" : "henter";
-        return [`${memberId ? "Du" : nameOf(slot.by)} ${verb} ${child.name}${slot.time ? ` ${slot.time}` : ""}`];
+        const time = slot.time ? ` ${slot.time}` : "";
+        // Personlig enhet: bare det personen selv skal gjøre. Felles enhet: alle, også fritekst («Farmor»).
+        if (memberId) return slot.by === memberId ? [`Du ${verb} ${child.name}${time}`] : [];
+        const who = slot.by ? nameOf(slot.by) : slot.other;
+        return who ? [`${who} ${verb} ${child.name}${time}`] : [];
       });
     });
     const parts = [

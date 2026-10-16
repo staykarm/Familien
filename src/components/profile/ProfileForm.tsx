@@ -8,7 +8,7 @@ import { buttonGhost, buttonPrimary, buttonSecondary, card, input, label } from 
 import { resizeImage } from "@/lib/imageResize";
 
 const COLORS = ["#e5739a", "#4f97d9", "#f0a030", "#4fb071", "#9a7fd8", "#e26d5a", "#3bb3c3", "#a3794f"];
-const ICONS = ["🌸", "⛵", "🦖", "⚽", "🏠", "🦄", "🚀", "🐶", "🐱", "🦊", "🐼", "🎸", "🎨", "📚", "🏊", "⛷️", "🚲", "🌟"];
+const ICONS = ["🌸", "⛵", "🦖", "⚽", "🏠", "🦄", "🚀", "🐶", "🐱", "🦊", "🐼", "🎸", "🎨", "📚", "🏊", "⛷️", "🚲", "🌟", "🏌️", "🛁", "🌱"];
 const SUGGESTED_DETAILS = ["Skole", "Klasse", "Aktiviteter", "Klesstørrelse", "Skostørrelse", "Allergier", "Lege", "Annet"];
 
 interface Detail {

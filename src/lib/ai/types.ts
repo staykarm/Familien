@@ -20,3 +20,6 @@ export interface UploadWithSuggestions {
   memberIds: string[];
   suggestions: Suggestion[];
 }
+
+/** Filnavnet på tekst som er sagt inn med tale («Si det»). Tolkningen får beskjed om at det er muntlig. */
+export const SPOKEN_PREFIX = "Sagt inn";

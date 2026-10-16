@@ -5,7 +5,6 @@ import { Camera, Check, ClipboardPaste, ExternalLink, FileUp, Pencil, RefreshCw,
 import {
   approveAll,
   approveSuggestion,
-  createUpload,
   deleteUpload,
   getUploadUrl,
   listUploads,
@@ -23,7 +22,7 @@ import type { Suggestion, UploadWithSuggestions } from "@/lib/ai/types";
 import type { CalendarCategory, CalendarMember } from "@/lib/calendar/types";
 import { osloDate } from "@/lib/calendar/dates";
 import { resizeImage } from "@/lib/imageResize";
-import { createClient } from "@/lib/supabase/client";
+import { analyzeUpload, uploadForAnalysis } from "./upload";
 
 const ACCEPT =
   "application/pdf,image/*,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain";
@@ -79,16 +78,10 @@ export function FilesApp({ initialUploads, members, eventCategories, taskCategor
 
   async function analyze(uploadId: string, filename: string) {
     setProgress({ step: "analyze", filename });
-    try {
-      const res = await fetch(`/api/uploads/${uploadId}/analyze`, { method: "POST" });
-      const body = (await res.json().catch(() => ({}))) as { message?: string };
-      showToast(body.message ?? (res.ok ? "Ferdig" : "Tolkningen feilet"));
-    } catch {
-      showToast("Mistet forbindelsen under tolkningen. Prøv «Tolk på nytt».");
-    } finally {
-      setProgress(null);
-      refresh();
-    }
+    const res = await analyzeUpload(uploadId);
+    showToast(res.message);
+    setProgress(null);
+    refresh();
   }
 
   async function handleFile(original: File) {
@@ -96,30 +89,34 @@ export function FilesApp({ initialUploads, members, eventCategories, taskCategor
       // Store mobilbilder krympes før opplasting – raskere, og godt nok for Claude.
       const file =
         original.type.startsWith("image/") && original.size > 1.5 * 1024 * 1024 ? await resizeImage(original, 2000, 0.85) : original;
-      const mime = file.type || (file.name.endsWith(".docx") ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "");
       setProgress({ step: "upload", filename: original.name });
-
-      const created = await createUpload({ filename: original.name, mime, size: file.size, memberIds: appliesTo });
-      if (!created.ok || !created.uploadId || !created.path || !created.token) {
-        showToast(created.message ?? "Kunne ikke laste opp");
-        setProgress(null);
-        return;
-      }
-      const supabase = createClient();
-      const { error } = await supabase.storage.from("uploads").uploadToSignedUrl(created.path, created.token, file, { contentType: mime });
-      if (error) {
-        showToast("Opplastingen feilet. Prøv igjen.");
+      const uploaded = await uploadForAnalysis(file, { filename: original.name, memberIds: appliesTo });
+      if (!uploaded.ok || !uploaded.uploadId) {
+        showToast(uploaded.message ?? "Kunne ikke laste opp");
         setProgress(null);
         refresh();
         return;
       }
       refresh();
-      await analyze(created.uploadId, original.name);
+      await analyze(uploaded.uploadId, original.name);
     } catch {
       showToast("Kunne ikke lese filen");
       setProgress(null);
     }
   }
+
+  // Fra «Si det»: vis det som nettopp ble sagt inn, øverst og markert.
+  const [highlight, setHighlight] = useState<string | null>(null);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("vis");
+    if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return;
+    window.history.replaceState(null, "", "/filer");
+    const frame = requestAnimationFrame(() => {
+      setHighlight(id);
+      document.getElementById(`upload-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
   // Delt fra delingsmenyen eller en snarvei (/api/del): filene er lastet opp, nå tolkes de.
   const handledShare = useRef(false);
@@ -354,7 +351,11 @@ export function FilesApp({ initialUploads, members, eventCategories, taskCategor
         ].map((g) => ({ ...g, items: u.suggestions.filter((s) => s.kind === g.kind) }));
 
         return (
-          <section key={u.id} className={`${card} flex flex-col gap-4`}>
+          <section
+            key={u.id}
+            id={`upload-${u.id}`}
+            className={`${card} flex scroll-mt-16 flex-col gap-4 ${highlight === u.id ? "ring-4 ring-primary/40" : ""}`}
+          >
             <div className="flex flex-wrap items-start gap-3">
               <div className="min-w-0 flex-1">
                 <h2 className="wrap-break-word font-display text-lg font-bold">{u.filename}</h2>

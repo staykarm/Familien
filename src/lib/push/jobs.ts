@@ -121,7 +121,7 @@ async function care(db: Db, subs: PushSub[], members: MemberRow[], now: Date): P
           // Felles enhet: si hvem som skal levere/hente.
           title: sub.memberId ? `🚸 Du skal ${verb} ${child.name} kl. ${slot.time}` : `🚸 ${who} skal ${verb} ${child.name} kl. ${slot.time}`,
           body: `Om ${inMinutes(start, now).slice(3)}`,
-          url: "/i-dag",
+          url: "/henting",
         });
       }
     }

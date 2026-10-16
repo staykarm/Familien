@@ -23,6 +23,9 @@ interface Props {
   /** De som kan levere og hente (alle unntatt barnet selv og Felles). */
   people: Person[];
   initial: CareData;
+  /** På siden «Henting» er listen alltid åpen, og overskriften er barnets navn. */
+  alwaysOpen?: boolean;
+  heading?: string;
 }
 
 const PARTS: CarePart[] = ["drop", "pick"];
@@ -31,9 +34,9 @@ const PARTS: CarePart[] = ["drop", "pick"];
  * «Levering og henting» på barnets profil. Det finnes ikke noe fast mønster, så man velger hvem som leverer og
  * henter dag for dag. Hver endring lagres med en gang.
  */
-export function CarePlanEditor({ memberId, memberName, people, initial }: Props) {
+export function CarePlanEditor({ memberId, memberName, people, initial, alwaysOpen = false, heading = "🚸 Levering og henting" }: Props) {
   const [entries, setEntries] = useState<CareEntry[]>(() => initial.entries.filter((e) => e.memberId === memberId));
-  const [open, setOpen] = useState(entries.length > 0);
+  const [open, setOpen] = useState(alwaysOpen || entries.length > 0);
   const [weeks, setWeeks] = useState(3);
   const [status, setStatus] = useState<{ text: string; error: boolean } | null>(null);
   const saving = useRef(0);
@@ -100,7 +103,7 @@ export function CarePlanEditor({ memberId, memberName, people, initial }: Props)
   return (
     <section id="levering" className={`${card} flex flex-col gap-4`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="font-display text-lg font-bold sm:text-xl">🚸 Levering og henting</h2>
+        <h2 className="font-display text-lg font-bold sm:text-xl">{heading}</h2>
         {status && (
           <span className={`text-sm font-semibold ${status.error ? "text-danger" : "text-ink-light"}`} aria-live="polite">
             {status.text}

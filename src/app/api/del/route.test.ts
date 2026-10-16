@@ -29,6 +29,8 @@ vi.mock("@/lib/ai/extract", () => ({
   MAX_UPLOAD_BYTES: 20 * 1024 * 1024,
 }));
 vi.mock("@/lib/session", () => ({ requireFamily: async () => ({ activeMember: { id: "m1" } }) }));
+let unlocked = true;
+vi.mock("@/lib/lock/state", () => ({ isUnlocked: async () => unlocked }));
 vi.mock("@/lib/supabase/db", () => ({ getDb: async () => fakeDb }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => fakeDb }));
 
@@ -38,6 +40,7 @@ const post = (form: FormData, headers: Record<string, string> = {}) =>
   POST(new Request("https://familien.test/api/del", { method: "POST", body: form, headers }));
 
 beforeEach(() => {
+  unlocked = true;
   uploaded.length = 0;
   rows.length = 0;
 });
@@ -68,6 +71,16 @@ describe("del til appen", () => {
     const body = (await res.json()) as { ok: boolean; message: string };
     expect(body.ok).toBe(false);
     expect(body.message).toMatch(/kunne ikke leses/);
+    expect(uploaded).toHaveLength(0);
+  });
+
+  it("en snarvei uten nøkkel får en forklaring når appen er låst", async () => {
+    unlocked = false;
+    const form = new FormData();
+    form.append("text", "Hei");
+    const res = await post(form, { accept: "application/json" });
+    expect(res.status).toBe(401);
+    expect(((await res.json()) as { message: string }).message).toContain("SHARE_TOKEN");
     expect(uploaded).toHaveLength(0);
   });
 

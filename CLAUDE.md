@@ -24,6 +24,7 @@ Arkitektur og faser står i README. Marius godkjenner hver fase før den startes
 - Ingen hemmeligheter i koden. Nye miljøvariabler legges i `.env.example` med kommentar og leses med `serverEnv()` fra `lib/env.ts`.
 - Skjemaendringer legges som nye filer `supabase/migrations/NNNN_beskrivelse.sql`. Endre aldri en migrasjon som er kjørt. Oppdater `src/lib/database.types.ts` samtidig.
 - **Innlogging er av inntil videre** (`AUTH_ENABLED` i `lib/env.ts`, styres av miljøvariabelen `AUTH_ENABLED`). Da hopper proxy-en over sesjonssjekk, og serveren bruker service role. Databasen er fortsatt stengt for den offentlige nøkkelen.
+- Uten innlogging er appen **låst med en felles kode** (standard 0102) eller Face ID/Touch ID (passkeys). Proxy-en sender til `/las` til enheten er låst opp, og `requireFamily` sjekker kodeversjonen (`lib/lock/`, `actions/lock.ts`). Nye offentlige stier legges i `OPEN_PREFIXES` i `lib/lock/token.ts`. Snarveier og andre klienter uten informasjonskapsel bruker egne nøkler (`SHARE_TOKEN`, `CRON_SECRET`).
 - Sider og server actions henter databaseklienten med `getDb()` fra `lib/supabase/db.ts`, aldri `createClient()` direkte. Da virker koden både med og uten innlogging.
 - Sider i `(app)` kaller `requireFamily()` fra `lib/session.ts`. Server actions gjør det samme før de skriver.
 
@@ -89,6 +90,7 @@ Arkitektur og faser står i README. Marius godkjenner hver fase før den startes
 - **Ingen push rett til `main`.** Alt arbeid gjøres på en egen gren med én PR per fase eller oppgave. Små rettelser kan samles i samme PR.
 - Grenenavn: `fase-N-kort-navn`, `fiks/kort-navn` eller `oppsett/kort-navn`.
 - PR-beskrivelsen følger `.github/pull_request_template.md`, med SQL-blokker som må kjøres før merge.
+- **SQL skal alltid også gis ferdig til innliming i svaret i chatten** (én samlet blokk Marius kan lime rett inn i Supabase SQL Editor), ikke bare stå i PR-en.
 - GitHub Actions (`.github/workflows/ci.yml`) kjører lint, typesjekk, tester og bygg på hver PR.
 - Vercel lager en testversjon (Preview) per PR. Marius tester den og merger.
 - Migrasjoner kjøres i Supabase **før** merge. Skriv dem bakoverkompatible (nye tabeller/kolonner), slik at koden som allerede er i produksjon tåler dem.

@@ -13,6 +13,8 @@ import { listPushDevices } from "@/actions/push";
 import { PushSettings } from "@/components/settings/PushSettings";
 import { loadFamilyUi } from "@/lib/familyUi";
 import { pushPublicKey } from "@/lib/push/send";
+import { getLockSettings } from "@/actions/lock";
+import { LockSettings } from "@/components/settings/LockSettings";
 
 export const metadata = { title: "Innstillinger – Familien" };
 // Første synk med Outlook kjører i bakgrunnen etter at kalenderen er valgt, og kan ta litt tid.
@@ -20,7 +22,7 @@ export const maxDuration = 300;
 
 export default async function SettingsPage({ searchParams }: PageProps<"/innstillinger">) {
   const session = await requireFamily();
-  const [weatherLocation, oda, outlook, params, publicKey, devices, { members }] = await Promise.all([
+  const [weatherLocation, oda, outlook, params, publicKey, devices, { members }, lock] = await Promise.all([
     getWeatherLocation(),
     odaStatus(),
     getOutlookStatus(),
@@ -28,6 +30,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/innstil
     pushPublicKey(),
     listPushDevices(),
     loadFamilyUi(session),
+    AUTH_ENABLED ? null : getLockSettings(),
   ]);
   const outlookReturn = typeof params.outlook === "string" ? params.outlook : null;
 
@@ -43,7 +46,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/innstil
             {session.role === "shared" ? " (familiebruker)" : ""}
           </p>
         ) : (
-          <p className="text-ink-light">Innlogging er slått av – alle med lenken kan bruke appen.</p>
+          <p className="text-ink-light">Appen er låst med en felles kode (se «Lås» under).</p>
         )}
         <p className="text-ink-light">
           Bruker appen nå: <strong className="text-ink">{session.activeMember?.name ?? "ikke valgt"}</strong>
@@ -55,6 +58,13 @@ export default async function SettingsPage({ searchParams }: PageProps<"/innstil
           {AUTH_ENABLED && <LogoutButton />}
         </div>
       </section>
+
+      {lock && (
+        <section id="las" className={`${card} flex flex-col gap-3`}>
+          <h2 className="font-display text-lg font-bold">🔒 Lås</h2>
+          <LockSettings initial={lock} />
+        </section>
+      )}
 
       <section id="varsler" className={`${card} flex flex-col gap-3`}>
         <h2 className="font-display text-lg font-bold">🔔 Varsler</h2>

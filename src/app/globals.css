@@ -377,3 +377,19 @@ body {
   height: 100%;
   padding: 1px 2px;
 }
+
+/* Låsesiden: prikkene rister ved feil kode. */
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-8px);
+  }
+  40%,
+  80% {
+    transform: translateX(8px);
+  }
+}

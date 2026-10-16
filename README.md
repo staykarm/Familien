@@ -87,9 +87,18 @@ Sjekker: `npm run lint`, `npm run typecheck`, `npm test` og `npm run build`.
 ### 4. Øvrig
 - `MET_CONTACT_EMAIL` (fase 5, valgfri): legges til i User-Agent mot api.met.no. Uten den brukes GitHub-lenken som kontaktinfo.
 - `ANTHROPIC_API_KEY` (fase 7 og 8): fra [console.anthropic.com](https://console.anthropic.com).
-- `TOKEN_ENCRYPTION_KEY` (fase 3 og 8): `openssl rand -base64 32`. Krypterer Oda-innloggingen (og senere Outlook-tokenet).
+- `TOKEN_ENCRYPTION_KEY` (fase 3 og 8): `openssl rand -base64 32`. Krypterer Oda-innloggingen og Outlook-tokenet, og signerer opplåsingen av appen (låsen med kode).
 
 ## Innlogging og tilgang
+### Lås med felles kode og Face ID
+Når innlogging er av, er appen låst med en felles kode (standard **0102**). Den endres under **Innstillinger → Lås**.
+- Låsesiden er `/las`. Proxy-en (`src/proxy.ts`) sender alt annet dit til enheten er låst opp. `requireFamily` sjekker også at koden ikke er endret siden enheten ble låst opp.
+- Opplåsingen huskes i en signert informasjonskapsel (`familien_las`, HMAC med `TOKEN_ENCRYPTION_KEY`). Man velger om koden skal tastes **hver gang appen åpnes**, **én gang i døgnet** eller **én gang i måneden**.
+- Ny kode gjør at alle andre enheter må låse opp på nytt. Etter fem feil må man vente (30 s, så dobbelt så lenge for hver nye feil, maks 15 min).
+- **Face ID / Touch ID** bruker passkeys (WebAuthn, `@simplewebauthn`). Det slås på per enhet under **Innstillinger → Lås**. Deretter spør låsesiden om Face ID med en gang, og koden er reserve. Passkeys er knyttet til adressen, så testversjonene (Preview) må slå det på for seg.
+- Tabeller: `app_lock` (én rad: kodens hash, versjon, valg og feiltelling) og `passkeys`. Begge er hemmelige og har ingen RLS-policyer.
+
+### Innlogging med brukere
 > **Nå:** innlogging er slått av (`AUTH_ENABLED=false`, standard). Appen åpnes rett inn, og man velger «Hvem er du?». Serveren bruker service role-nøkkelen, så databasen er fortsatt stengt for den offentlige nøkkelen, men **alle som har lenken kan bruke appen**. Stegene om brukere, e-postmal og `link_users.sql` i Supabase-oppsettet kan vente til innlogging skrus på.
 >
 > **Skru på innlogging senere:** gjør stegene 4–8 i Supabase-oppsettet, sett `AUTH_ENABLED=true` i Vercel og redeploy.
@@ -206,11 +215,11 @@ Filer og tekst kan sendes rett til **Les inn fil** fra delingsmenyen på mobilen
      - URL: `https://familien-two.vercel.app/api/del`
      - Metode: **POST**
      - Forespørselsinnhold: **Skjema**, med ett felt av typen **Fil**. Navnet skal være `filer`, og verdien **Snarveiinndata**.
-     - Overskrifter: `Accept` = `application/json`
+     - Overskrifter: `Accept` = `application/json` og `Authorization` = `Bearer <SHARE_TOKEN>` (verdien fra Vercel)
   4. Legg til **Hent ordbokverdi**. Nøkkel: `url`, fra «Innholdet i URL».
   5. Legg til **Åpne URL-er**.
 
   Nå står **Del til Familien** i delingsmenyen, for eksempel på et skjermbilde.
 - Maks ca. 4 MB per deling, fordi det er grensen hos Vercel. Vanlige skjermbilder er godt under det. Er et bilde for stort, kan du legge **Konverter bilde → JPEG** inn i snarveien før opplastingen.
-- Med innlogging på (`AUTH_ENABLED=true`) må snarveien også sende `Authorization: Bearer <SHARE_TOKEN>`. Uten innlogging trengs ikke `SHARE_TOKEN`.
+- Snarveien må sende `Authorization: Bearer <SHARE_TOKEN>`, fordi den ikke kan låse opp appen med koden. Lag nøkkelen med `openssl rand -hex 32` og legg den inn som `SHARE_TOKEN` i Vercel. Deling fra den installerte appen på Android/PC virker uten nøkkel når appen er låst opp.
 

@@ -483,6 +483,54 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["push_log"]["Insert"]>;
         Relationships: [];
       };
+      app_lock: {
+        Row: {
+          id: number;
+          pin_hash: string | null;
+          pin_version: number;
+          remember: "session" | "day" | "month";
+          pin_length: number;
+          failed_count: number;
+          locked_until: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          pin_hash?: string | null;
+          pin_version?: number;
+          remember?: "session" | "day" | "month";
+          pin_length?: number;
+          failed_count?: number;
+          locked_until?: string | null;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["app_lock"]["Insert"]>;
+        Relationships: [];
+      };
+      passkeys: {
+        Row: {
+          id: string;
+          public_key: string;
+          counter: number;
+          transports: string[];
+          label: string;
+          rp_id: string;
+          created_at: string;
+          last_used_at: string | null;
+        };
+        Insert: {
+          id: string;
+          public_key: string;
+          counter?: number;
+          transports?: string[];
+          label?: string;
+          rp_id: string;
+          created_at?: string;
+          last_used_at?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["passkeys"]["Insert"]>;
+        Relationships: [];
+      };
       settings: {
         Row: { key: string; value: Json; updated_at: string };
         Insert: { key: string; value: Json };

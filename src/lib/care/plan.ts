@@ -107,3 +107,44 @@ export function toCareEntry(r: {
     pick: { by: r.pick_by, time: shortTime(r.pick_time) },
   };
 }
+
+/** Én person og hva hen gjør en dag («Ingvild leverer og henter»). */
+export interface CareDuty {
+  by: string;
+  parts: CarePart[];
+}
+
+/** Levering og henting for ett barn en dag, samlet per person. Levering først. */
+export interface CareSummary {
+  childId: string;
+  duties: CareDuty[];
+}
+
+/** Hvem som leverer og henter en dato, per barn. Tom liste når ingenting er registrert. */
+export function careSummary(care: CareData, date: string): CareSummary[] {
+  return careSlotsOn(care, date)
+    .filter((s) => s.by)
+    .reduce<CareSummary[]>((list, s) => {
+      let child = list.find((c) => c.childId === s.childId);
+      if (!child) list.push((child = { childId: s.childId, duties: [] }));
+      const duty = child.duties.find((d) => d.by === s.by);
+      if (duty) duty.parts.push(s.part);
+      else child.duties.push({ by: s.by!, parts: [s.part] });
+      return list;
+    }, []);
+}
+
+/** «leverer og henter» / «leverer» / «henter». */
+export function dutyVerb(parts: CarePart[]): string {
+  return parts.length > 1 ? "leverer og henter" : parts[0] === "drop" ? "leverer" : "henter";
+}
+
+/** Ren tekst, f.eks. «Ingvild leverer, Marius henter». Barnets navn tas med når flere barn har noe den dagen. */
+export function careText(summary: CareSummary[], nameOf: (id: string) => string): string {
+  return summary
+    .map((c) => {
+      const text = c.duties.map((d) => `${nameOf(d.by)} ${dutyVerb(d.parts)}`).join(", ");
+      return summary.length > 1 ? `${nameOf(c.childId)}: ${text}` : text;
+    })
+    .join(" · ");
+}

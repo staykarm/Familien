@@ -15,6 +15,8 @@ import { eventColor, tint } from "@/lib/calendar/colors";
 import type { CalendarViewKind } from "@/lib/calendar/dates";
 import type { CalendarCategory, CalendarEvent, CalendarMember } from "@/lib/calendar/types";
 import { TIME_ZONE } from "@/lib/time";
+import { CareLine } from "@/components/care/CareLine";
+import type { CareData } from "@/lib/care/plan";
 import { EventChipContent } from "./EventChip";
 import { FIT_FIRST_HOUR, FIT_HOURS, usePhoneDayFit } from "./usePhoneDayFit";
 
@@ -39,12 +41,14 @@ interface Props {
   onWeather: (date: string) => void;
   /** Været time for time for dagen som vises (bare dagvisning). */
   hourly?: Record<number, HourlyWeather>;
+  /** Levering og henting: kort linje i dagshodene i ukevisningen. */
+  care?: CareData;
 }
 
 const osloIsoDate = (d: Date) => DateTime.fromJSDate(d).setZone(TIME_ZONE).toISODate()!;
 
 /** Vanlig dag-/uke-/månedsvisning med FullCalendar (gratisversjonen). */
-export function FullCalendarView({ view, date, events, members, categories, onCreate, onOpen, onMove, onDayClick, weather, onWeather, hourly = {} }: Props) {
+export function FullCalendarView({ view, date, events, members, categories, onCreate, onOpen, onMove, onDayClick, weather, onWeather, hourly = {}, care }: Props) {
   const ref = useRef<FullCalendar>(null);
 
   // Navigasjonen styres av appen (egne knapper), ikke av FullCalendar sin verktøylinje.
@@ -119,11 +123,21 @@ export function FullCalendarView({ view, date, events, members, categories, onCr
 
   // Værsymbol og maks-temperatur i dagshodene (dag/uke) og i rutene (måned).
   const renderDayHeader = (arg: DayHeaderContentArg) => {
-    const day = weather[osloIsoDate(arg.date)];
+    const iso = osloIsoDate(arg.date);
+    const day = weather[iso];
+    const week = arg.view.type === FC_VIEW.week;
     return (
-      <span className="flex flex-wrap items-center justify-center gap-x-1">
-        <span>{arg.text}</span>
-        {day && arg.view.type === FC_VIEW.week && <WeatherBadge day={day} size={22} onClick={() => onWeather(day.date)} />}
+      <span className="flex flex-col items-center">
+        <span className="flex flex-wrap items-center justify-center gap-x-1">
+          <span>{arg.text}</span>
+          {day && week && <WeatherBadge day={day} size={22} onClick={() => onWeather(day.date)} />}
+        </span>
+        {care && week && (
+          <>
+            <CareLine care={care} date={iso} members={members} compact className="md:hidden" />
+            <CareLine care={care} date={iso} members={members} className="hidden px-1 text-center text-xs font-normal normal-case md:block" />
+          </>
+        )}
       </span>
     );
   };

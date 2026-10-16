@@ -8,8 +8,8 @@ import { tint } from "@/lib/calendar/colors";
 import { osloDate, touchesDay } from "@/lib/calendar/dates";
 import type { CalendarCategory, CalendarEvent, CalendarMember } from "@/lib/calendar/types";
 import { TIME_ZONE } from "@/lib/time";
-import { CareBadge } from "@/components/care/CareBadge";
-import { careFor, type CareData } from "@/lib/care/plan";
+import { CareLine } from "@/components/care/CareLine";
+import type { CareData } from "@/lib/care/plan";
 import { WeatherBadge } from "@/components/weather/WeatherBadge";
 import type { DailyWeather } from "@/lib/weather/yr";
 import { EventChipContent } from "./EventChip";
@@ -26,7 +26,7 @@ interface Props {
   onDayClick: (date: string) => void;
   weather: Record<string, DailyWeather>;
   onWeather: (date: string) => void;
-  /** Levering og henting (hverdager), øverst i barnets rute. */
+  /** Levering og henting: kort linje under datoen. */
   care?: CareData;
 }
 
@@ -71,6 +71,7 @@ export function PersonWeekView({ days, today, events, members, categories, onCre
                 {dt.day}
               </span>
               {weather[d] && <WeatherBadge day={weather[d]} size={phone ? 16 : 22} onClick={() => onWeather(d)} />}
+              {care && <CareLine care={care} date={d} members={members} compact={phone} className={phone ? "" : "px-1 text-center text-xs"} />}
             </div>
           );
         })}
@@ -88,7 +89,6 @@ export function PersonWeekView({ days, today, events, members, categories, onCre
               const dayEvents = events
                 .filter((e) => e.participantIds.includes(m.id) && touchesDay(e, d))
                 .sort((a, b) => Number(b.allDay) - Number(a.allDay) || a.start.localeCompare(b.start));
-              const careDay = care ? careFor(care, m.id, d) : null;
               return (
                 <div
                   key={d}
@@ -96,7 +96,6 @@ export function PersonWeekView({ days, today, events, members, categories, onCre
                     phone ? "min-h-0 gap-0.5 overflow-y-auto p-0.5" : "min-h-24 gap-1 p-1"
                   } ${d === today ? "bg-sun/30" : ""}`}
                 >
-                  {careDay && <CareBadge day={careDay} members={members} compact={phone} />}
                   {dayEvents.map((e) => (
                     <button
                       key={e.id}
@@ -108,7 +107,7 @@ export function PersonWeekView({ days, today, events, members, categories, onCre
                         event={e}
                         members={members}
                         category={categories.find((c) => c.id === e.categoryId)}
-                        time={e.allDay ? (phone || e.kind === "care" ? undefined : "Hele dagen") : DateTime.fromISO(e.start).setZone(TIME_ZONE).toFormat("HH:mm")}
+                        time={e.allDay ? (phone ? undefined : "Hele dagen") : DateTime.fromISO(e.start).setZone(TIME_ZONE).toFormat("HH:mm")}
                         showParticipants={e.participantIds.length > 1}
                         compact
                       />

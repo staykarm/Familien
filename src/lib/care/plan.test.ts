@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { careChildId, careItems } from "./calendar";
-import { careFor, shortTime, upcomingWeekdays, usualTime, type CareData } from "./plan";
+import { careFor, careSummary, careText, shortTime, upcomingWeekdays, usualTime, type CareData } from "./plan";
 
 const olav = "olav";
 const slot = (by: string | null, time: string | null) => ({ by, time });
@@ -9,8 +8,11 @@ const care: CareData = {
     { memberId: olav, date: "2026-10-19", drop: slot("marius", "08:00"), pick: slot("ingvild", "16:00") },
     { memberId: olav, date: "2026-10-20", drop: slot(null, null), pick: slot("marius", "15:30") },
     { memberId: olav, date: "2026-10-21", drop: slot(null, null), pick: slot(null, null) },
+    { memberId: olav, date: "2026-10-22", drop: slot("ingvild", "08:00"), pick: slot("ingvild", "16:00") },
   ],
 };
+const names: Record<string, string> = { olav: "Olav", marius: "Marius", ingvild: "Ingvild", edvard: "Edvard" };
+const nameOf = (id: string) => names[id] ?? id;
 
 describe("careFor", () => {
   it("dagens registrering", () => {
@@ -22,27 +24,28 @@ describe("careFor", () => {
 
   it("ingenting når dagen er tom eller ikke registrert", () => {
     expect(careFor(care, olav, "2026-10-21")).toBeNull();
-    expect(careFor(care, olav, "2026-10-22")).toBeNull();
+    expect(careFor(care, olav, "2026-10-23")).toBeNull();
     expect(careFor(care, "edvard", "2026-10-19")).toBeNull();
   });
 });
 
-describe("careItems", () => {
-  it("heldagselementer hos den som har ansvaret", () => {
-    const members = [{ id: olav, name: "Olav", color: "#000", icon: "⚽", isShared: false, avatarUrl: null }];
-    const items = careItems(care, members, ["2026-10-19"]);
-    expect(items.map((i) => [i.title, i.participantIds[0]])).toEqual([
-      ["🚸 Levere Olav 08:00", "marius"],
-      ["🚸 Hente Olav 16:00", "ingvild"],
-    ]);
-    expect(careChildId(items[0].id)).toBe(olav);
+describe("careText", () => {
+  const text = (date: string, c: CareData = care) => careText(careSummary(c, date), nameOf);
+  it("kort tekst om hvem som leverer og henter", () => {
+    expect(text("2026-10-19")).toBe("Marius leverer, Ingvild henter");
+    expect(text("2026-10-20")).toBe("Marius henter");
+    expect(text("2026-10-22")).toBe("Ingvild leverer og henter");
+    expect(text("2026-10-21")).toBe("");
+  });
+  it("barnets navn når flere barn har noe samme dag", () => {
+    const two: CareData = { entries: [...care.entries, { memberId: "edvard", date: "2026-10-22", drop: slot("marius", null), pick: slot(null, null) }] };
+    expect(text("2026-10-22", two)).toBe("Olav: Ingvild leverer og henter · Edvard: Marius leverer");
   });
 });
 
 describe("hjelpere", () => {
   it("usualTime foreslår sist brukte tid", () => {
-    expect(usualTime(care.entries, "pick")).toBe("15:30");
-    expect(usualTime(care.entries, "drop")).toBe("08:00");
+    expect(usualTime(care.entries, "pick")).toBe("16:00");
     expect(usualTime([], "drop")).toBeNull();
   });
   it("upcomingWeekdays hopper over helgen", () => {

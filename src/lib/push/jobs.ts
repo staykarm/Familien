@@ -1,6 +1,6 @@
 import "server-only";
 import { DateTime } from "luxon";
-import { careFor, PART_LABEL, shortTime, type CareData } from "@/lib/care/plan";
+import { careFor, PART_LABEL, toCareEntry, type CareData } from "@/lib/care/plan";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { TIME_ZONE } from "@/lib/time";
 import { claimOnce, loadSubscriptions, sendToSubscription, type PushMessage, type PushSub } from "./send";
@@ -89,38 +89,16 @@ async function reminders(db: Db, subs: PushSub[], members: MemberRow[], now: Dat
   return sent;
 }
 
-/** Ukeplanene og unntakene som gjelder denne datoen. */
+/** Levering og henting registrert for denne datoen. */
 async function loadCareData(db: Db, date: string): Promise<CareData> {
-  const [{ data: plans, error }, { data: overrides }] = await Promise.all([
-    db.from("care_plans").select("member_id, weekday, drop_by, drop_time, pick_by, pick_time"),
-    db
-      .from("care_overrides")
-      .select("id, member_id, from_date, to_date, drop_override, drop_by, drop_time, pick_override, pick_by, pick_time, created_at")
-      .lte("from_date", date)
-      .gte("to_date", date),
-  ]);
-  if (error) return { plans: [], overrides: [] };
-  return {
-    plans: (plans ?? []).map((r) => ({
-      memberId: r.member_id,
-      weekday: r.weekday,
-      drop: { by: r.drop_by, time: shortTime(r.drop_time) },
-      pick: { by: r.pick_by, time: shortTime(r.pick_time) },
-    })),
-    overrides: (overrides ?? []).map((r) => ({
-      id: r.id,
-      memberId: r.member_id,
-      from: r.from_date,
-      to: r.to_date,
-      note: null,
-      drop: r.drop_override ? { by: r.drop_by, time: shortTime(r.drop_time) } : null,
-      pick: r.pick_override ? { by: r.pick_by, time: shortTime(r.pick_time) } : null,
-      createdAt: r.created_at,
-    })),
-  };
+  const { data, error } = await db
+    .from("care_entries")
+    .select("member_id, date, drop_by, drop_time, pick_by, pick_time")
+    .eq("date", date);
+  return { entries: error ? [] : (data ?? []).map(toCareEntry) };
 }
 
-/** Påminnelse til den som skal levere eller hente (ukeplan eller unntak for dagen). */
+/** Påminnelse til den som skal levere eller hente. */
 async function care(db: Db, subs: PushSub[], members: MemberRow[], now: Date): Promise<number> {
   const wanting = subs.filter((s) => s.prefs.types.care);
   if (!wanting.length) return 0;

@@ -4,7 +4,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { Member } from "@/lib/session";
 import { eventTargets } from "./settings";
 import { claimOnce, notify, notifyLater } from "./send";
-import { periodText } from "@/lib/care/plan";
 import { namesText, whenText } from "./text";
 
 /**
@@ -151,18 +150,17 @@ export async function notifySyncError(message: string): Promise<void> {
   await notify("sync", { title: "⚠️ Outlook-synken feilet", body: message.slice(0, 160), url: "/innstillinger#outlook" }, { targets: null });
 }
 
-/** Noen er satt opp til å levere eller hente i en periode (unntak fra profilen). */
+/** Noen er satt opp til å levere eller hente en dag (fra barnets profil). */
 export function notifyCareAssigned(
-  p: { childName: string; part: "drop" | "pick"; from: string; to: string; time: string | null; by: string },
+  p: { childName: string; part: "drop" | "pick"; date: string; time: string | null; by: string },
   opts: { actor: Member | null }
 ) {
   if (p.by === opts.actor?.id) return;
   const verb = p.part === "drop" ? "levere" : "hente";
-  const when = p.from === p.to ? whenText(`${p.from}T${p.time ?? "12:00"}:00`, !p.time) : `${periodText(p.from, p.to)}${p.time ? ` kl. ${p.time}` : ""}`;
   notifyLater(
     "care",
     {
-      title: `🚸 Du skal ${verb} ${p.childName} ${when}`,
+      title: `🚸 Du skal ${verb} ${p.childName} ${whenText(`${p.date}T${p.time ?? "12:00"}:00`, !p.time)}`,
       body: opts.actor ? `Satt opp av ${opts.actor.name}` : "Endret i planen for levering og henting",
       url: "/i-dag",
     },

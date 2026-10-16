@@ -81,7 +81,7 @@ function writePrefs(prefs: Prefs) {
 }
 
 /** Tom henteplan (stabil referanse, så useMemo ikke regner på nytt hver gang). */
-const NO_CARE: CareData = { plans: [], overrides: [] };
+const NO_CARE: CareData = { entries: [] };
 
 interface Props {
   members: CalendarMember[];

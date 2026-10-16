@@ -162,7 +162,7 @@ export function notifyCareAssigned(
     {
       title: `🚸 Du skal ${verb} ${p.childName} ${whenText(`${p.date}T${p.time ?? "12:00"}:00`, !p.time)}`,
       body: opts.actor ? `Satt opp av ${opts.actor.name}` : "Endret i planen for levering og henting",
-      url: "/i-dag",
+      url: "/henting",
     },
     { targets: [p.by], exclude: opts.actor?.id ?? null }
   );

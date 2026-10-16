@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, FileUp, ListChecks, NotebookPen, Settings, ShoppingBasket, Sun, Users } from "lucide-react";
+import { Backpack, CalendarDays, FileUp, ListChecks, NotebookPen, Settings, ShoppingBasket, Sun, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { VoiceButton } from "@/components/voice/VoiceButton";
 
@@ -10,6 +10,7 @@ const NAV = [
   { href: "/i-dag", label: "I dag", icon: Sun },
   { href: "/", label: "Kalender", icon: CalendarDays },
   { href: "/oppgaver", label: "Oppgaver", icon: ListChecks },
+  { href: "/henting", label: "Henting", icon: Backpack },
   { href: "/handleliste", label: "Handle", icon: ShoppingBasket, long: "Handleliste" },
   { href: "/notater", label: "Notater", icon: NotebookPen },
 ];
@@ -93,7 +94,7 @@ export function AppShell({ children, me }: { children: ReactNode; me: ReactNode 
       </div>
 
       <nav data-bottom-nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t-2 border-line bg-card/95 backdrop-blur md:hidden">
-        <ul className="grid grid-cols-5">
+        <ul className="grid grid-cols-6">
           {NAV.map(({ href, label, icon: Icon }) => {
             const active = isActive(pathname, href);
             return (

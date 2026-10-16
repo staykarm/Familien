@@ -23,6 +23,7 @@ Familieapp for planlegging for Ingvild, Marius, Edvard og Olav (+ Felles): kalen
 | 12 | Levering og henting av Olav: fast ukeplan og unntak for perioder, vist i kalenderen | ✅ |
 | 13 | «Si det»: legg inn aktiviteter, oppgaver og handlevarer med tale | ✅ |
 | 14 | Levering og henting registreres dag for dag | ✅ |
+| 15 | «Henting» som egen side i hovedmenyen | ✅ |
 
 ## Kom i gang lokalt
 

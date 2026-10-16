@@ -13,7 +13,6 @@ import {
   OTHER_SUGGESTIONS,
   PART_LABEL,
   upcomingWeekdays,
-  usedOthers,
   usualTime,
   type CareData,
   type CareEntry,
@@ -65,12 +64,6 @@ export function CarePlanEditor({ memberId, memberName, people, initial, alwaysOp
     }
     return [...map.values()];
   }, [dates]);
-
-  // Hurtigvalg for «Annen»: navn brukt før først, deretter faste forslag.
-  const otherSuggestions = useMemo(() => {
-    const used = usedOthers(entries);
-    return [...used, ...OTHER_SUGGESTIONS.filter((n) => !used.some((u) => u.toLowerCase() === n.toLowerCase()))];
-  }, [entries]);
 
   const entryFor = (date: string): CareEntry => entries.find((e) => e.date === date) ?? { memberId, date, drop: EMPTY_SLOT, pick: EMPTY_SLOT };
 
@@ -170,12 +163,12 @@ export function CarePlanEditor({ memberId, memberName, people, initial, alwaysOp
                       {isToday && <span className="font-semibold text-ink-light"> · i dag</span>}
                     </span>
                     {PARTS.map((part) => (
-                      <div key={part} className="flex items-center gap-1.5">
-                        <span className="w-12 shrink-0 text-sm font-bold text-ink-light">{PART_LABEL[part].doer}</span>
+                      <div key={part} className="flex flex-wrap items-center gap-1 sm:gap-1.5">
+                        <span className="w-11 shrink-0 text-sm font-bold text-ink-light sm:w-12">{PART_LABEL[part].doer}</span>
                         <PeoplePicker people={people} value={e[part].by} onChange={(by) => setPart(date, part, { by, ...(by ? {} : { time: null }) })} />
                         <OtherButton
                           value={e[part].other}
-                          suggestions={otherSuggestions}
+                          suggestions={OTHER_SUGGESTIONS}
                           onChange={(other) => setPart(date, part, other ? { by: null, other } : { other: null, time: null })}
                         />
                         {hasPerson(e[part]) && <TimeInput value={e[part].time} onChange={(time) => setPart(date, part, { time })} />}
@@ -207,13 +200,12 @@ function PeoplePicker({ people, value, onChange }: { people: Person[]; value: st
             type="button"
             role="radio"
             aria-checked={on}
-            aria-label={p.name}
             onClick={() => onChange(on ? null : p.id)}
-            className={`flex min-h-12 items-center gap-1 rounded-2xl border-2 px-1 transition sm:px-1.5 ${on ? "bg-card" : "border-transparent opacity-45"}`}
+            className={`flex min-h-12 items-center gap-1 rounded-2xl border-2 px-0.5 transition sm:px-1.5 ${on ? "bg-card" : "border-transparent opacity-45"}`}
             style={on ? { borderColor: p.color } : undefined}
           >
-            <Avatar name={p.name} color={p.color} icon={p.icon} url={p.avatarUrl} size={28} ring={on} />
-            <span className="hidden text-sm font-semibold sm:inline">{p.name}</span>
+            <Avatar name={p.name} color={p.color} icon={p.icon} url={p.avatarUrl} size={24} ring={on} />
+            <span className="text-sm font-semibold">{p.name}</span>
           </button>
         );
       })}
@@ -226,7 +218,7 @@ function TimeInput({ value, onChange }: { value: string | null; onChange: (v: st
     <input
       type="time"
       aria-label="Klokkeslett"
-      className={`${input} max-w-28 px-2 sm:max-w-32`}
+      className={`${input} max-w-24 px-1.5 max-sm:[&::-webkit-calendar-picker-indicator]:hidden sm:max-w-32 sm:px-2`}
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value ? e.target.value.slice(0, 5) : null)}
     />
@@ -251,14 +243,14 @@ function OtherButton({ value, suggestions, onChange }: { value: string | null; s
           setText(value ?? "");
           setOpen(!open);
         }}
-        className={`flex min-h-12 items-center gap-1 rounded-2xl border-2 px-1.5 text-sm font-semibold transition ${
+        className={`flex min-h-12 items-center gap-1 rounded-2xl border-2 px-1 text-sm font-semibold transition sm:px-1.5 ${
           value ? "border-ink/40 bg-card text-ink" : "border-transparent text-ink-light opacity-60"
         }`}
       >
         {value ? <span className="max-w-24 wrap-break-word leading-tight">{value}</span> : <UserPlus size={22} aria-hidden />}
       </button>
       {open && (
-        <div className="absolute left-0 z-30 mt-1 flex w-64 flex-col gap-2 rounded-2xl bg-card p-3 shadow-lg ring-1 ring-line">
+        <div className="absolute right-0 z-30 mt-1 flex w-64 sm:right-auto sm:left-0 flex-col gap-2 rounded-2xl bg-card p-3 shadow-lg ring-1 ring-line">
           <form
             className="flex gap-1.5"
             onSubmit={(e) => {

@@ -113,21 +113,8 @@ export function toCareEntry(r: {
   };
 }
 
-/** Navn skrevet inn før (fritekst), de mest brukte først – til hurtigvalg. */
-export function usedOthers(entries: CareEntry[]): string[] {
-  const counts = new Map<string, { name: string; n: number }>();
-  for (const e of entries) {
-    for (const s of [e.drop, e.pick]) {
-      if (!s.other) continue;
-      const key = s.other.toLowerCase();
-      counts.set(key, { name: counts.get(key)?.name ?? s.other, n: (counts.get(key)?.n ?? 0) + 1 });
-    }
-  }
-  return [...counts.values()].sort((a, b) => b.n - a.n).map((c) => c.name);
-}
-
-/** Hurtigvalg for fritekst. */
-export const OTHER_SUGGESTIONS = ["Farmor", "Farfar", "Mormor", "Morfar", "Bestemor", "Bestefar"];
+/** De faste valgene for noen utenfor appen. */
+export const OTHER_SUGGESTIONS = ["Farmor", "Farfar", "Bestemor"];
 
 /** Én person og hva hen gjør en dag («Ingvild leverer og henter»). Enten et medlem (`by`) eller fritekst (`other`). */
 export interface CareDuty {

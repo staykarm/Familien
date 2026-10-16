@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { AUTH_ENABLED } from "@/lib/env";
+import { isUnlocked } from "@/lib/lock/state";
+import { LOCK_PATH } from "@/lib/lock/token";
 import { getDb } from "@/lib/supabase/db";
 import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/database.types";
@@ -31,7 +33,12 @@ export interface FamilySession {
 export const requireFamily = cache(async (): Promise<FamilySession> => {
   // Familiedata er alltid ferske: aldri forhåndsbygg disse sidene ved deploy.
   await connection();
-  if (!AUTH_ENABLED) return openSession();
+  if (!AUTH_ENABLED) {
+    // Uten innlogging er appen låst med en felles kode (eller Face ID). Proxy-en sjekker signaturen,
+    // her sjekkes også at koden ikke er endret siden enheten ble låst opp.
+    if (!(await isUnlocked())) redirect(LOCK_PATH);
+    return openSession();
+  }
 
   const supabase = await createClient();
   const { data: claimsData } = await supabase.auth.getClaims();

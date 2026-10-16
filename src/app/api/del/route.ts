@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { ALLOWED_UPLOAD_TYPES, MAX_UPLOAD_BYTES } from "@/lib/ai/extract";
 import { guessMime, storagePath } from "@/lib/files/names";
+import { AUTH_ENABLED } from "@/lib/env";
+import { isUnlocked } from "@/lib/lock/state";
 import { requireFamily } from "@/lib/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getDb } from "@/lib/supabase/db";
@@ -13,7 +15,7 @@ export const maxDuration = 60;
  * - fra en iPhone-snarvei (Snarveier → «Hent innholdet i URL»), siden iOS ikke støtter share_target.
  * Filene lagres som opplastinger, og brukeren sendes til «Les inn fil», som tolker dem med Claude.
  *
- * Snarveier har ingen innlogging. Med AUTH_ENABLED må de sende `Authorization: Bearer <SHARE_TOKEN>`.
+ * Snarveier har ingen innlogging og kan ikke låse opp appen, så de må sende `Authorization: Bearer <SHARE_TOKEN>`.
  * Svar: omdirigering til /filer, eller JSON `{ ok, url, message }` når `Accept: application/json`.
  */
 export async function POST(req: Request) {
@@ -21,6 +23,13 @@ export async function POST(req: Request) {
   const wantsJson = (req.headers.get("accept") ?? "").includes("application/json");
   const token = process.env.SHARE_TOKEN;
   const viaToken = !!token && req.headers.get("authorization") === `Bearer ${token}`;
+  // En snarvei uten nøkkel får en forklaring i stedet for å bli sendt til låsesiden.
+  if (!viaToken && wantsJson && !AUTH_ENABLED && !(await isUnlocked())) {
+    return NextResponse.json(
+      { ok: false, url: `${origin}/filer`, message: "Snarveien må sende Authorization: Bearer <SHARE_TOKEN>. Se README." },
+      { status: 401 },
+    );
+  }
   const session = viaToken ? null : await requireFamily();
   const db = viaToken ? createAdminClient() : await getDb();
 

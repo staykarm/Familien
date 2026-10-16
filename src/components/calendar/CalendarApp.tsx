@@ -28,7 +28,9 @@ import {
   type CalendarViewKind,
 } from "@/lib/calendar/dates";
 import type { CalendarCategory, CalendarEvent, CalendarMember } from "@/lib/calendar/types";
-import type { CarePlanDay } from "@/lib/care/plan";
+import { useRouter } from "next/navigation";
+import { careChildId, careItems, isCareItemId } from "@/lib/care/calendar";
+import type { CareData } from "@/lib/care/plan";
 import { isTaskItemId, TASK_PREFIX, taskToCalendarItem } from "@/lib/tasks/calendar";
 import type { Task } from "@/lib/tasks/types";
 import { TIME_ZONE } from "@/lib/time";
@@ -78,16 +80,20 @@ function writePrefs(prefs: Prefs) {
   }
 }
 
+/** Tom henteplan (stabil referanse, så useMemo ikke regner på nytt hver gang). */
+const NO_CARE: CareData = { plans: [], overrides: [] };
+
 interface Props {
   members: CalendarMember[];
   categories: CalendarCategory[];
   taskCategories: CalendarCategory[];
   activeMemberId: string | null;
-  /** Levering og henting på hverdager (vises i «Per person»). */
-  carePlans?: CarePlanDay[];
+  /** Levering og henting på hverdager (heldagselementer hos den som har ansvaret, og i barnets kolonne). */
+  care?: CareData;
 }
 
-export function CalendarApp({ members, categories, taskCategories, activeMemberId, carePlans = [] }: Props) {
+export function CalendarApp({ members, categories, taskCategories, activeMemberId, care = NO_CARE }: Props) {
+  const router = useRouter();
   const [view, setView] = useState<CalendarViewKind>("week");
   const [perPerson, setPerPerson] = useState(false);
   const [hidden, setHidden] = useState<string[]>([]);
@@ -170,8 +176,10 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
   const fellesId = members.find((m) => m.isShared)?.id ?? null;
   const visibleEvents = useMemo(() => {
     const taskItems = tasks.map((t) => taskToCalendarItem(t, fellesId)).filter((t): t is CalendarEvent => t !== null);
-    return [...events, ...taskItems].filter((e) => e.participantIds.some((id) => !hidden.includes(id)));
-  }, [events, tasks, hidden, fellesId]);
+    // Levering og henting vises som heldagselementer hos den som har ansvaret.
+    const careList = careItems(care, members, range.days);
+    return [...careList, ...events, ...taskItems].filter((e) => e.participantIds.some((id) => !hidden.includes(id)));
+  }, [events, tasks, hidden, fellesId, care, members, range.days]);
 
   // --- Åpne dialog -------------------------------------------------------------------
 
@@ -207,6 +215,10 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
   }
 
   function openExisting(id: string) {
+    if (isCareItemId(id)) {
+      router.push(`/profiler/${careChildId(id)}#levering`);
+      return;
+    }
     if (isTaskItemId(id)) {
       const task = tasks.find((t) => t.id === id.slice(TASK_PREFIX.length));
       if (task) setTaskDraft(draftFromTask(task));
@@ -358,7 +370,7 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
           categories={categories}
           onOpen={openExisting}
           hourly={hourlyToday}
-          carePlans={carePlans}
+          care={care}
           onCreateAt={(memberId, hour, minute) =>
             setDraft(
               newDraft({
@@ -381,7 +393,7 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
           onCreateOn={(memberId, d) => setDraft(newDraft({ participantIds: [memberId], date: d }))}
           weather={weatherByDate}
           onWeather={setWeatherDate}
-          carePlans={carePlans}
+          care={care}
         />
       ) : (
         <div className="rounded-3xl bg-card p-2 shadow-[0_2px_12px_rgba(120,90,60,0.08)] sm:p-4">

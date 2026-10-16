@@ -1,6 +1,6 @@
 import "server-only";
 import { DateTime } from "luxon";
-import { planForDate, shortTime } from "@/lib/care/plan";
+import { careFor, PART_LABEL, shortTime, type CareData } from "@/lib/care/plan";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { TIME_ZONE } from "@/lib/time";
 import { claimOnce, loadSubscriptions, sendToSubscription, type PushMessage, type PushSub } from "./send";
@@ -15,7 +15,7 @@ interface MemberRow {
 }
 
 /**
- * Det som skal sendes på tid: påminnelser før aktiviteter, levering/henting og morgenoversikten.
+ * Det som skal sendes på tid: påminnelser før aktiviteter, henting og morgenoversikten.
  * Hver enhet har egne valg (typer, minutter før, klokkeslett, stille tid), så alt regnes ut per enhet.
  * Kjøres ofte (hvert 5. minutt via Supabase, se README). Hvert varsel sendes bare én gang per enhet (push_log).
  */
@@ -89,43 +89,59 @@ async function reminders(db: Db, subs: PushSub[], members: MemberRow[], now: Dat
   return sent;
 }
 
-async function loadPlans(db: Db) {
-  const { data, error } = await db.from("care_plans").select("member_id, weekday, drop_by, drop_time, pick_by, pick_time");
-  if (error || !data) return [];
-  return data.map((r) => ({
-    memberId: r.member_id,
-    weekday: r.weekday,
-    dropBy: r.drop_by,
-    dropTime: shortTime(r.drop_time),
-    pickBy: r.pick_by,
-    pickTime: shortTime(r.pick_time),
-  }));
+/** Ukeplanene og unntakene som gjelder denne datoen. */
+async function loadCareData(db: Db, date: string): Promise<CareData> {
+  const [{ data: plans, error }, { data: overrides }] = await Promise.all([
+    db.from("care_plans").select("member_id, weekday, drop_by, drop_time, pick_by, pick_time"),
+    db
+      .from("care_overrides")
+      .select("id, member_id, from_date, to_date, drop_override, drop_by, drop_time, pick_override, pick_by, pick_time, created_at")
+      .lte("from_date", date)
+      .gte("to_date", date),
+  ]);
+  if (error) return { plans: [], overrides: [] };
+  return {
+    plans: (plans ?? []).map((r) => ({
+      memberId: r.member_id,
+      weekday: r.weekday,
+      drop: { by: r.drop_by, time: shortTime(r.drop_time) },
+      pick: { by: r.pick_by, time: shortTime(r.pick_time) },
+    })),
+    overrides: (overrides ?? []).map((r) => ({
+      id: r.id,
+      memberId: r.member_id,
+      from: r.from_date,
+      to: r.to_date,
+      note: null,
+      drop: r.drop_override ? { by: r.drop_by, time: shortTime(r.drop_time) } : null,
+      pick: r.pick_override ? { by: r.pick_by, time: shortTime(r.pick_time) } : null,
+      createdAt: r.created_at,
+    })),
+  };
 }
 
+/** Påminnelse til den som skal levere eller hente (ukeplan eller unntak for dagen). */
 async function care(db: Db, subs: PushSub[], members: MemberRow[], now: Date): Promise<number> {
   const wanting = subs.filter((s) => s.prefs.types.care);
   if (!wanting.length) return 0;
   const date = DateTime.fromJSDate(now).setZone(TIME_ZONE).toISODate()!;
-  const plans = await loadPlans(db);
+  const data = await loadCareData(db, date);
   let sent = 0;
   for (const child of members) {
-    const plan = planForDate(plans, child.id, date);
-    if (!plan) continue;
-    for (const [what, by, time] of [
-      ["levere", plan.dropBy, plan.dropTime],
-      ["hente", plan.pickBy, plan.pickTime],
-    ] as const) {
-      if (!by || !time) continue;
-      const at = DateTime.fromISO(`${date}T${time}`, { zone: TIME_ZONE });
+    const day = careFor(data, child.id, date);
+    for (const slot of [day?.drop, day?.pick]) {
+      if (!slot?.by || !slot.time) continue;
+      const at = DateTime.fromISO(`${date}T${slot.time}`, { zone: TIME_ZONE });
       const diff = at.toMillis() - now.getTime();
       if (diff <= 0) continue;
       const start = at.toUTC().toISO()!;
+      const who = members.find((m) => m.id === slot.by)?.name ?? "";
+      const verb = PART_LABEL[slot.part].verb;
       for (const sub of wanting) {
         if (diff > sub.prefs.careMinutes * 60_000) continue;
-        const who = members.find((m) => m.id === by)?.name ?? "";
-        sent += await sendOnce(db, sub, "care", { targets: [by] }, now, `care:${child.id}:${date}:${what}`, {
+        sent += await sendOnce(db, sub, "care", { targets: [slot.by] }, now, `care:${child.id}:${date}:${slot.part}`, {
           // Felles enhet: si hvem som skal levere/hente.
-          title: sub.memberId ? `🚸 Du skal ${what} ${child.name} kl. ${time}` : `🚸 ${who} skal ${what} ${child.name} kl. ${time}`,
+          title: sub.memberId ? `🚸 Du skal ${verb} ${child.name} kl. ${slot.time}` : `🚸 ${who} skal ${verb} ${child.name} kl. ${slot.time}`,
           body: `Om ${inMinutes(start, now).slice(3)}`,
           url: "/i-dag",
         });
@@ -142,10 +158,10 @@ async function morning(db: Db, subs: PushSub[], members: MemberRow[], now: Date)
   const date = local.toISODate()!;
 
   const dayStart = local.startOf("day");
-  const [events, { data: tasks }, plans] = await Promise.all([
+  const [events, { data: tasks }, careData] = await Promise.all([
     loadEvents(db, dayStart.toJSDate(), dayStart.plus({ days: 1 }).toJSDate()),
     db.from("tasks").select("title, assignee_id, due_date").neq("status", "done").not("due_date", "is", null).lte("due_date", date),
-    loadPlans(db),
+    loadCareData(db, date),
   ]);
   const shared = members.filter((m) => m.is_shared).map((m) => m.id);
   const nameOf = (id: string | null) => members.find((m) => m.id === id)?.name ?? "";
@@ -156,14 +172,12 @@ async function morning(db: Db, subs: PushSub[], members: MemberRow[], now: Date)
     const mine = memberId ? events.filter((e) => e.participantIds.includes(memberId) || e.participantIds.some((p) => shared.includes(p))) : events;
     const myTasks = (tasks ?? []).filter((t) => !memberId || t.assignee_id === memberId || !t.assignee_id);
     const careLines = members.flatMap((child) => {
-      const p = planForDate(plans, child.id, date);
-      if (!p) return [];
-      const drop = p.dropBy && (!memberId || p.dropBy === memberId);
-      const pick = p.pickBy && (!memberId || p.pickBy === memberId);
-      return [
-        drop ? `${memberId ? "Du" : nameOf(p.dropBy)} leverer ${child.name}${p.dropTime ? ` ${p.dropTime}` : ""}` : null,
-        pick ? `${memberId ? "Du" : nameOf(p.pickBy)} henter ${child.name}${p.pickTime ? ` ${p.pickTime}` : ""}` : null,
-      ].filter((x): x is string => !!x);
+      const day = careFor(careData, child.id, date);
+      return [day?.drop, day?.pick].flatMap((slot) => {
+        if (!slot?.by || (memberId && slot.by !== memberId)) return [];
+        const verb = slot.part === "drop" ? "leverer" : "henter";
+        return [`${memberId ? "Du" : nameOf(slot.by)} ${verb} ${child.name}${slot.time ? ` ${slot.time}` : ""}`];
+      });
     });
     const parts = [
       mine.length ? mine.slice(0, 5).map(line).join(" · ") + (mine.length > 5 ? ` (+${mine.length - 5})` : "") : "Ingenting i kalenderen",

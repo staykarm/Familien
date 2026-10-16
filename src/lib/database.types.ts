@@ -166,6 +166,39 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["care_plans"]["Insert"]>;
         Relationships: [];
       };
+      care_overrides: {
+        Row: {
+          id: string;
+          member_id: string;
+          from_date: string;
+          to_date: string;
+          note: string | null;
+          drop_override: boolean;
+          drop_by: string | null;
+          drop_time: string | null;
+          pick_override: boolean;
+          pick_by: string | null;
+          pick_time: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          member_id: string;
+          from_date: string;
+          to_date: string;
+          note?: string | null;
+          drop_override?: boolean;
+          drop_by?: string | null;
+          drop_time?: string | null;
+          pick_override?: boolean;
+          pick_by?: string | null;
+          pick_time?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["care_overrides"]["Insert"]>;
+        Relationships: [];
+      };
       event_participants: {
         Row: { event_id: string; member_id: string };
         Insert: { event_id: string; member_id: string };

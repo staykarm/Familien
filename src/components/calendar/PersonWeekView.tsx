@@ -9,7 +9,7 @@ import { osloDate, touchesDay } from "@/lib/calendar/dates";
 import type { CalendarCategory, CalendarEvent, CalendarMember } from "@/lib/calendar/types";
 import { TIME_ZONE } from "@/lib/time";
 import { CareBadge } from "@/components/care/CareBadge";
-import { planForDate, type CarePlanDay } from "@/lib/care/plan";
+import { careFor, type CareData } from "@/lib/care/plan";
 import { WeatherBadge } from "@/components/weather/WeatherBadge";
 import type { DailyWeather } from "@/lib/weather/yr";
 import { EventChipContent } from "./EventChip";
@@ -26,12 +26,12 @@ interface Props {
   onDayClick: (date: string) => void;
   weather: Record<string, DailyWeather>;
   onWeather: (date: string) => void;
-  /** Levering og henting (hverdager), vist øverst i barnets rute. */
-  carePlans?: CarePlanDay[];
+  /** Levering og henting (hverdager), øverst i barnets rute. */
+  care?: CareData;
 }
 
 /** Én rad per familiemedlem, én kolonne per ukedag. */
-export function PersonWeekView({ days, today, events, members, categories, onCreateOn, onOpen, onDayClick, weather, onWeather, carePlans = [] }: Props) {
+export function PersonWeekView({ days, today, events, members, categories, onCreateOn, onOpen, onDayClick, weather, onWeather, care }: Props) {
   // Telefon: hele uka og alle radene (med Felles) på én skjerm. Radene deler høyden, og hver rute ruller selv ved behov.
   const ref = useRef<HTMLDivElement>(null);
   const fit = usePhoneDayFit(ref, true);
@@ -88,7 +88,7 @@ export function PersonWeekView({ days, today, events, members, categories, onCre
               const dayEvents = events
                 .filter((e) => e.participantIds.includes(m.id) && touchesDay(e, d))
                 .sort((a, b) => Number(b.allDay) - Number(a.allDay) || a.start.localeCompare(b.start));
-              const plan = planForDate(carePlans, m.id, d);
+              const careDay = care ? careFor(care, m.id, d) : null;
               return (
                 <div
                   key={d}
@@ -96,7 +96,7 @@ export function PersonWeekView({ days, today, events, members, categories, onCre
                     phone ? "min-h-0 gap-0.5 overflow-y-auto p-0.5" : "min-h-24 gap-1 p-1"
                   } ${d === today ? "bg-sun/30" : ""}`}
                 >
-                  {plan && <CareBadge plan={plan} members={members} compact={phone} />}
+                  {careDay && <CareBadge day={careDay} members={members} compact={phone} />}
                   {dayEvents.map((e) => (
                     <button
                       key={e.id}
@@ -108,7 +108,7 @@ export function PersonWeekView({ days, today, events, members, categories, onCre
                         event={e}
                         members={members}
                         category={categories.find((c) => c.id === e.categoryId)}
-                        time={e.allDay ? (phone ? undefined : "Hele dagen") : DateTime.fromISO(e.start).setZone(TIME_ZONE).toFormat("HH:mm")}
+                        time={e.allDay ? (phone || e.kind === "care" ? undefined : "Hele dagen") : DateTime.fromISO(e.start).setZone(TIME_ZONE).toFormat("HH:mm")}
                         showParticipants={e.participantIds.length > 1}
                         compact
                       />

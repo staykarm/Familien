@@ -12,7 +12,7 @@ export const PUSH_TYPES = [
   { key: "outlook", label: "Nytt fra Outlook", hint: "Når en aktivitet kommer inn eller endres i Outlook." },
   { key: "reminder", label: "Påminnelse før aktiviteter", hint: "Litt før aktiviteter med klokkeslett starter." },
   { key: "morning", label: "Morgenoversikt", hint: "Hva som skjer i dag, og oppgaver med frist." },
-  { key: "care", label: "Levering og henting", hint: "Påminnelse til den som skal levere eller hente." },
+  { key: "care", label: "Levering og henting", hint: "Påminnelse til den som skal levere eller hente, og når noen blir satt opp til det." },
   { key: "tasks", label: "Oppgaver", hint: "Når noen gir en oppgave." },
   { key: "shopping", label: "Handlelisten", hint: "Når noen legger til varer." },
   { key: "files", label: "Les inn fil", hint: "Når forslag fra en innlest fil er klare." },
@@ -29,7 +29,7 @@ export const pushPrefsSchema = z.object({
   types: z.record(z.enum(PUSH_TYPE_KEYS), z.boolean()),
   /** Minutter før aktiviteter. */
   reminderMinutes: z.number().int().min(5, "Minst 5 minutter").max(240, "Maks 4 timer"),
-  /** Minutter før levering/henting. */
+  /** Minutter før henting. */
   careMinutes: z.number().int().min(5, "Minst 5 minutter").max(120, "Maks 2 timer"),
   morningTime: hhmm,
   quiet: z.object({ enabled: z.boolean(), from: hhmm, to: hhmm }),

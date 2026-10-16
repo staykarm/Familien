@@ -174,6 +174,8 @@ export type Database = {
           drop_time: string | null;
           pick_by: string | null;
           pick_time: string | null;
+          drop_other: string | null;
+          pick_other: string | null;
           updated_at: string;
         };
         Insert: {
@@ -183,6 +185,8 @@ export type Database = {
           drop_time?: string | null;
           pick_by?: string | null;
           pick_time?: string | null;
+          drop_other?: string | null;
+          pick_other?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["care_entries"]["Insert"]>;
         Relationships: [];

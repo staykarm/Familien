@@ -1,40 +1,29 @@
 import { describe, expect, it } from "vitest";
 import { careChildId, careItems } from "./calendar";
-import { careFor, nextWeekdays, periodText, shortTime, type CareData } from "./plan";
+import { careFor, shortTime, upcomingWeekdays, usualTime, type CareData } from "./plan";
 
 const olav = "olav";
 const slot = (by: string | null, time: string | null) => ({ by, time });
 const care: CareData = {
-  plans: [
-    { memberId: olav, weekday: 1, drop: slot("marius", "08:00"), pick: slot("ingvild", "16:00") },
-    { memberId: olav, weekday: 2, drop: slot("marius", "08:00"), pick: slot("ingvild", "16:00") },
-    { memberId: olav, weekday: 3, drop: slot(null, null), pick: slot(null, null) },
-  ],
-  overrides: [
-    // Uke 43: Marius henter mandag–tirsdag, levering som vanlig.
-    { id: "a", memberId: olav, from: "2026-10-19", to: "2026-10-20", note: null, drop: null, pick: slot("marius", "15:30"), createdAt: "2026-10-01T10:00:00Z" },
-    // Tirsdag: ingen levering (lagret senere, gjelder bare levering).
-    { id: "b", memberId: olav, from: "2026-10-20", to: "2026-10-20", note: "Fri", drop: slot(null, null), pick: null, createdAt: "2026-10-02T10:00:00Z" },
+  entries: [
+    { memberId: olav, date: "2026-10-19", drop: slot("marius", "08:00"), pick: slot("ingvild", "16:00") },
+    { memberId: olav, date: "2026-10-20", drop: slot(null, null), pick: slot("marius", "15:30") },
+    { memberId: olav, date: "2026-10-21", drop: slot(null, null), pick: slot(null, null) },
   ],
 };
 
 describe("careFor", () => {
-  it("bruker ukeplanen", () => {
-    // 2026-10-12 er en mandag.
-    expect(careFor(care, olav, "2026-10-12")).toMatchObject({ drop: { by: "marius", time: "08:00", changed: false }, pick: { by: "ingvild", changed: false } });
-    expect(careFor(care, "edvard", "2026-10-12")).toBeNull();
-  });
-
-  it("unntak over flere dager, per del", () => {
-    expect(careFor(care, olav, "2026-10-19")).toMatchObject({ drop: { by: "marius", changed: false }, pick: { by: "marius", time: "15:30", changed: true } });
+  it("dagens registrering", () => {
+    expect(careFor(care, olav, "2026-10-19")).toMatchObject({ drop: { by: "marius", time: "08:00" }, pick: { by: "ingvild", time: "16:00" } });
     const tue = careFor(care, olav, "2026-10-20");
     expect(tue?.drop).toBeNull();
-    expect(tue?.pick).toMatchObject({ by: "marius", changed: true });
+    expect(tue?.pick).toMatchObject({ by: "marius" });
   });
 
-  it("bare hverdager med innhold", () => {
-    expect(careFor(care, olav, "2026-10-14")).toBeNull(); // onsdag, tom
-    expect(careFor(care, olav, "2026-10-17")).toBeNull(); // lørdag
+  it("ingenting når dagen er tom eller ikke registrert", () => {
+    expect(careFor(care, olav, "2026-10-21")).toBeNull();
+    expect(careFor(care, olav, "2026-10-22")).toBeNull();
+    expect(careFor(care, "edvard", "2026-10-19")).toBeNull();
   });
 });
 
@@ -44,19 +33,22 @@ describe("careItems", () => {
     const items = careItems(care, members, ["2026-10-19"]);
     expect(items.map((i) => [i.title, i.participantIds[0]])).toEqual([
       ["🚸 Levere Olav 08:00", "marius"],
-      ["🚸 Hente Olav 15:30", "marius"],
+      ["🚸 Hente Olav 16:00", "ingvild"],
     ]);
     expect(careChildId(items[0].id)).toBe(olav);
   });
 });
 
 describe("hjelpere", () => {
-  it("nextWeekdays hopper over helgen", () => {
-    expect(nextWeekdays("2026-10-16", 3)).toEqual(["2026-10-16", "2026-10-19", "2026-10-20"]);
+  it("usualTime foreslår sist brukte tid", () => {
+    expect(usualTime(care.entries, "pick")).toBe("15:30");
+    expect(usualTime(care.entries, "drop")).toBe("08:00");
+    expect(usualTime([], "drop")).toBeNull();
   });
-  it("periodText og shortTime", () => {
-    expect(periodText("2026-10-20", "2026-10-24")).toBe("20.–24. okt");
-    expect(periodText("2026-10-30", "2026-11-03")).toBe("30. okt–3. nov");
+  it("upcomingWeekdays hopper over helgen", () => {
+    expect(upcomingWeekdays("2026-10-16", 1)).toEqual(["2026-10-16", "2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22"]);
+  });
+  it("shortTime", () => {
     expect(shortTime("08:15:00")).toBe("08:15");
   });
 });

@@ -62,7 +62,7 @@ export function TodayView({
   tasks: initialTasks,
   shopping,
   weather,
-  care = { plans: [], overrides: [] },
+  care = { entries: [] },
 }: Props) {
   const [tasks, setTasks] = useState(initialTasks);
   const [toast, setToast] = useState<string | null>(null);

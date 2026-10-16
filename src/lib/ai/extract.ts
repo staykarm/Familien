@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { DateTime } from "luxon";
 import mammoth from "mammoth";
+import { SPOKEN_PREFIX } from "./types";
 import { learningPrompt } from "./learning";
 import { serverEnv } from "@/lib/env";
 import { TIME_ZONE } from "@/lib/time";
@@ -26,6 +27,19 @@ export interface FamilyContext {
   learning?: { habits: string[]; corrections: string[] };
   /** Valgt av brukeren: alt i filen gjelder disse. */
   appliesTo?: string[];
+}
+
+/** Siste beskjed til Claude. Tekst sagt inn med tale er en kort, muntlig beskjed – ikke et dokument. */
+export function instruction(filename: string): string {
+  if (filename.startsWith(SPOKEN_PREFIX)) {
+    return [
+      "Teksten over er sagt inn med tale (tale til tekst) av noen i familien, f.eks. «Olav har tannlege tirsdag klokka to, og vi må kjøpe melk».",
+      "Den kan mangle tegnsetting og ha feilhørte ord – tolk det som en muntlig beskjed og rett åpenbare feil.",
+      "«I morgen», «på tirsdag», «neste uke» osv. regnes fra dagens dato. «Klokka to» om ettermiddagen er 14:00.",
+      "Lag aktiviteter, oppgaver og handlevarer av det som blir sagt.",
+    ].join(" ");
+  }
+  return `Filnavn: ${filename}. Finn aktiviteter, oppgaver og handlevarer i dokumentet over.`;
 }
 
 function systemPrompt(ctx: FamilyContext, now: Date): string {
@@ -116,7 +130,7 @@ export async function extractSuggestions(
           role: "user",
           content: [
             ...(await fileContent(file.data, file.mime, file.filename)),
-            { type: "text", text: `Filnavn: ${file.filename}. Finn aktiviteter, oppgaver og handlevarer i dokumentet over.` },
+            { type: "text", text: instruction(file.filename) },
           ],
         },
       ],

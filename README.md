@@ -21,6 +21,7 @@ Familieapp for planlegging for Ingvild, Marius, Edvard og Olav (+ Felles): kalen
 | 10 | Handlemodus i butikken, butikkrekkefølge, og levering/henting i barnehagen | ✅ |
 | 11 | Pushvarsler, styrt fra Innstillinger | ✅ |
 | 12 | Levering og henting av Olav: fast ukeplan og unntak for perioder, vist i kalenderen | ✅ |
+| 13 | «Si det»: legg inn aktiviteter, oppgaver og handlevarer med tale | ✅ |
 
 ## Kom i gang lokalt
 

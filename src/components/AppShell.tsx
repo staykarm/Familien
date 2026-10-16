@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CalendarDays, FileUp, ListChecks, NotebookPen, Settings, ShoppingBasket, Sun, Users } from "lucide-react";
 import type { ReactNode } from "react";
+import { VoiceButton } from "@/components/voice/VoiceButton";
 
 const NAV = [
   { href: "/i-dag", label: "I dag", icon: Sun },
@@ -46,6 +47,9 @@ export function AppShell({ children, me }: { children: ReactNode; me: ReactNode 
           </span>
           {me}
         </div>
+        <div className="mb-2 w-full">
+          <VoiceButton variant="side" />
+        </div>
         {[...NAV, ...EXTRA].map(({ href, label, icon: Icon, ...rest }, i) => {
           const active = isActive(pathname, href);
           const full = "long" in rest ? (rest.long as string) : label;
@@ -67,7 +71,8 @@ export function AppShell({ children, me }: { children: ReactNode; me: ReactNode 
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex items-center justify-end bg-background/90 px-4 pb-1 pt-[max(0.25rem,env(safe-area-inset-top))] backdrop-blur md:hidden">
+        <header className="sticky top-0 z-20 flex items-center justify-between bg-background/90 px-4 pb-1 pt-[max(0.25rem,env(safe-area-inset-top))] backdrop-blur md:hidden">
+          <VoiceButton variant="top" />
           <span className="flex items-center gap-0.5">
             {EXTRA.map(({ href, label, icon: Icon }) => (
               <Link

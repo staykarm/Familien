@@ -33,6 +33,7 @@ Arkitektur og faser står i README. Marius godkjenner hver fase før den startes
 
 ## Les inn fil
 - Brukeren kan velge hvem alt i en fil gjelder (`uploads.member_ids`), før opplasting eller etterpå. Valget sendes til Claude og legges på alle ventende forslag med `applyPeople` (`lib/ai/map.ts`).
+- «Si det» (mikrofonknappen i toppen / sidemenyen, `components/voice/`): tale til tekst i nettleseren (Web Speech API, `nb-NO`). Uten støtte dikterer man med tastaturet. Teksten lastes opp som en tekstfil med navn som starter med `SPOKEN_PREFIX` («Sagt inn …»), og tolkes som en muntlig beskjed (`instruction` i `lib/ai/extract.ts`). Forslagene godkjennes i «Les inn fil» (`/filer?vis=<id>`). Opplasting og tolkning ligger i `components/files/upload.ts`.
 - Tolkningen lærer av familien: vaner fra kalenderen (hvem og kategori per tittel) og rettelser/avvisninger av tidligere forslag legges i prompten (`lib/ai/learning.ts`, hentes i `lib/ai/learningDb.ts`). Ingen egen tabell – det utledes av `events` og `suggestions`.
 
 ## Handleliste og levering

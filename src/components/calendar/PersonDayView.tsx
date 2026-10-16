@@ -6,8 +6,6 @@ import { tint } from "@/lib/calendar/colors";
 import { minutesIntoDay, utcToOsloParts } from "@/lib/calendar/dates";
 import { layoutLanes } from "@/lib/calendar/layout";
 import type { CalendarCategory, CalendarEvent, CalendarMember } from "@/lib/calendar/types";
-import { CareBadge } from "@/components/care/CareBadge";
-import { careFor, type CareData } from "@/lib/care/plan";
 import { HourWeather } from "@/components/weather/WeatherBadge";
 import type { HourlyWeather } from "@/lib/weather/yr";
 import { EventChipContent } from "./EventChip";
@@ -28,12 +26,10 @@ interface Props {
   onOpen: (id: string) => void;
   /** Været time for time denne dagen (vises ved timeaksen). */
   hourly?: Record<number, HourlyWeather>;
-  /** Levering og henting (hverdager), øverst i barnets kolonne. */
-  care?: CareData;
 }
 
 /** Én tidskolonne per familiemedlem (+ Felles) for én dag. */
-export function PersonDayView({ date, events, members, categories, onCreateAt, onOpen, hourly = {}, care }: Props) {
+export function PersonDayView({ date, events, members, categories, onCreateAt, onOpen, hourly = {} }: Props) {
   const timed = events.filter((e) => !e.allDay);
   const allDay = events.filter((e) => e.allDay);
 
@@ -60,7 +56,7 @@ export function PersonDayView({ date, events, members, categories, onCreateAt, o
       setHead((h) => (h.avatar === avatar && h.total === total ? h : { avatar, total }));
     });
     return () => cancelAnimationFrame(frame);
-  }, [fitHeight, allDay.length, members.length, date, care]);
+  }, [fitHeight, allDay.length, members.length, date]);
   const HOUR_PX = fitHeight !== null && head.total > 0 ? Math.max(28, Math.floor((fitHeight - head.total - 10) / FIT_HOURS)) : DEFAULT_HOUR_PX;
   const sticky = fitHeight !== null;
 
@@ -104,10 +100,6 @@ export function PersonDayView({ date, events, members, categories, onCreateAt, o
             className={`flex min-h-10 flex-col gap-1 border-b-2 border-l border-line bg-card p-1 ${sticky ? "sticky z-40" : ""}`}
             style={sticky ? { top: head.avatar } : undefined}
           >
-            {(() => {
-              const day = care && careFor(care, m.id, date);
-              return day && <CareBadge day={day} members={members} compact={sticky} />;
-            })()}
             {allDay
               .filter((e) => e.participantIds.includes(m.id))
               .map((e) => (

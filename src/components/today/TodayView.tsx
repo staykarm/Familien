@@ -5,7 +5,7 @@ import Link from "next/link";
 import { DateTime } from "luxon";
 import { Check, ChevronRight } from "lucide-react";
 import { setTaskStatus } from "@/actions/tasks";
-import { CareBadge } from "@/components/care/CareBadge";
+import { CareLine } from "@/components/care/CareLine";
 import { Avatar } from "@/components/ui/Avatar";
 import { card } from "@/components/ui/styles";
 import {
@@ -20,7 +20,7 @@ import type {
   CalendarEvent,
   CalendarMember,
 } from "@/lib/calendar/types";
-import { careFor, type CareData } from "@/lib/care/plan";
+import type { CareData } from "@/lib/care/plan";
 import type { Task } from "@/lib/tasks/types";
 import { TIME_ZONE } from "@/lib/time";
 import { symbolLabel } from "@/lib/weather/symbols";
@@ -290,9 +290,8 @@ function DaySection({
     .map((m) => ({
       m,
       list: onDay.filter((e) => e.participantIds.includes(m.id)),
-      plan: careFor(care, m.id, day),
     }))
-    .filter((p) => p.list.length || p.plan);
+    .filter((p) => p.list.length);
 
   return (
     <section className={`${card} flex flex-col gap-3`}>
@@ -307,11 +306,12 @@ function DaySection({
           Kalender <ChevronRight size={16} aria-hidden />
         </Link>
       </div>
+      <CareLine care={care} date={day} members={members} className="-mt-2" />
       {people.length === 0 ? (
         <p className="text-ink-light">Ingenting i kalenderen.</p>
       ) : (
         <ul className="flex flex-col gap-3">
-          {people.map(({ m, list, plan }) => (
+          {people.map(({ m, list }) => (
             <li key={m.id} className="flex gap-3">
               <Avatar
                 name={m.name}
@@ -324,11 +324,6 @@ function DaySection({
                 <p className="text-sm font-bold" style={{ color: m.color }}>
                   {m.name}
                 </p>
-                {plan && (
-                  <div className="my-0.5 w-fit max-w-full">
-                    <CareBadge day={plan} members={members} />
-                  </div>
-                )}
                 <ul className="flex flex-col gap-0.5">
                   {list.map((e) => {
                     const cat = categories.find((c) => c.id === e.categoryId);

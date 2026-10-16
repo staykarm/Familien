@@ -28,8 +28,7 @@ import {
   type CalendarViewKind,
 } from "@/lib/calendar/dates";
 import type { CalendarCategory, CalendarEvent, CalendarMember } from "@/lib/calendar/types";
-import { useRouter } from "next/navigation";
-import { careChildId, careItems, isCareItemId } from "@/lib/care/calendar";
+import { CareLine } from "@/components/care/CareLine";
 import type { CareData } from "@/lib/care/plan";
 import { isTaskItemId, TASK_PREFIX, taskToCalendarItem } from "@/lib/tasks/calendar";
 import type { Task } from "@/lib/tasks/types";
@@ -93,7 +92,6 @@ interface Props {
 }
 
 export function CalendarApp({ members, categories, taskCategories, activeMemberId, care = NO_CARE }: Props) {
-  const router = useRouter();
   const [view, setView] = useState<CalendarViewKind>("week");
   const [perPerson, setPerPerson] = useState(false);
   const [hidden, setHidden] = useState<string[]>([]);
@@ -176,10 +174,8 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
   const fellesId = members.find((m) => m.isShared)?.id ?? null;
   const visibleEvents = useMemo(() => {
     const taskItems = tasks.map((t) => taskToCalendarItem(t, fellesId)).filter((t): t is CalendarEvent => t !== null);
-    // Levering og henting vises som heldagselementer hos den som har ansvaret.
-    const careList = careItems(care, members, range.days);
-    return [...careList, ...events, ...taskItems].filter((e) => e.participantIds.some((id) => !hidden.includes(id)));
-  }, [events, tasks, hidden, fellesId, care, members, range.days]);
+    return [...events, ...taskItems].filter((e) => e.participantIds.some((id) => !hidden.includes(id)));
+  }, [events, tasks, hidden, fellesId]);
 
   // --- Åpne dialog -------------------------------------------------------------------
 
@@ -215,10 +211,6 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
   }
 
   function openExisting(id: string) {
-    if (isCareItemId(id)) {
-      router.push(`/profiler/${careChildId(id)}#levering`);
-      return;
-    }
     if (isTaskItemId(id)) {
       const task = tasks.find((t) => t.id === id.slice(TASK_PREFIX.length));
       if (task) setTaskDraft(draftFromTask(task));
@@ -358,6 +350,8 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
         })}
       </div>
 
+      {view === "day" && <CareLine care={care} date={date} members={members} className="-mt-1 px-1" />}
+
       {view === "day" && weatherByDate[date] && (
         <DayWeatherStrip day={weatherByDate[date]} onOpen={() => setWeatherDate(date)} />
       )}
@@ -370,7 +364,6 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
           categories={categories}
           onOpen={openExisting}
           hourly={hourlyToday}
-          care={care}
           onCreateAt={(memberId, hour, minute) =>
             setDraft(
               newDraft({
@@ -410,7 +403,8 @@ export function CalendarApp({ members, categories, taskCategories, activeMemberI
             weather={weatherByDate}
             onWeather={setWeatherDate}
             hourly={hourlyToday}
-          />
+            care={care}
+            />
         </div>
       )}
 

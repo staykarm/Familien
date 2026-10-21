@@ -106,20 +106,24 @@ async function rememberCategory(db: Db, name: string, categoryId: string) {
 }
 
 /**
- * Varer uten avdeling (og, med `includeOther`, varer i «Annet») sorteres: først med minnet og ordlisten,
- * så spør vi Claude om resten. Det Claude svarer, huskes, så samme vare ikke spørres om igjen.
+ * Varer uten avdeling sorteres: først med minnet og ordlisten, så spør vi Claude om resten.
+ * Varer i «Annet» som appen ikke har tatt stilling til før (ikke i minnet), får også en sjanse,
+ * slik at gamle feil ryddes opp av seg selv. Det Claude svarer, huskes, så samme vare ikke spørres om igjen.
  * Gir antall varer som fikk ny avdeling.
  */
-async function sortUncategorized(db: Db, includeOther = false): Promise<number> {
+async function sortUncategorized(db: Db): Promise<number> {
   const [{ data: cats }, { data: items }, { data: memory }] = await Promise.all([
     db.from("categories").select("id, name").eq("scope", "shopping"),
     db.from("shopping_items").select("id, name, category_id").eq("checked", false),
-    db.from("shopping_category_memory").select("name_key, category_id, source").eq("source", "user").order("updated_at", { ascending: false }).limit(60),
+    db.from("shopping_category_memory").select("name_key, category_id, source").order("updated_at", { ascending: false }),
   ]);
   if (!cats?.length || !items?.length) return 0;
   const otherId = cats.find((c) => c.name === "Annet")?.id ?? null;
   const known = new Set(cats.map((c) => c.id));
-  const todo = items.filter((i) => !i.category_id || !known.has(i.category_id) || (includeOther && i.category_id === otherId));
+  const decided = new Set((memory ?? []).map((m) => m.name_key));
+  const todo = items.filter(
+    (i) => !i.category_id || !known.has(i.category_id) || (i.category_id === otherId && !decided.has(itemKey(i.name))),
+  );
   if (!todo.length) return 0;
 
   const resolve = await categoryResolver(db);
@@ -133,7 +137,10 @@ async function sortUncategorized(db: Db, includeOther = false): Promise<number> 
 
   if (unknown.length) {
     const nameOf = new Map(cats.map((c) => [c.id, c.name]));
-    const examples = (memory ?? []).flatMap((m) => (nameOf.has(m.category_id) ? [{ name: m.name_key, category: nameOf.get(m.category_id)! }] : []));
+    const examples = (memory ?? [])
+      .filter((m) => m.source === "user" && nameOf.has(m.category_id))
+      .slice(0, 60)
+      .map((m) => ({ name: m.name_key, category: nameOf.get(m.category_id)! }));
     const names = [...new Set(unknown.map((i) => i.name))];
     const answer = await classifyShoppingItems(names, cats.map((c) => c.name), examples);
     const idOf = new Map(cats.map((c) => [c.name, c.id]));
@@ -165,15 +172,6 @@ function sortLater() {
       console.warn("Kunne ikke sortere handlelisten", err);
     }
   });
-}
-
-/** «Sorter på nytt»: varer uten avdeling eller i «Annet» får en ny sjanse (minnet, ordlisten og Claude). */
-export async function sortShoppingList(): Promise<ShoppingResult> {
-  await requireFamily();
-  const db = await getDb();
-  const count = await sortUncategorized(db, true);
-  if (count) await broadcastChange(SHOPPING_TOPIC);
-  return { ok: true, message: count ? `${count} ${count === 1 ? "vare" : "varer"} fikk riktig avdeling` : "Fant ingen bedre avdeling" };
 }
 
 function sameName(a: string, b: string) {

@@ -159,7 +159,7 @@ Oda har ikke noe hostet MCP-endepunkt, så appen har en egen Oda-klient på serv
   1. **Det familien har valgt før.** Flytter noen en vare til en annen avdeling (trykk på varen), huskes det i `shopping_category_memory`, og samme vare havner der neste gang.
   2. **Ordlisten** i `src/lib/shopping/categorize.ts` (vanlige varer og merkenavn).
   3. **Claude.** Ukjente varer sorteres i bakgrunnen et sekund etter at de er lagt til (`src/lib/ai/shoppingCategories.ts`, modell `ANTHROPIC_SHOPPING_MODEL`, standard `claude-haiku-5-5`). Familiens tidligere valg sendes med som eksempler, og svaret huskes, så hver vare bare spørres om én gang.
-- Knappen **Sorter** ved «Annet» kjører varene der gjennom alle tre på nytt.
+- Dette skjer automatisk hver gang noe legges inn. Varer som står i «Annet» fra før og ikke er vurdert, sorteres samtidig.
 
 ## Notater
 - Fungerer som iOS Notater. Første linje blir tittel, og notatet lagres automatisk mens man skriver. Det har sjekklister, punktlister, nummererte lister, overskrift, fet og kursiv tekst, og angre/gjør om.

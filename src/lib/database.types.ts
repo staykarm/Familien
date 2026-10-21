@@ -264,6 +264,12 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["weather_cache"]["Insert"]>;
         Relationships: [];
       };
+      shopping_category_memory: {
+        Row: { name_key: string; category_id: string; source: "user" | "ai"; updated_at: string };
+        Insert: { name_key: string; category_id: string; source?: "user" | "ai"; updated_at?: string };
+        Update: Partial<Database["public"]["Tables"]["shopping_category_memory"]["Insert"]>;
+        Relationships: [];
+      };
       shopping_items: {
         Row: {
           id: string;

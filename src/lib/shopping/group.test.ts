@@ -29,6 +29,13 @@ describe("groupOpenItems", () => {
     expect(groups.map((g) => g.category?.id ?? null)).toEqual(["frukt", "meieri", null]);
     expect(groups[1].items.map((i) => i.name)).toEqual(["Melk"]);
   });
+
+  it("ukjente varer havner i «Annet» sammen med varene der", () => {
+    const withOther = [...cats, { id: "annet", name: "Annet", icon: "📦", color: "#a39e93" }];
+    const groups = groupOpenItems([item({ name: "Lys" }), item({ name: "Gave", categoryId: "annet" })], withOther);
+    expect(groups.map((g) => g.category?.id)).toEqual(["annet"]);
+    expect(groups[0].items.map((i) => i.name)).toEqual(["Lys", "Gave"]);
+  });
 });
 
 describe("checkedItems", () => {

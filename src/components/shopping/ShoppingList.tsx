@@ -10,6 +10,7 @@ import {
   Pencil,
   Plus,
   ShoppingCart,
+  Sparkles,
 } from "lucide-react";
 import {
   addItem,
@@ -18,6 +19,7 @@ import {
   getShopping,
   reorderShoppingCategories,
   restoreItems,
+  sortShoppingList,
   toggleItem,
   type ShoppingData,
 } from "@/actions/shopping";
@@ -347,11 +349,30 @@ export function ShoppingList({
 
           {groups.map((g) => {
             const cat = g.category ?? OTHER;
+            const isOther = cat.name === OTHER.name;
             return (
               <section key={cat.id} className="flex flex-col gap-2">
-                <h2 className="flex items-center gap-2 font-display text-lg font-bold">
-                  <span aria-hidden>{cat.icon}</span> {cat.name}
-                </h2>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="flex items-center gap-2 font-display text-lg font-bold">
+                    <span aria-hidden>{cat.icon}</span> {cat.name}
+                  </h2>
+                  {isOther && (
+                    <button
+                      className={`${buttonGhost} min-h-10 text-sm`}
+                      disabled={pending}
+                      onClick={() =>
+                        start(async () => {
+                          setToast("Sorterer …");
+                          const res = await sortShoppingList();
+                          setToast(res.message ?? null);
+                          refetch();
+                        })
+                      }
+                    >
+                      <Sparkles size={16} aria-hidden /> Sorter
+                    </button>
+                  )}
+                </div>
                 <ul className="flex flex-col gap-2">
                   {g.items.map((item) => (
                     <ItemRow

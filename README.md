@@ -155,7 +155,11 @@ Oda har ikke noe hostet MCP-endepunkt, så appen har en egen Oda-klient på serv
 - Etter hver endring sender serveren et lite «endret»-signal på Supabase Realtime-kanalen `familien-handleliste` (broadcast via REST med service-nøkkelen). Åpne skjermer henter da listen på nytt via en server action. Selve listen går aldri over den åpne kanalen, så dette virker både med og uten innlogging.
 - Reserve: listen hentes også når appen kommer i forgrunnen og hvert 30. sekund.
 - Krever at **Realtime → Settings → «Allow public access»** er på i Supabase. Det er standard. Står det «Kobler til» i stedet for «Live» på handlelisten, er det den innstillingen du bør sjekke.
-- Varer får butikkavdeling automatisk ut fra navnet (`src/lib/shopping/categorize.ts`), og det kan endres per vare.
+- Varer får butikkavdeling automatisk, i denne rekkefølgen:
+  1. **Det familien har valgt før.** Flytter noen en vare til en annen avdeling (trykk på varen), huskes det i `shopping_category_memory`, og samme vare havner der neste gang.
+  2. **Ordlisten** i `src/lib/shopping/categorize.ts` (vanlige varer og merkenavn).
+  3. **Claude.** Ukjente varer sorteres i bakgrunnen et sekund etter at de er lagt til (`src/lib/ai/shoppingCategories.ts`, modell `ANTHROPIC_SHOPPING_MODEL`, standard `claude-haiku-5-5`). Familiens tidligere valg sendes med som eksempler, og svaret huskes, så hver vare bare spørres om én gang.
+- Knappen **Sorter** ved «Annet» kjører varene der gjennom alle tre på nytt.
 
 ## Notater
 - Fungerer som iOS Notater. Første linje blir tittel, og notatet lagres automatisk mens man skriver. Det har sjekklister, punktlister, nummererte lister, overskrift, fet og kursiv tekst, og angre/gjør om.

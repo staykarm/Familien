@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { guessCategoryName } from "./categorize";
+import { guessCategoryName, itemKey } from "./categorize";
 
 describe("guessCategoryName", () => {
   it.each([
@@ -28,5 +28,32 @@ describe("guessCategoryName", () => {
 
   it("ukjente varer gir null", () => {
     expect(guessCategoryName("Bursdagslys")).toBeNull();
+  });
+});
+
+describe("strengere treff", () => {
+  it.each([
+    ["Vannmelon", "Frukt og grønt"],
+    ["Bæreposer", "Hus og hygiene"],
+    ["Grandiosa", "Frys"],
+    ["Pepsi Max", "Snacks og drikke"],
+    ["Jarlsberg", "Meieri"],
+    ["Servietter", "Hus og hygiene"],
+    ["Avokadoer", "Frukt og grønt"],
+    ["Tomater", "Frukt og grønt"],
+    ["Epler", "Frukt og grønt"],
+    ["Seigmenn", "Snacks og drikke"],
+    ["Kvikk Lunsj", "Snacks og drikke"],
+  ])("%s → %s", (name, expected) => {
+    expect(guessCategoryName(name)).toBe(expected);
+  });
+
+  it("treffer ikke midt i ord", () => {
+    expect(guessCategoryName("Kosttilskudd")).toBeNull();
+    expect(guessCategoryName("Paris-kort")).toBeNull();
+  });
+
+  it("husker varer under en ryddet nøkkel", () => {
+    expect(itemKey("  Pepsi   MAX ")).toBe("pepsi max");
   });
 });

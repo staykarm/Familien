@@ -1,11 +1,13 @@
 "use server";
 
+import { after } from "next/server";
 import { z } from "zod";
+import { classifyShoppingItems } from "@/lib/ai/shoppingCategories";
 import { broadcastChange, SHOPPING_TOPIC } from "@/lib/realtime";
 import { notifyShopping } from "@/lib/push/notify";
 import { requireFamily } from "@/lib/session";
 import { getDb } from "@/lib/supabase/db";
-import { guessCategoryName } from "@/lib/shopping/categorize";
+import { guessCategoryName, itemKey } from "@/lib/shopping/categorize";
 import type { ShoppingItem, ShoppingTemplate } from "@/lib/shopping/types";
 import {
   itemInputSchema,
@@ -72,16 +74,104 @@ export async function getShopping(): Promise<ShoppingData> {
   };
 }
 
-/** Lager en funksjon som gir kategori-id ut fra varenavnet (når ingen er valgt). Henter kategoriene én gang. */
-async function categoryResolver(): Promise<(name: string, chosen: string | null) => string | null> {
-  const db = await getDb();
-  const { data } = await db.from("categories").select("id, name").eq("scope", "shopping");
-  const byName = new Map((data ?? []).map((c) => [c.name, c.id]));
+type Db = Awaited<ReturnType<typeof getDb>>;
+
+/**
+ * Lager en funksjon som gir kategori-id ut fra varenavnet når ingen er valgt:
+ * først det familien har valgt før (minnet), så ordlisten. Ukjente varer gir null og sorteres av Claude etterpå.
+ */
+async function categoryResolver(db?: Db): Promise<(name: string, chosen: string | null) => string | null> {
+  db ??= await getDb();
+  const [{ data: cats }, { data: memory }] = await Promise.all([
+    db.from("categories").select("id, name").eq("scope", "shopping"),
+    db.from("shopping_category_memory").select("name_key, category_id"),
+  ]);
+  const byName = new Map((cats ?? []).map((c) => [c.name, c.id]));
+  const remembered = new Map((memory ?? []).map((m) => [m.name_key, m.category_id]));
   return (name, chosen) => {
     if (chosen) return chosen;
+    const fromMemory = remembered.get(itemKey(name));
+    if (fromMemory) return fromMemory;
     const guess = guessCategoryName(name);
     return guess ? (byName.get(guess) ?? null) : null;
   };
+}
+
+/** Husker avdelingen familien har valgt for en vare. Valg fra familien går alltid foran Claude sitt. */
+async function rememberCategory(db: Db, name: string, categoryId: string) {
+  const { error } = await db
+    .from("shopping_category_memory")
+    .upsert({ name_key: itemKey(name), category_id: categoryId, source: "user", updated_at: new Date().toISOString() });
+  if (error) console.warn("Kunne ikke huske kategorien", error.message);
+}
+
+/**
+ * Varer uten avdeling sorteres: først med minnet og ordlisten, så spør vi Claude om resten.
+ * Varer i «Annet» som appen ikke har tatt stilling til før (ikke i minnet), får også en sjanse,
+ * slik at gamle feil ryddes opp av seg selv. Det Claude svarer, huskes, så samme vare ikke spørres om igjen.
+ * Gir antall varer som fikk ny avdeling.
+ */
+async function sortUncategorized(db: Db): Promise<number> {
+  const [{ data: cats }, { data: items }, { data: memory }] = await Promise.all([
+    db.from("categories").select("id, name").eq("scope", "shopping"),
+    db.from("shopping_items").select("id, name, category_id").eq("checked", false),
+    db.from("shopping_category_memory").select("name_key, category_id, source").order("updated_at", { ascending: false }),
+  ]);
+  if (!cats?.length || !items?.length) return 0;
+  const otherId = cats.find((c) => c.name === "Annet")?.id ?? null;
+  const known = new Set(cats.map((c) => c.id));
+  const decided = new Set((memory ?? []).map((m) => m.name_key));
+  const todo = items.filter(
+    (i) => !i.category_id || !known.has(i.category_id) || (i.category_id === otherId && !decided.has(itemKey(i.name))),
+  );
+  if (!todo.length) return 0;
+
+  const resolve = await categoryResolver(db);
+  const updates = new Map<string, string>();
+  const unknown: typeof todo = [];
+  for (const item of todo) {
+    const id = resolve(item.name, null);
+    if (id && id !== item.category_id && id !== otherId) updates.set(item.id, id);
+    else unknown.push(item);
+  }
+
+  if (unknown.length) {
+    const nameOf = new Map(cats.map((c) => [c.id, c.name]));
+    const examples = (memory ?? [])
+      .filter((m) => m.source === "user" && nameOf.has(m.category_id))
+      .slice(0, 60)
+      .map((m) => ({ name: m.name_key, category: nameOf.get(m.category_id)! }));
+    const names = [...new Set(unknown.map((i) => i.name))];
+    const answer = await classifyShoppingItems(names, cats.map((c) => c.name), examples);
+    const idOf = new Map(cats.map((c) => [c.name, c.id]));
+    const learned: { name_key: string; category_id: string; source: "ai" }[] = [];
+    for (const item of unknown) {
+      const category = answer.get(item.name);
+      const id = category ? idOf.get(category) : undefined;
+      if (!id) continue;
+      if (id !== item.category_id) updates.set(item.id, id);
+      learned.push({ name_key: itemKey(item.name), category_id: id, source: "ai" });
+    }
+    if (learned.length) {
+      // Aldri overskriv det familien har valgt selv.
+      await db.from("shopping_category_memory").upsert(learned, { onConflict: "name_key", ignoreDuplicates: true });
+    }
+  }
+
+  await Promise.all([...updates].map(([id, categoryId]) => db.from("shopping_items").update({ category_id: categoryId }).eq("id", id)));
+  return updates.size;
+}
+
+/** Etter at varer er lagt til: sorter de ukjente i bakgrunnen og si fra til åpne skjermer. */
+function sortLater() {
+  after(async () => {
+    try {
+      const db = await getDb();
+      if ((await sortUncategorized(db)) > 0) await broadcastChange(SHOPPING_TOPIC);
+    } catch (err) {
+      console.warn("Kunne ikke sortere handlelisten", err);
+    }
+  });
 }
 
 function sameName(a: string, b: string) {
@@ -106,6 +196,7 @@ export async function addItem(input: ItemInput): Promise<ShoppingResult> {
   });
   if (error) return { ok: false, message: "Kunne ikke legge til varen" };
   await broadcastChange(SHOPPING_TOPIC);
+  sortLater();
   notifyShopping([name], { actor: session.activeMember });
   return { ok: true };
 }
@@ -116,8 +207,12 @@ export async function updateItem(input: z.input<typeof itemUpdateSchema>): Promi
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
   const { id, name, quantity, categoryId } = parsed.data;
   const db = await getDb();
+  const { data: before } = await db.from("shopping_items").select("category_id").eq("id", id).maybeSingle();
   const { error } = await db.from("shopping_items").update({ name, quantity, category_id: categoryId }).eq("id", id);
   if (error) return { ok: false, message: "Kunne ikke lagre varen" };
+  // Flytter noen varen til en annen avdeling, huskes det til neste gang. (Bare når avdelingen endres,
+  // så halvskrevne navn under autolagring ikke blir husket.)
+  if (categoryId && before && before.category_id !== categoryId) await rememberCategory(db, name, categoryId);
   await broadcastChange(SHOPPING_TOPIC);
   return { ok: true, message: "Lagret" };
 }
@@ -215,6 +310,7 @@ export async function addTemplateToList(templateId: string): Promise<ShoppingRes
   );
   if (error) return { ok: false, message: "Kunne ikke legge til varene" };
   await broadcastChange(SHOPPING_TOPIC);
+  sortLater();
   notifyShopping(
     toAdd.map((i) => i.name),
     { actor: session.activeMember, template: template.name }

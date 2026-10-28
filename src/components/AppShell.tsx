@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Backpack, CalendarDays, FileUp, ListChecks, NotebookPen, Settings, ShoppingBasket, Sun, Users } from "lucide-react";
+import { Backpack, CalendarDays, FileUp, House, ListChecks, NotebookPen, Settings, ShoppingBasket, Sun, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { VoiceButton } from "@/components/voice/VoiceButton";
 
@@ -17,6 +17,7 @@ const NAV = [
 
 /** Sekundære sider: nederst i sidemenyen og som ikoner i toppen på telefon. */
 const EXTRA = [
+  { href: "/huset", label: "Huset", icon: House },
   { href: "/profiler", label: "Familien", icon: Users },
   { href: "/filer", label: "Les inn fil", icon: FileUp },
   { href: "/innstillinger", label: "Innstillinger", icon: Settings },

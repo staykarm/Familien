@@ -2,6 +2,7 @@
 // og hvordan de skal settes tilbake med «Angre». Rene funksjoner uten nettverk, slik at de kan testes.
 
 import type { Climate, Cover, HomeState, Light, Room } from "./home";
+import type { Robot } from "./robots";
 
 /** Hvor noe skal skje. Tomt mål betyr ingenting (ikke hele huset), så Claude må si `all: true`. */
 export interface Target {
@@ -84,7 +85,8 @@ const pct = (n: number | null) => (n === null ? "" : ` ${n}%`);
 export function describeHome(
   home: HomeState,
   speakers: { id: string; name: string; status: string; volume: number | null; title: string | null; artist: string | null; sources: string[]; groupMembers: string[] }[],
-  presets: { id: string; name: string; speakerIds: string[] }[]
+  presets: { id: string; name: string; speakerIds: string[] }[],
+  robots: Robot[] = []
 ): string {
   const lines: string[] = [];
   if (home.outdoorTemp !== null) lines.push(`Ute: ${home.outdoorTemp.toFixed(1)} °C`);
@@ -112,5 +114,13 @@ export function describeHome(
   const favorites = [...new Set(speakers.flatMap((s) => s.sources))];
   if (favorites.length) lines.push(`Sonos-favoritter: ${favorites.join("; ")}`);
   if (presets.length) lines.push("", `FASTE GRUPPER: ${presets.map((p) => `${p.name} [${p.id}]`).join("; ")}`);
+  if (robots.length) {
+    lines.push("", "ROBOTER:");
+    for (const r of robots) {
+      const kind = r.kind === "vacuum" ? "støvsuger" : "gressklipper";
+      const extra = [r.battery !== null ? `batteri ${r.battery}%` : "", r.room ? `i ${r.room}` : "", ...r.problems].filter(Boolean).join(", ");
+      lines.push(`- ${r.name} [${r.id}] ${kind}: ${r.status}${extra ? ` (${extra})` : ""}`);
+    }
+  }
   return lines.join("\n");
 }

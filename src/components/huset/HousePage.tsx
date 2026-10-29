@@ -23,6 +23,7 @@ import { CoversTab } from "./CoversTab";
 import { HeatTab } from "./HeatTab";
 import { HouseAgent } from "./HouseAgent";
 import { LightsTab } from "./LightsTab";
+import { RobotsTab } from "./RobotsTab";
 import { MusicSheet } from "./MusicSheet";
 import { PresetSheet, type PresetDraft } from "./PresetSheet";
 import { RoomList } from "./RoomList";
@@ -59,12 +60,13 @@ function applyOverrides(groups: SpeakerGroup[], overrides: Overrides): SpeakerGr
   return groups.map((g) => ({ leader: fix(g.leader), speakers: g.speakers.map(fix) }));
 }
 
-type Tab = "musikk" | "lys" | "varme" | "persienner";
+type Tab = "musikk" | "lys" | "varme" | "persienner" | "roboter";
 const TABS: { id: Tab; label: string }[] = [
   { id: "musikk", label: "🎵 Musikk" },
   { id: "lys", label: "💡 Lys" },
   { id: "varme", label: "🌡️ Varme" },
   { id: "persienner", label: "🪟 Persienner" },
+  { id: "roboter", label: "🤖 Roboter" },
 ];
 const TAB_KEY = "familien.huset.fane";
 
@@ -303,6 +305,7 @@ export function HousePage({ initial, setup: initialSetup, notice }: { initial: H
       {data.ok && tab === "lys" && <LightsTab home={data.home} run={runHome} />}
       {data.ok && tab === "varme" && <HeatTab home={data.home} run={runHome} />}
       {data.ok && tab === "persienner" && <CoversTab home={data.home} run={runHome} />}
+      {data.ok && tab === "roboter" && <RobotsTab robots={data.robots} run={runHome} />}
 
       {data.ok && tab === "musikk" && (
         <>

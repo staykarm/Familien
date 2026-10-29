@@ -18,6 +18,8 @@ const states = [
   { entity_id: "light.lekerom_ut", state: "off", attributes: { supported_color_modes: ["brightness"] } },
   { entity_id: "climate.varme_stue", state: "heat", attributes: { current_temperature: 22, temperature: 22.5, min_temp: 5, max_temp: 30 } },
   { entity_id: "switch.dorapner_1", state: "off", attributes: {} },
+  { entity_id: "vacuum.stove_2", state: "docked", attributes: { friendly_name: "Støve 2" } },
+  { entity_id: "lawn_mower.klippe_ost", state: "docked", attributes: { friendly_name: "Klippe Øst", battery: 100 } },
   ...["hovedbad", "kjokken", "kontor_2etg"].map((id) => ({
     entity_id: `media_player.${id}`,
     state: "playing",
@@ -139,5 +141,21 @@ describe("musikk i ett rom som er med i en gruppe", () => {
       'unjoin ["media_player.kontor_2etg"]',
       'select_source "media_player.kontor_2etg"',
     ]);
+  });
+});
+
+describe("roboter", () => {
+  it("starter støvsugeren og sender gressklipperen hjem, og ser robotene i oversikten", async () => {
+    script = [
+      { content: [toolUse("control_robot", { robots: ["vacuum.stove_2"], command: "start" }).content[0], toolUse("control_robot", { robots: ["lawn_mower.klippe_ost"], command: "home" }, "t2").content[0]], stop_reason: "tool_use" },
+      done("Startet Støve 2 og sendte Klippe Øst hjem."),
+    ];
+    const res = await askHouse([], "start støvsugeren og send klipperen hjem", []);
+    expect(calls).toEqual([
+      { domain: "vacuum", service: "start", data: { entity_id: "vacuum.stove_2" } },
+      { domain: "lawn_mower", service: "dock", data: { entity_id: "lawn_mower.klippe_ost" } },
+    ]);
+    expect(res.actions).toEqual(["Startet: Støve 2", "Sendte hjem: Klippe Øst"]);
+    expect(JSON.stringify(requests[0].messages.at(-1))).toContain("Støve 2 [vacuum.stove_2] støvsuger");
   });
 });

@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Mic, MicOff, Sparkles } from "lucide-react";
 import { analyzeUpload, uploadForAnalysis } from "@/components/files/upload";
+import { HouseVoiceReply, routeVoiceText } from "@/components/huset/public";
 import { Sheet } from "@/components/ui/Sheet";
 import { buttonGhost, buttonPrimary, input } from "@/components/ui/styles";
 import { SPOKEN_PREFIX } from "@/lib/ai/types";
@@ -50,11 +51,14 @@ function spokenFilename(): string {
 /**
  * «Si det»: snakk (eller diktér med tastaturet), og Claude gjør det om til aktiviteter, oppgaver og handlevarer.
  * Forslagene havner i «Les inn fil» for godkjenning, som andre innleste filer.
+ * Husbeskjeder («skru av lyset i stua») går i stedet rett til Huset, og svaret vises i arket med «Angre».
  */
 function VoiceSheet({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const speech = useSpeech();
-  const [step, setStep] = useState<"idle" | "upload" | "analyze">("idle");
+  const [step, setStep] = useState<"idle" | "route" | "upload" | "analyze">("idle");
+  /** Beskjeden, når den gjaldt huset (da vises svaret fra Huset i stedet for opptaket). */
+  const [houseText, setHouseText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const busy = step !== "idle";
   const shown = `${speech.text}${speech.interim ? `${speech.text ? " " : ""}${speech.interim}` : ""}`;
@@ -64,6 +68,11 @@ function VoiceSheet({ onClose }: { onClose: () => void }) {
     const text = speech.text.trim() || speech.interim.trim();
     if (!text) return setError("Si eller skriv noe først.");
     setError(null);
+    setStep("route");
+    if ((await routeVoiceText(text)) === "house") {
+      setStep("idle");
+      return setHouseText(text);
+    }
     setStep("upload");
     const filename = spokenFilename();
     const uploaded = await uploadForAnalysis(new File([text], filename, { type: "text/plain" }), { filename });
@@ -83,63 +92,85 @@ function VoiceSheet({ onClose }: { onClose: () => void }) {
     <Sheet
       title="🎤 Si det"
       onClose={busy ? () => {} : onClose}
-      onSubmit={() => void interpret()}
+      onSubmit={() => (houseText ? onClose() : void interpret())}
       footer={
-        <>
-          <button type="button" className={buttonGhost} onClick={onClose} disabled={busy}>
-            Avbryt
-          </button>
-          <button type="submit" className={buttonPrimary} disabled={busy || !shown.trim()}>
-            <Sparkles size={20} aria-hidden />
-            {step === "upload" ? "Sender …" : step === "analyze" ? "Tolker …" : "Legg inn"}
-          </button>
-        </>
+        houseText ? (
+          <>
+            <button
+              type="button"
+              className={buttonGhost}
+              onClick={() => {
+                setHouseText(null);
+                speech.setText("");
+              }}
+            >
+              Si noe nytt
+            </button>
+            <button type="submit" className={buttonPrimary}>
+              Ferdig
+            </button>
+          </>
+        ) : (
+          <>
+            <button type="button" className={buttonGhost} onClick={onClose} disabled={busy}>
+              Avbryt
+            </button>
+            <button type="submit" className={buttonPrimary} disabled={busy || !shown.trim()}>
+              <Sparkles size={20} aria-hidden />
+              {step === "upload" ? "Sender …" : step === "analyze" || step === "route" ? "Tolker …" : "Legg inn"}
+            </button>
+          </>
+        )
       }
     >
-      <div className="flex flex-col items-center gap-4">
-        <p className="text-center text-ink-light">
-          Si hva som skal inn i kalenderen, på oppgavelisten eller handlelisten. For eksempel: «Olav har tannlege tirsdag klokka to, og vi må
-          kjøpe melk og brød».
-        </p>
-
-        {speech.supported && (
-          <button
-            type="button"
-            onClick={speech.listening ? speech.stop : speech.start}
-            disabled={busy}
-            aria-pressed={speech.listening}
-            className={`relative flex h-24 w-24 items-center justify-center rounded-full text-white shadow-lg transition active:scale-95 ${
-              speech.listening ? "bg-danger" : "bg-primary hover:bg-primary-dark"
-            }`}
-          >
-            {speech.listening && <span className="absolute inset-0 animate-ping rounded-full bg-danger/40" aria-hidden />}
-            {speech.listening ? <MicOff size={40} aria-hidden /> : <Mic size={40} aria-hidden />}
-            <span className="sr-only">{speech.listening ? "Stopp" : "Start opptak"}</span>
-          </button>
-        )}
-        {speech.supported && (
-          <p className="text-sm font-bold text-ink-light" aria-live="polite">
-            {speech.listening ? "Jeg hører … trykk igjen når du er ferdig" : "Trykk på mikrofonen og snakk"}
+      {houseText ? (
+        <HouseVoiceReply text={houseText} />
+      ) : (
+        <div className="flex flex-col items-center gap-4">
+          <p className="text-center text-ink-light">
+            Si hva som skal inn i kalenderen, på oppgavelisten eller handlelisten. For eksempel: «Olav har tannlege tirsdag klokka to, og vi må
+            kjøpe melk og brød». Du kan også styre huset: «skru av lyset i stua».
           </p>
-        )}
 
-        <label className="w-full">
-          <span className="sr-only">Det du har sagt</span>
-          <textarea
-            rows={5}
-            value={shown}
-            onChange={(e) => speech.setText(e.target.value)}
-            readOnly={speech.listening}
-            placeholder={speech.supported ? "Det du sier, kommer her. Du kan rette før du legger inn." : "Trykk på 🎤 på tastaturet og snakk, eller skriv."}
-            className={`${input} py-3`}
-          />
-        </label>
-        {!speech.supported && (
-          <p className="text-sm text-ink-light">Bruk mikrofonknappen på tastaturet for å diktere. På iPhone står den nederst til høyre.</p>
-        )}
-        {(error ?? speech.error) && <p className="text-center font-semibold text-danger">{error ?? speech.error}</p>}
-        {step === "analyze" && <p className="text-center font-semibold text-ink-light">Claude tolker det du sa …</p>}
-      </div>
+          {speech.supported && (
+            <button
+              type="button"
+              onClick={speech.listening ? speech.stop : speech.start}
+              disabled={busy}
+              aria-pressed={speech.listening}
+              className={`relative flex h-24 w-24 items-center justify-center rounded-full text-white shadow-lg transition active:scale-95 ${
+                speech.listening ? "bg-danger" : "bg-primary hover:bg-primary-dark"
+              }`}
+            >
+              {speech.listening && <span className="absolute inset-0 animate-ping rounded-full bg-danger/40" aria-hidden />}
+              {speech.listening ? <MicOff size={40} aria-hidden /> : <Mic size={40} aria-hidden />}
+              <span className="sr-only">{speech.listening ? "Stopp" : "Start opptak"}</span>
+            </button>
+          )}
+          {speech.supported && (
+            <p className="text-sm font-bold text-ink-light" aria-live="polite">
+              {speech.listening ? "Jeg hører … trykk igjen når du er ferdig" : "Trykk på mikrofonen og snakk"}
+            </p>
+          )}
+
+          <label className="w-full">
+            <span className="sr-only">Det du har sagt</span>
+            <textarea
+              rows={5}
+              value={shown}
+              onChange={(e) => speech.setText(e.target.value)}
+              readOnly={speech.listening}
+              placeholder={speech.supported ? "Det du sier, kommer her. Du kan rette før du legger inn." : "Trykk på 🎤 på tastaturet og snakk, eller skriv."}
+              className={`${input} py-3`}
+            />
+          </label>
+          {!speech.supported && (
+            <p className="text-sm text-ink-light">Bruk mikrofonknappen på tastaturet for å diktere. På iPhone står den nederst til høyre.</p>
+          )}
+          {(error ?? speech.error) && <p className="text-center font-semibold text-danger">{error ?? speech.error}</p>}
+          {step === "analyze" && <p className="text-center font-semibold text-ink-light">Claude tolker det du sa …</p>}
+        </div>
+      )}
     </Sheet>
   );
 }

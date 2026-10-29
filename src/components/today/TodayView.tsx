@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { DateTime } from "luxon";
 import { Check, ChevronRight } from "lucide-react";
@@ -37,6 +37,8 @@ interface Props {
   shopping: string[];
   weather: Forecast | null;
   care?: CareData;
+  /** Kortet «Huset nå» (fra Huset), eller ingenting. */
+  house?: ReactNode;
 }
 
 const hhmm = (iso: string) =>
@@ -63,6 +65,7 @@ export function TodayView({
   shopping,
   weather,
   care = { entries: [] },
+  house,
 }: Props) {
   const [tasks, setTasks] = useState(initialTasks);
   const [toast, setToast] = useState<string | null>(null);
@@ -248,6 +251,8 @@ export function TodayView({
             Til handlelisten <ChevronRight size={16} aria-hidden />
           </Link>
         </section>
+
+        {house}
       </div>
 
       {weather && <YrCredit />}

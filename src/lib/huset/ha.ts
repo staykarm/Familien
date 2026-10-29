@@ -36,13 +36,13 @@ function baseUrl(): string {
 }
 
 /** Kaller Home Assistant med tokenet. Kaster HaError med norsk melding hvis den ikke svarer. */
-export async function haFetch(path: string, init: RequestInit = {}): Promise<Response> {
+export async function haFetch(path: string, init: RequestInit = {}, timeoutMs = TIMEOUT_MS): Promise<Response> {
   let res: Response;
   try {
     res = await fetch(baseUrl() + path, {
       ...init,
       headers: { Authorization: `Bearer ${serverEnv("HA_TOKEN")}`, "Content-Type": "application/json", ...init.headers },
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
       cache: "no-store",
     });
   } catch {
@@ -53,8 +53,8 @@ export async function haFetch(path: string, init: RequestInit = {}): Promise<Res
   return res;
 }
 
-export async function getStates(): Promise<HaState[]> {
-  const res = await haFetch("/api/states");
+export async function getStates(timeoutMs?: number): Promise<HaState[]> {
+  const res = await haFetch("/api/states", {}, timeoutMs);
   const parsed = z.array(haStateSchema).safeParse(await res.json());
   if (!parsed.success) throw new HaError("Uventet svar fra Home Assistant");
   return parsed.data;

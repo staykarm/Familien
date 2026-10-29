@@ -16,6 +16,8 @@ import {
 } from "./agentTargets";
 import { callService, getStates, type HaState } from "./ha";
 import { stepTarget, toHome, type HomeState } from "./home";
+import { robotService } from "./robotControl";
+import { toRobots, type Robot } from "./robots";
 import { searchSpotify, spotifyConfigured } from "./spotify";
 import { membersToRemove, pickLeader, toGroups, toSpeakers, withJoined, withUnjoined, type Speaker } from "./sonos";
 
@@ -45,7 +47,7 @@ export interface PresetLite {
   speakerIds: string[];
 }
 
-const SYSTEM = `Du er «Huset», en hjelper som styrer huset til en norsk familie: lys, varme, persienner og musikk (Sonos).
+const SYSTEM = `Du er «Huset», en hjelper som styrer huset til en norsk familie: lys, varme, persienner, musikk (Sonos) og roboter (støvsugere og gressklippere).
 Du får en oversikt over huset akkurat nå, og en beskjed fra noen i familien (skrevet eller sagt). Bruk verktøyene for å gjøre det de ber om.
 
 Slik tolker du beskjeder:
@@ -161,6 +163,19 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "control_robot",
+    description: "Støvsuger eller robotgressklipper: start, pause, send hjem til laderen, eller «finn meg» (støvsugeren piper).",
+    input_schema: {
+      type: "object",
+      properties: {
+        robots: { type: "array", items: { type: "string" }, description: "Robot-id-er (vacuum.* eller lawn_mower.*)" },
+        command: { enum: ["start", "pause", "home", "locate"] },
+      },
+      required: ["robots", "command"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "start_house_group",
     description: "Start en av de faste gruppene (kobler rommene og setter eventuelt musikk og volum).",
     input_schema: {
@@ -202,11 +217,13 @@ const inputs = {
   }),
   group_speakers: z.object({ speakers: z.array(z.string()).min(1).max(30), alone: z.boolean().optional() }),
   start_house_group: z.object({ id: z.string() }),
+  control_robot: z.object({ robots: z.array(z.string()).min(1).max(10), command: z.enum(["start", "pause", "home", "locate"]) }),
 };
 
 interface Context {
   home: HomeState;
   speakers: Speaker[];
+  robots: Robot[];
   presets: (PresetLite & { spotifyUrl: string | null; volume: number | null })[];
   actions: string[];
   undo: UndoItem[];
@@ -393,6 +410,22 @@ async function runTool(name: string, raw: unknown, ctx: Context): Promise<string
       ctx.actions.push(`Spiller sammen: ${names}`);
       return "Ferdig.";
     }
+    case "control_robot": {
+      const p = inputs.control_robot.parse(raw);
+      const chosen = ctx.robots.filter((r) => p.robots.includes(r.id) && r.available);
+      if (!chosen.length) return "Fant ingen roboter som svarer.";
+      const done: string[] = [];
+      for (const r of chosen) {
+        const service = robotService(r.id, p.command);
+        if (!service) continue;
+        await callService(service.domain, service.service, { entity_id: r.id });
+        done.push(r.name);
+      }
+      if (!done.length) return "Det kan ikke de robotene.";
+      const verb = { start: "Startet", pause: "Satte på pause", home: "Sendte hjem", locate: "Fikk til å pipe" }[p.command];
+      ctx.actions.push(`${verb}: ${done.join(", ")}`);
+      return `${verb} ${done.join(", ")}.`;
+    }
     case "start_house_group": {
       const p = inputs.start_house_group.parse(raw);
       const preset = ctx.presets.find((x) => x.id === p.id);
@@ -426,8 +459,8 @@ function speakerUndo(ctx: Context, id: string): UndoItem {
  */
 export async function askHouse(history: AgentTurn[], text: string, presets: Context["presets"]): Promise<AgentResult> {
   const states = await getStates();
-  const ctx: Context = { home: toHome(states), speakers: toSpeakers(states), presets, actions: [], undo: [] };
-  const overview = describeHome(ctx.home, ctx.speakers, presets);
+  const ctx: Context = { home: toHome(states), speakers: toSpeakers(states), robots: toRobots(states), presets, actions: [], undo: [] };
+  const overview = describeHome(ctx.home, ctx.speakers, presets, ctx.robots);
 
   const client = new Anthropic({ apiKey: serverEnv("ANTHROPIC_API_KEY") });
   const messages: Anthropic.MessageParam[] = [

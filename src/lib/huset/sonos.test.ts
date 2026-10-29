@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupName, isMoved, membersToRemove, moveSpeaker, pickLeader, toGroups, toSpeakers } from "./sonos";
+import { groupName, isMoved, membersToRemove, moveSpeaker, pickLeader, toGroups, toSpeakers, withJoined, withUnjoined } from "./sonos";
 
 function player(id: string, state: string, attributes: Record<string, unknown> = {}) {
   return { entity_id: `media_player.${id}`, state, attributes: { device_class: "speaker", ...attributes } };
@@ -151,5 +151,28 @@ describe("isMoved", () => {
     expect(isMoved(groups, "media_player.bad", "media_player.stue")).toBe(false);
     expect(isMoved(groups, "media_player.bad", null)).toBe(true);
     expect(isMoved(groups, "media_player.kjokken", null)).toBe(false);
+  });
+});
+
+describe("withUnjoined / withJoined", () => {
+  const speakers = toSpeakers([
+    player("hovedbad", "playing", { friendly_name: "Hovedbad", group_members: ["media_player.hovedbad", "media_player.kjokken", "media_player.kontor"] }),
+    player("kjokken", "playing", { friendly_name: "Kjøkken", group_members: ["media_player.hovedbad", "media_player.kjokken", "media_player.kontor"] }),
+    player("kontor", "playing", { friendly_name: "Kontor", group_members: ["media_player.hovedbad", "media_player.kjokken", "media_player.kontor"] }),
+    player("wc", "idle", { friendly_name: "WC" }),
+  ]);
+  const leaderOf = (all: ReturnType<typeof toSpeakers>, id: string) => toGroups(all).find((g) => g.speakers.some((s) => s.id === id))?.leader.id;
+
+  it("tar et rom ut, så det leder seg selv og de andre fortsetter sammen", () => {
+    const after = withUnjoined(speakers, ["media_player.kontor"]);
+    expect(leaderOf(after, "media_player.kontor")).toBe("media_player.kontor");
+    expect(leaderOf(after, "media_player.kjokken")).toBe("media_player.hovedbad");
+    expect(toGroups(after).map(groupName)).toEqual(["Hovedbad + Kjøkken", "Kontor", "WC"]);
+  });
+
+  it("kobler et rom til en ny leder, også fra en annen gruppe", () => {
+    const after = withJoined(speakers, "media_player.wc", ["media_player.kontor"]);
+    expect(leaderOf(after, "media_player.kontor")).toBe("media_player.wc");
+    expect(toGroups(after).map(groupName)).toEqual(["Hovedbad + Kjøkken", "WC + Kontor"]);
   });
 });

@@ -84,7 +84,7 @@ export function VolumeSlider({
         disabled={speaker.volume === null}
         onPointerDown={() => (lastSent.current = { at: 0, value: NaN })}
         onKeyDown={() => (lastSent.current = { at: 0, value: NaN })}
-      onChange={(e) => slide(Number(e.target.value), e.timeStamp, false)}
+        onChange={(e) => slide(Number(e.target.value), e.timeStamp, false)}
         onPointerUp={(e) => slide(Number(e.currentTarget.value), e.timeStamp, true)}
         onKeyUp={(e) => slide(Number(e.currentTarget.value), e.timeStamp, true)}
         className="h-9 min-w-0 flex-1 accent-primary"

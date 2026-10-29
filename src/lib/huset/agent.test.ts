@@ -7,7 +7,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/env", () => ({ serverEnv: () => "nokkel" }));
-vi.mock("./spotify", () => ({ spotifyConfigured: () => false, searchSpotify: vi.fn() }));
+const REM = { kind: "track", id: "31AOj9sFz2gM0O3hMARRBx", url: "https://open.spotify.com/track/31AOj9sFz2gM0O3hMARRBx", name: "Losing My Religion", subtitle: "R.E.M.", image: null };
+vi.mock("./spotify", () => ({ spotifyConfigured: () => true, searchSpotify: async () => ({ tracks: [REM], playlists: [], albums: [] }) }));
 
 const calls: { domain: string; service: string; data: Record<string, unknown> }[] = [];
 const states = [
@@ -17,6 +18,18 @@ const states = [
   { entity_id: "light.lekerom_ut", state: "off", attributes: { supported_color_modes: ["brightness"] } },
   { entity_id: "climate.varme_stue", state: "heat", attributes: { current_temperature: 22, temperature: 22.5, min_temp: 5, max_temp: 30 } },
   { entity_id: "switch.dorapner_1", state: "off", attributes: {} },
+  ...["hovedbad", "kjokken", "kontor_2etg"].map((id) => ({
+    entity_id: `media_player.${id}`,
+    state: "playing",
+    attributes: {
+      device_class: "speaker",
+      friendly_name: id,
+      volume_level: 0.33,
+      // Hovedbad leder en gruppe med kjøkkenet og kontoret.
+      group_members: ["media_player.hovedbad", "media_player.kjokken", "media_player.kontor_2etg"],
+      source_list: ["NRK P3"],
+    },
+  })),
 ];
 vi.mock("./ha", () => ({
   getStates: async () => states,
@@ -100,6 +113,31 @@ describe("undoHouse", () => {
       { domain: "light", service: "turn_on", data: { entity_id: "light.stue_ut", brightness_pct: 40 } },
       { domain: "light", service: "turn_off", data: { entity_id: "light.lekerom_ut" } },
       { domain: "climate", service: "set_temperature", data: { entity_id: "climate.varme_stue", temperature: 22.5 } },
+    ]);
+  });
+});
+
+describe("musikk i ett rom som er med i en gruppe", () => {
+  it("tar rommet ut, setter volumet først og spiller bare der (ikke i resten av gruppen)", async () => {
+    script = [
+      toolUse("group_speakers", { speakers: ["media_player.kontor_2etg"], alone: true }),
+      toolUse("control_music", { speakers: ["media_player.kontor_2etg"], action: "spotify", query: "Losing My Religion", volume: 10 }, "t2"),
+      done("Spiller R.E.M. på kontoret."),
+    ];
+    await askHouse([], "spill losing my religion på kontoret på volum 10", []);
+    expect(calls).toEqual([
+      { domain: "media_player", service: "unjoin", data: { entity_id: ["media_player.kontor_2etg"] } },
+      { domain: "media_player", service: "volume_set", data: { entity_id: ["media_player.kontor_2etg"], volume_level: 0.1 } },
+      { domain: "media_player", service: "play_media", data: { entity_id: "media_player.kontor_2etg", media_content_id: REM.url, media_content_type: "music" } },
+    ]);
+  });
+
+  it("tar rommet ut av gruppen av seg selv når Claude går rett på musikken", async () => {
+    script = [toolUse("control_music", { speakers: ["media_player.kontor_2etg"], action: "favorite", favorite: "NRK P3" }), done("Spiller NRK P3 på kontoret.")];
+    await askHouse([], "spill nrk p3 på kontoret", []);
+    expect(calls.map((c) => `${c.service} ${JSON.stringify(c.data.entity_id)}`)).toEqual([
+      'unjoin ["media_player.kontor_2etg"]',
+      'select_source "media_player.kontor_2etg"',
     ]);
   });
 });

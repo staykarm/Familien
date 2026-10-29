@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupName, membersToRemove, toGroups, toSpeakers } from "./sonos";
+import { groupName, membersToRemove, pickLeader, toGroups, toSpeakers } from "./sonos";
 
 function player(id: string, state: string, attributes: Record<string, unknown> = {}) {
   return { entity_id: `media_player.${id}`, state, attributes: { device_class: "speaker", ...attributes } };
@@ -85,5 +85,21 @@ describe("toGroups", () => {
     const [group] = toGroups(toSpeakers(states));
     expect(membersToRemove(group, ["media_player.stue"])).toEqual(["media_player.kjokken"]);
     expect(membersToRemove(group, ["media_player.stue", "media_player.kjokken"])).toEqual([]);
+  });
+});
+
+describe("pickLeader", () => {
+  const speakers = toSpeakers([
+    player("bad", "idle", { friendly_name: "Bad" }),
+    player("stue", "paused", { friendly_name: "Stue", media_title: "Airportman" }),
+    player("kjokken", "playing", { friendly_name: "Kjøkken" }),
+    player("terrassen", "unavailable", { friendly_name: "Terrassen" }),
+  ]);
+
+  it("velger rommet som spiller, så det som står på pause, så det første", () => {
+    expect(pickLeader(speakers, ["media_player.bad", "media_player.stue", "media_player.kjokken"])).toBe("media_player.kjokken");
+    expect(pickLeader(speakers, ["media_player.bad", "media_player.stue"])).toBe("media_player.stue");
+    expect(pickLeader(speakers, ["media_player.terrassen", "media_player.bad"])).toBe("media_player.bad");
+    expect(pickLeader(speakers, ["media_player.terrassen"])).toBeNull();
   });
 });

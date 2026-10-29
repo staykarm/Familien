@@ -50,12 +50,15 @@ Arkitektur og faser står i README. Marius godkjenner hver fase før den startes
 - Varsler på tid (påminnelser, levering/henting, morgen) ligger i `lib/push/jobs.ts` og regnes ut per enhet. De kalles fra `/api/cron/push` hvert 5. minutt (Supabase `pg_cron`). `push_log` sørger for at hvert varsel bare sendes én gang per enhet.
 
 ## Huset (Home Assistant)
-- «Huset» (`/huset`, i menyen ved Innstillinger) styrer musikk (Sonos) via Home Assistant. Lys, varme og persienner kommer i senere faser.
-- Huset er bygd for å kunne flyttes til en egen app senere. Koden ligger samlet i `app/(app)/huset/`, `components/huset/`, `lib/huset/`, `actions/huset.ts` og `app/api/huset/`, og bruker bare `requireFamily`, `lib/env` og UI-stilene fra resten av Familien. Resten av Familien skal ikke importere fra Huset, bortsett fra en eventuell `lib/huset/public.ts`.
+- «Huset» (`/huset`, i menyen ved Innstillinger) styrer musikk (Sonos) via Home Assistant, med musikk fra Spotify. Lys, varme og persienner kommer i senere faser.
+- Huset er bygd for å kunne flyttes til en egen app senere. Koden ligger samlet i `app/(app)/huset/`, `components/huset/`, `lib/huset/`, `actions/huset.ts` og `app/api/huset/`. Fra resten av Familien bruker den bare `requireFamily`, `getDb`/`createAdminClient`, `lib/env`, `lib/crypto` og UI-komponentene. Resten av Familien skal ikke importere fra Huset, bortsett fra en eventuell `lib/huset/public.ts`.
 - Bare serveren snakker med Home Assistant (`lib/huset/ha.ts`, `HA_URL` + `HA_TOKEN`). Tokenet tilhører HA-brukeren «Familien-appen», som ikke er administrator. Cover-bilder går via `/api/huset/cover/[id]`.
 - Styring er lov overalt, så lenge appen er låst opp. Server actions sjekker at høyttaleren finnes i Home Assistant før de kaller en tjeneste.
-- Siden henter tilstanden hvert 4. sekund mens den er synlig. Egne endringer (volum, spill/pause) vinner i 3 sekunder, så glidebryteren ikke hopper.
-- Sonos-favoritter er kildene (`source_list`) på høyttaleren og spilles med `select_source`.
+- Rommene vises som en liste (`RoomList`). Rom som spiller sammen, står samlet med farget strek og «Løs opp». Trykk på et rom gir forrige/neste, favoritter og «Velg musikk». «Grupper rom» gir avkrysning og «Spill sammen» (`joinRooms`); rommet som spiller, leder (`pickLeader`).
+- Faste grupper (`house_groups`) ligger som knapper øverst. Et trykk kobler rommene og setter eventuelt volum og musikk (`startHouseGroup`).
+- Siden henter tilstanden hvert 4. sekund mens den er synlig. Egne endringer (volum, spill/pause) vises med en gang og holdes til Home Assistant har svart.
+- Sonos-favoritter er kildene (`source_list`) og spilles med `select_source`.
+- Spotify: Sonos spiller en `open.spotify.com`-lenke (spor, album, spilleliste) med `media_player.play_media`, via Spotify-kontoen som er koblet til Sonos. Familien søker med appens nøkkel (`SPOTIFY_CLIENT_ID`/`SECRET`, Client Credentials) og henter spillelister og likte sanger med hver persons innlogging (`spotify_accounts`, kryptert, ingen policyer). Innloggingen bruker signert state (`lib/huset/oauthState.ts`) og hovedadressen (`NEXT_PUBLIC_SITE_URL`) som tilbakeadresse, så den virker også fra en testversjon.
 - Huset har eget manifest (`/api/huset/manifest`), så det kan legges på hjemskjermen som en egen app.
 
 ## Lagring

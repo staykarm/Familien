@@ -52,6 +52,7 @@ export interface Room {
   id: string;
   name: string;
   outdoor: boolean;
+  floor: 1 | 2 | null;
   lights: Light[];
   scenes: Scene[];
   climate: Climate | null;
@@ -143,6 +144,7 @@ export function toHome(states: StateLike[], rooms: RoomConfig[] = ROOMS): HomeSt
       id: r.id,
       name: r.name,
       outdoor: !!r.outdoor,
+      floor: r.floor ?? null,
       lights: (r.lights ?? []).flatMap((x) => {
         const s = byId.get(x.id);
         return s ? [toLight(s, x.name)] : [];
@@ -177,7 +179,7 @@ export function toHome(states: StateLike[], rooms: RoomConfig[] = ROOMS): HomeSt
     })
     .map((s) => toLight(s, String(s.attributes.friendly_name ?? s.entity_id).trim()))
     .sort((a, b) => a.name.localeCompare(b.name, "nb"));
-  if (others.length) result.push({ id: "andre", name: "Andre lys", outdoor: false, lights: others, scenes: [], climate: null, covers: [] });
+  if (others.length) result.push({ id: "andre", name: "Andre lys", outdoor: false, floor: null, lights: others, scenes: [], climate: null, covers: [] });
 
   return {
     rooms: result,

@@ -21,6 +21,7 @@ import { groupName, isMoved, moveSpeaker, type Speaker, type SpeakerGroup } from
 import type { HomeCommand, SpeakerCommand } from "@/lib/validation/huset";
 import { CoversTab } from "./CoversTab";
 import { HeatTab } from "./HeatTab";
+import { HouseAgent } from "./HouseAgent";
 import { LightsTab } from "./LightsTab";
 import { MusicSheet } from "./MusicSheet";
 import { PresetSheet, type PresetDraft } from "./PresetSheet";
@@ -265,6 +266,8 @@ export function HousePage({ initial, setup: initialSetup, notice }: { initial: H
           </span>
         )}
       </div>
+
+      {data.ok && <HouseAgent onChanged={() => setTimeout(refresh, SETTLE_MS)} />}
 
       <div className="-mx-3 overflow-x-clip px-3 md:mx-0 md:px-0">
         <div className="chip-row" role="tablist" aria-label="Velg hva du vil styre">

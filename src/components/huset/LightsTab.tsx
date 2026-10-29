@@ -187,8 +187,12 @@ export function LightsTab({ home, run }: Props) {
       else next.add(id);
       return next;
     });
-  const inside = rooms.filter((r) => !r.outdoor);
-  const outside = rooms.filter((r) => r.outdoor);
+  // Etter etasje, så rommene i alfabetisk rekkefølge. Lys uten rom («Andre lys») står for seg selv nederst.
+  const byName = (a: Room, b: Room) => a.name.localeCompare(b.name, "nb");
+  const floor1 = rooms.filter((r) => !r.outdoor && r.floor === 1).sort(byName);
+  const floor2 = rooms.filter((r) => !r.outdoor && r.floor === 2).sort(byName);
+  const outside = rooms.filter((r) => r.outdoor).sort(byName);
+  const others = rooms.filter((r) => !r.outdoor && r.floor === null);
   const list = (items: Room[], title: string) => (
     <section aria-label={title} className="rounded-2xl bg-card px-3 py-1 shadow-[0_2px_12px_rgba(120,90,60,0.08)]">
       <h3 className="pt-1 text-xs font-bold uppercase tracking-wide text-ink-light">{title}</h3>
@@ -216,8 +220,10 @@ export function LightsTab({ home, run }: Props) {
         </span>
       </div>
       <div className="grid items-start gap-2 lg:grid-cols-2">
-        {list(inside, "Inne")}
+        {floor1.length > 0 && list(floor1, "1. etasje")}
+        {floor2.length > 0 && list(floor2, "2. etasje")}
         {outside.length > 0 && list(outside, "Ute")}
+        {others.length > 0 && list(others, "Andre")}
       </div>
     </div>
   );

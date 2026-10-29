@@ -13,7 +13,7 @@ import { loadFamilyUi } from "@/lib/familyUi";
 import { loadHouse, loadHouseSetup } from "@/lib/huset/public";
 import { requireFamily } from "@/lib/session";
 
-const HOUSE_TABS: HouseTab[] = ["kart", "lys", "varme", "persienner", "roboter", "vanning", "musikk"];
+const HOUSE_TABS: HouseTab[] = ["kart", "lys", "varme", "persienner", "roboter", "vanning", "musikk", "strom", "sikkerhet"];
 
 const dayTitle = (date: string, today: string) => {
   const label = osloDate(date).setLocale("nb").toFormat("cccc d. LLLL");

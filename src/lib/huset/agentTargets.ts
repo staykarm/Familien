@@ -3,6 +3,8 @@
 
 import type { Climate, Cover, HomeState, Light, Room } from "./home";
 import type { Robot } from "./robots";
+import { cheapestWindow, kr, watt, windowLabel, type Energy, type PricePoint } from "./energy";
+import type { Safety } from "./safety";
 import type { Watering } from "./watering";
 
 /** Hvor noe skal skje. Tomt mål betyr ingenting (ikke hele huset), så Claude må si `all: true`. */
@@ -88,7 +90,8 @@ export function describeHome(
   speakers: { id: string; name: string; status: string; volume: number | null; title: string | null; artist: string | null; sources: string[]; groupMembers: string[] }[],
   presets: { id: string; name: string; speakerIds: string[] }[],
   robots: Robot[] = [],
-  watering: Watering = { valves: [], sensors: [] }
+  watering: Watering = { valves: [], sensors: [] },
+  more: { energy?: Energy; safety?: Safety; prices?: PricePoint[]; now?: Date } = {}
 ): string {
   const lines: string[] = [];
   if (home.outdoorTemp !== null) lines.push(`Ute: ${home.outdoorTemp.toFixed(1)} °C`);
@@ -132,6 +135,28 @@ export function describeHome(
       lines.push(`- ${v.name} [${v.id}] ${v.kind}: ${state}${v.minutes ? `, vanningstid ${v.minutes} min` : ""}${v.problem ? `, ${v.problem}` : ""}`);
     }
     for (const s of watering.sensors) lines.push(`  jord ${s.name}: fukt ${s.humidity ?? "?"} %, ${s.temperature ?? "?"} °C`);
+  }
+  const { energy, safety, prices = [], now = new Date() } = more;
+  if (energy && energy.price !== null) {
+    lines.push("", "STRØM (Tibber, bare til info):");
+    lines.push(`- pris nå ${kr(energy.price)}/kWh (${energy.level ?? "?"}); i dag laveste ${kr(energy.min)}, snitt ${kr(energy.avg)}, høyeste ${kr(energy.max)}`);
+    lines.push(`- effekt nå ${watt(energy.powerW)}; brukt i dag ${energy.todayKwh?.toFixed(1) ?? "?"} kWh (${kr(energy.todayCost)}); denne måneden ${energy.monthKwh?.toFixed(0) ?? "?"} kWh (${kr(energy.monthCost, 0)})`);
+    const best = cheapestWindow(prices, now, 3);
+    if (best) lines.push(`- billigste tre timer fram i tid: kl. ${windowLabel(best)} (snitt ${kr(best.avg)})`);
+    const ahead = prices.filter((h) => Date.parse(h.start) > now.getTime() - 60 * 60_000).slice(0, 36);
+    if (ahead.length) lines.push(`- timepriser: ${ahead.map((h) => `${h.start.slice(11, 13)}: ${h.price.toFixed(2)}`).join(", ")}`);
+  }
+  if (energy?.cars.length) {
+    lines.push("", "ELBILER (bare til info):");
+    for (const c of energy.cars) {
+      lines.push(`- ${c.name}: ${c.online ? `batteri ${c.battery ?? "?"} % (mål ${c.target ?? "?"} %), rekkevidde ${c.rangeKm ?? "?"} km${c.charging ? ", lader" : c.plugged ? ", plugget inn" : ""}` : "ikke tilkoblet"}`);
+    }
+  }
+  if (safety && (safety.alarm || safety.smoke.length)) {
+    lines.push("", "SIKKERHET (Homely, bare til info – kan aldri styres herfra):");
+    if (safety.alarm) lines.push(`- alarm: ${safety.alarm.label}`);
+    if (safety.smoke.length) lines.push(`- røykvarslere: ${safety.smoke.map((x) => `${x.name} ${x.fire ? "BRANN" : !x.online ? "svarer ikke" : x.lowBattery ? "lavt batteri" : "ok"}`).join("; ")}`);
+    for (const p of safety.problems) lines.push(`- OBS: ${p}`);
   }
   return lines.join("\n");
 }

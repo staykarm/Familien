@@ -48,7 +48,7 @@ function RoomShape({ shape, room, label, selected, playing, onOpen }: {
     }
   };
   return (
-    <g role="button" tabIndex={0} aria-label={`${label}${look.glow ? ", lys på" : ""}${look.badges.length ? `, ${look.badges.join(" ")}` : ""}`} onClick={onOpen} onKeyDown={onKey} className="cursor-pointer outline-none [&:focus-visible>polygon:first-child]:stroke-[var(--color-primary)]">
+    <g role="button" tabIndex={0} aria-label={`${label}${look.alert ? ", røykvarsleren har gått" : ""}${look.glow ? ", lys på" : ""}${look.badges.length ? `, ${look.badges.join(" ")}` : ""}`} onClick={onOpen} onKeyDown={onKey} className="cursor-pointer outline-none [&:focus-visible>polygon:first-child]:stroke-[var(--color-primary)]">
       <polygon
         points={points}
         fill={room?.outdoor ? "#e3f4e8" : "#ffffff"}
@@ -58,6 +58,7 @@ function RoomShape({ shape, room, label, selected, playing, onOpen }: {
         strokeLinejoin="round"
       />
       {look.glow > 0 && <polygon points={points} fill={GLOW} fillOpacity={look.glow} pointerEvents="none" />}
+      {look.alert && <polygon points={points} fill="var(--color-danger)" fillOpacity={0.55} pointerEvents="none" className="animate-pulse" />}
     </g>
   );
 }
@@ -272,7 +273,7 @@ export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initial
             <FloorMap key={f.id} floor={f} rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} />
           ))}
         </div>
-        <p className="px-1 pt-1 text-xs text-ink-light">Gult = lys på · 🎵 musikk · 🔥 varmer · ▾ persienne nede. Trykk på et rom for å styre det.</p>
+        <p className="px-1 pt-1 text-xs text-ink-light">Gult = lys på · 🎵 musikk · 🔥 varmer · ▾ persienne nede · 🚨 røykvarsler har gått. Trykk på et rom for å styre det.</p>
       </div>
 
       <div className={view === "ute" ? "hidden lg:block" : ""}>{outdoorList}</div>

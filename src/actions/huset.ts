@@ -9,6 +9,9 @@ import { toHome, type HomeState } from "@/lib/huset/home";
 import { robotService } from "@/lib/huset/robotControl";
 import { toRobots, type Robot } from "@/lib/huset/robots";
 import { toWatering, type Watering } from "@/lib/huset/watering";
+import { NO_ENERGY, toEnergy, type Energy, type PricePoint } from "@/lib/huset/energy";
+import { loadPriceHours } from "@/lib/huset/prices";
+import { NO_SAFETY, toSafety, type Safety } from "@/lib/huset/safety";
 import type { MusicItem, SearchResult } from "@/lib/huset/music";
 import { membersToRemove, pickLeader, toGroups, toSpeakers, type Speaker, type SpeakerGroup } from "@/lib/huset/sonos";
 import {
@@ -45,6 +48,10 @@ export interface HouseData {
   robots: Robot[];
   /** Vanningsanlegget (Gardena). */
   watering: Watering;
+  /** Strøm og elbiler (Tibber). */
+  energy: Energy;
+  /** Alarm, røykvarslere og bevegelse (Homely). Bare til visning. */
+  safety: Safety;
   updatedAt: string;
 }
 
@@ -105,14 +112,21 @@ export async function loadHouse(): Promise<HouseData> {
   await requireFamily();
   const updatedAt = new Date().toISOString();
   if (!haConfigured()) {
-    return { ok: false, message: "Home Assistant er ikke koblet til ennå (HA_URL og HA_TOKEN mangler).", groups: [], home: EMPTY_HOME, robots: [], watering: NO_WATERING, updatedAt };
+    return { ok: false, message: "Home Assistant er ikke koblet til ennå (HA_URL og HA_TOKEN mangler).", groups: [], home: EMPTY_HOME, robots: [], watering: NO_WATERING, energy: NO_ENERGY, safety: NO_SAFETY, updatedAt };
   }
   try {
     const states = await getStates();
-    return { ok: true, groups: toGroups(toSpeakers(states)), home: toHome(states), robots: toRobots(states), watering: toWatering(states), updatedAt };
+    return { ok: true, groups: toGroups(toSpeakers(states)), home: toHome(states), robots: toRobots(states), watering: toWatering(states), energy: toEnergy(states), safety: toSafety(states), updatedAt };
   } catch (e) {
-    return { ok: false, message: failure(e), groups: [], home: EMPTY_HOME, robots: [], watering: NO_WATERING, updatedAt };
+    return { ok: false, message: failure(e), groups: [], home: EMPTY_HOME, robots: [], watering: NO_WATERING, energy: NO_ENERGY, safety: NO_SAFETY, updatedAt };
   }
+}
+
+/** Strømprisen time for time i dag og i morgen (Tibber). Hentes sjeldnere enn resten. */
+export async function loadPrices(): Promise<PricePoint[]> {
+  await requireFamily();
+  if (!haConfigured()) return [];
+  return loadPriceHours();
 }
 
 /** Lys, scener, varme og persienner. Bare enheter som finnes i Home Assistant og svarer, kan styres. */

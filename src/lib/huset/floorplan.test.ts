@@ -97,3 +97,10 @@ describe("roomLook", () => {
     expect(roomLook(undefined, new Set())).toEqual({ glow: 0, badges: [] });
   });
 });
+
+describe("roomLook med røykvarsler", () => {
+  it("gjør rommet rødt og legger 🚨 først når røykvarsleren går", () => {
+    const look = roomLook(room({ fire: true }), new Set());
+    expect(look).toEqual({ glow: 0, badges: ["🚨"], alert: true });
+  });
+});

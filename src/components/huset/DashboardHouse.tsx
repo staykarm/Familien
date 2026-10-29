@@ -127,12 +127,12 @@ export function HouseQuickLights({ live }: { live: HouseLive }) {
 export function HouseStatusList({ live, onArea }: { live: HouseLive; onArea: (area: StatusArea) => void }) {
   const { data } = live;
   if (!data.ok) return <p className="text-xs text-ink-light">{data.message}</p>;
-  const rows = houseStatus(data.home, data.robots, data.watering);
+  const rows = houseStatus(data.home, data.robots, data.watering, data.energy, data.safety);
   return (
     <ul className="flex flex-col">
       {rows.map((r) => (
         <li key={r.area}>
-          <button type="button" onClick={() => onArea(r.area)} className="flex min-h-9 w-full items-center gap-2 border-b border-line text-left last:border-0 hover:bg-card-soft">
+          <button type="button" onClick={() => onArea(r.area)} className="flex min-h-8 w-full items-center gap-2 border-b border-line py-1 text-left last:border-0 hover:bg-card-soft">
             <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${r.alert ? "bg-danger" : r.active ? "bg-primary" : "bg-line"}`} aria-hidden />
             <span className="w-20 shrink-0 text-xs text-ink-light">{r.label}</span>
             <span className={`min-w-0 flex-1 text-xs wrap-break-word ${r.alert ? "font-semibold text-danger" : "text-ink"}`}>{r.value}</span>
@@ -144,12 +144,12 @@ export function HouseStatusList({ live, onArea }: { live: HouseLive; onArea: (ar
 }
 
 /** Det som spiller nå, med spill/pause. */
-export function HouseNowPlaying({ live }: { live: HouseLive }) {
+export function HouseNowPlaying({ live, hideEmpty = false }: { live: HouseLive; hideEmpty?: boolean }) {
   const { groups, ok } = live.data;
   const list = playingNow(groups);
   const [pending, setPending] = useState<string | null>(null);
   if (!ok) return null;
-  if (!list.length) return <p className="text-xs text-ink-light">Ingenting spiller.</p>;
+  if (!list.length) return hideEmpty ? null : <p className="text-xs text-ink-light">Ingenting spiller.</p>;
   return (
     <ul className="flex flex-col gap-1.5">
       {list.map((p) => {

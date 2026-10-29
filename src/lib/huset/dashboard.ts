@@ -5,6 +5,8 @@ import { undoLight, type UndoItem } from "./agentTargets";
 import type { HomeState, Light } from "./home";
 import type { Robot } from "./robots";
 import { groupName, type SpeakerGroup } from "./sonos";
+import type { Energy } from "./energy";
+import type { Safety } from "./safety";
 import type { Watering } from "./watering";
 
 export interface LightsOff {
@@ -29,7 +31,7 @@ export function outdoorOff(home: HomeState): LightsOff {
   return off(home.rooms.filter((r) => r.outdoor).flatMap((r) => lit(r.lights)));
 }
 
-export type StatusArea = "lys" | "varme" | "persienner" | "roboter" | "vanning";
+export type StatusArea = "lys" | "varme" | "persienner" | "roboter" | "vanning" | "strom" | "sikkerhet";
 
 export interface StatusRow {
   area: StatusArea;
@@ -45,8 +47,18 @@ export interface StatusRow {
 const deg = (n: number) => `${Math.round(n)}°`;
 
 /** Én linje per område, i fast rekkefølge. Områder uten enheter tas ikke med. */
-export function houseStatus(home: HomeState, robots: Robot[], watering: Watering): StatusRow[] {
+export function houseStatus(home: HomeState, robots: Robot[], watering: Watering, energy?: Energy, safety?: Safety): StatusRow[] {
   const rows: StatusRow[] = [];
+
+  if (safety?.alarm) {
+    rows.push({ area: "sikkerhet", label: "Alarm", value: safety.alarm.label, alert: safety.alarm.triggered, active: safety.alarm.armed });
+  }
+  if (safety?.smoke.length) {
+    const bad = safety.smoke.filter((x) => x.fire || !x.online || x.lowBattery);
+    const fire = safety.smoke.find((x) => x.fire);
+    const value = fire ? `Brann i ${fire.name}!` : bad.length ? `${bad[0].name}: ${bad[0].lowBattery ? "lavt batteri" : "svarer ikke"}` : `${safety.smoke.length} OK`;
+    rows.push({ area: "sikkerhet", label: "Røykvarslere", value, alert: bad.length > 0, active: false });
+  }
   const indoor = home.rooms.filter((r) => !r.outdoor);
 
   const litRooms = home.rooms.filter((r) => lit(r.lights).length);
@@ -89,6 +101,12 @@ export function houseStatus(home: HomeState, robots: Robot[], watering: Watering
     const broken = online.filter((v) => v.problem);
     const value = open.length ? `Vanner ${open.map((v) => v.name).join(", ")}` : broken.length ? `${broken[0].name}: ${broken[0].problem}` : online.length ? `${online.length} soner klare` : "Tatt inn for sesongen";
     rows.push({ area: "vanning", label: "Vanning", value, alert: !open.length && broken.length > 0, active: open.length > 0 });
+  }
+
+  const cars = energy?.cars.filter((c) => c.online) ?? [];
+  if (cars.length) {
+    const value = cars.map((c) => `${c.name} ${c.battery ?? "?"} %${c.charging ? " (lader)" : ""}`).join(" · ");
+    rows.push({ area: "strom", label: "Biler", value, alert: false, active: cars.some((c) => c.charging) });
   }
 
   return rows;

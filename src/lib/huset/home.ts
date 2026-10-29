@@ -59,6 +59,8 @@ export interface Room {
   covers: Cover[];
   /** Sonos-høyttalerne i rommet (media_player.*). */
   speakers: string[];
+  /** Røykvarsleren i rommet har gått (Homely). */
+  fire?: boolean;
 }
 
 export interface HomeState {
@@ -171,6 +173,7 @@ export function toHome(states: StateLike[], rooms: RoomConfig[] = ROOMS): HomeSt
         return s ? [toCover(s, x.name)] : [];
       }),
       speakers: (r.speakers ?? []).filter((id) => byId.has(id)),
+      ...(r.smoke && byId.get(`binary_sensor.${r.smoke}_brann`)?.state === "on" ? { fire: true } : {}),
     };
   });
 

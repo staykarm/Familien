@@ -25,6 +25,8 @@ export interface RoomConfig {
   covers?: RoomLight[];
   /** Sonos-høyttalerne i rommet (media_player.*). Brukes på kartet og av «Spør huset». */
   speakers?: string[];
+  /** Røykvarsleren fra Homely i rommet: starten på entity-id-ene (binary_sensor.<smoke>_brann osv.). */
+  smoke?: string;
 }
 
 const l = (id: string, name: string): RoomLight => ({ id: `light.${id}`, name });
@@ -62,6 +64,7 @@ export const ROOMS: RoomConfig[] = [
   },
   {
     id: "spisestue", floor: 2,
+    smoke: "spisestue_intelligent_smoke_alarm",
     speakers: sp("spisestue"),
     name: "Spisestue",
     lights: [
@@ -93,6 +96,7 @@ export const ROOMS: RoomConfig[] = [
   { id: "bod-2", floor: 2, name: "Bod 2. etg", lights: [l("bod_2etg_kap", "Lys")], climate: "climate.varme_bod_2etg" },
   {
     id: "trapp", floor: 1,
+    smoke: "trapp_2_etg_intelligent_smoke_alarm",
     name: "Trappa",
     lights: [l("under_trappa_under_trappa_2", "Under trappa")],
     scenePrefix: "under_trappa_under_trappa",
@@ -106,9 +110,10 @@ export const ROOMS: RoomConfig[] = [
     climate: "climate.varme_gang",
     humidity: "sensor.gang_fukt",
   },
-  { id: "entre", floor: 1, name: "Entré", climate: "climate.varme_entre_hall", humidity: "sensor.entre_hall_fukt" },
+  { id: "entre", floor: 1, smoke: "entrance_intelligent_smoke_alarm", name: "Entré", climate: "climate.varme_entre_hall", humidity: "sensor.entre_hall_fukt" },
   {
     id: "kontor-1", floor: 1,
+    smoke: "kontoret_nede_intelligent_smoke_alarm",
     speakers: sp("kontor_1etg"),
     name: "Kontor 1. etg",
     lights: [l("kontor_1etg_kap", "Lys"), l("kontoret_nede_lampe_kontoret_nede", "Lampe")],
@@ -128,6 +133,7 @@ export const ROOMS: RoomConfig[] = [
   },
   {
     id: "master", floor: 1,
+    smoke: "hovedsoverom_intelligent_smoke_alarm",
     speakers: sp("soverom"),
     name: "Hovedsoverom",
     lights: [l("soverom_master_ut", "Lys"), l("nattbordlamper_hovedsov", "Nattbordlamper"), l("garderobe_master_ut", "Garderobe")],
@@ -176,8 +182,8 @@ export const ROOMS: RoomConfig[] = [
     humidity: "sensor.toalett_fukt",
     floorTemp: "sensor.toalett_gulv",
   },
-  { id: "vaskerom", floor: 1, name: "Vaskerom", lights: [l("vaskerom_kap", "Lys")], climate: "climate.varme_vaskerom", humidity: "sensor.vaskerom_fukt", covers: [c("persienne_vaskerom", "Vaskerom")] },
-  { id: "teknisk", floor: 1, name: "Teknisk rom", lights: [l("teknisk_lux", "Lys")] },
+  { id: "vaskerom", floor: 1, smoke: "laundry_room_intelligent_smoke_alarm", name: "Vaskerom", lights: [l("vaskerom_kap", "Lys")], climate: "climate.varme_vaskerom", humidity: "sensor.vaskerom_fukt", covers: [c("persienne_vaskerom", "Vaskerom")] },
+  { id: "teknisk", floor: 1, smoke: "teknisk_rom_intelligent_smoke_alarm", name: "Teknisk rom", lights: [l("teknisk_lux", "Lys")] },
   {
     // Den store terrassen ved stua og kjøkkenet, over kontoret og vaskerommet i 1. etasje.
     id: "takterrasse",

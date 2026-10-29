@@ -43,3 +43,6 @@ export { HousePage, type HouseTab } from "./HousePage";
 export { HouseAgent } from "./HouseAgent";
 export { HouseNowPlaying, HouseQuickLights, HouseStatusList, useHouseLive, type HouseLive } from "./DashboardHouse";
 export type { StatusArea } from "@/lib/huset/dashboard";
+export { CarList, LEVEL_COLOR, LEVEL_TEXT, PriceChart, usePrices } from "./EnergyTab";
+export { SafetyBanner } from "./SafetyTab";
+export { kr, watt } from "@/lib/huset/energy";

@@ -8,7 +8,7 @@ import { useAutoRefresh } from "./Dashboard";
 import { Clock, viewHref } from "./parts";
 
 /** Undersidene i den rekkefølgen de står i menyen øverst. */
-const NAV: DashboardViewId[] = ["dag", "vaer", "oppgaver", "handleliste", "kart", "lys", "varme", "persienner", "musikk", "roboter", "vanning"];
+const NAV: DashboardViewId[] = ["dag", "vaer", "oppgaver", "handleliste", "kart", "lys", "varme", "persienner", "musikk", "strom", "sikkerhet", "roboter", "vanning"];
 
 /** Ramme rundt en underside: «Oversikt» tilbake, tittel, snarveier til de andre undersidene og klokka. */
 export function DashboardView({ view, children }: { view: DashboardViewId; children: ReactNode }) {

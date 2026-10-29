@@ -63,6 +63,7 @@ function applyOverrides(groups: SpeakerGroup[], overrides: Overrides): SpeakerGr
 }
 
 type Tab = "musikk" | "kart" | "lys" | "varme" | "persienner" | "roboter" | "vanning";
+export type HouseTab = Tab;
 const TABS: { id: Tab; label: string }[] = [
   { id: "musikk", label: "🎵 Musikk" },
   { id: "kart", label: "🗺️ Kart" },
@@ -77,9 +78,24 @@ const TAB_KEY = "familien.huset.fane";
 const NEW_PRESET: PresetDraft = { name: "", speakerIds: [], spotifyUrl: null, spotifyName: null, volume: null };
 
 /** Huset: faner for musikk (Sonos), lys, varme og persienner. Oppdateres hvert 4. sekund mens siden er synlig. */
-export function HousePage({ initial, setup: initialSetup, notice }: { initial: HouseData; setup: HouseSetup; notice: string | null }) {
+export function HousePage({
+  initial,
+  setup: initialSetup,
+  notice,
+  fixedTab,
+  room,
+}: {
+  initial: HouseData;
+  setup: HouseSetup;
+  notice: string | null;
+  /** Bare én fane, uten tittel, «Spør huset» og faneknapper (brukes på dashboardet). */
+  fixedTab?: Tab;
+  /** Rommet som åpnes i kartet (fra dashboardet). */
+  room?: string | null;
+}) {
   const [data, setData] = useState(initial);
-  const [tab, setTab] = useState<Tab>("musikk");
+  const [chosenTab, setTab] = useState<Tab>("musikk");
+  const tab = fixedTab ?? chosenTab;
   const [setup, setSetup] = useState(initialSetup);
   const [overrides, setOverrides] = useState<Overrides>({});
   const [message, setMessage] = useState<string | null>(notice ? (SPOTIFY_NOTICE[notice] ?? null) : null);
@@ -138,6 +154,7 @@ export function HousePage({ initial, setup: initialSetup, notice }: { initial: H
 
   // Husk fanen på denne enheten.
   useEffect(() => {
+    if (fixedTab) return;
     let saved: string | null = null;
     try {
       saved = localStorage.getItem(TAB_KEY);
@@ -147,7 +164,7 @@ export function HousePage({ initial, setup: initialSetup, notice }: { initial: H
     if (!saved || !TABS.some((t) => t.id === saved)) return;
     const frame = requestAnimationFrame(() => setTab(saved as Tab));
     return () => cancelAnimationFrame(frame);
-  }, []);
+  }, [fixedTab]);
 
   function chooseTab(next: Tab) {
     setTab(next);
@@ -263,36 +280,40 @@ export function HousePage({ initial, setup: initialSetup, notice }: { initial: H
   }
 
   return (
-    <div className="flex flex-col gap-4 pb-16 md:pb-0">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="font-display text-xl font-bold sm:text-2xl lg:text-3xl">🏠 Huset</h1>
-        {data.home.outdoorTemp !== null && (
-          <span className="text-sm text-ink-light">
-            Ute <span className="font-bold text-ink">{data.home.outdoorTemp.toLocaleString("nb-NO", { maximumFractionDigits: 1 })}°</span>
-          </span>
-        )}
-      </div>
+    <div className={`flex flex-col gap-4 ${fixedTab ? "" : "pb-16 md:pb-0"}`}>
+      {!fixedTab && (
+        <>
+          <div className="flex items-center justify-between gap-3">
+            <h1 className="font-display text-xl font-bold sm:text-2xl lg:text-3xl">🏠 Huset</h1>
+            {data.home.outdoorTemp !== null && (
+              <span className="text-sm text-ink-light">
+                Ute <span className="font-bold text-ink">{data.home.outdoorTemp.toLocaleString("nb-NO", { maximumFractionDigits: 1 })}°</span>
+              </span>
+            )}
+          </div>
 
-      {data.ok && <HouseAgent onChanged={() => setTimeout(refresh, SETTLE_MS)} />}
+          {data.ok && <HouseAgent onChanged={() => setTimeout(refresh, SETTLE_MS)} />}
 
-      <div className="-mx-3 overflow-x-clip px-3 md:mx-0 md:px-0">
-        <div className="chip-row" role="tablist" aria-label="Velg hva du vil styre">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              aria-selected={tab === t.id}
-              onClick={() => chooseTab(t.id)}
-              className={`min-h-12 rounded-full border-2 px-5 text-sm font-bold transition ${
-                tab === t.id ? "border-primary bg-primary-soft text-primary-dark" : "border-line bg-card"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </div>
+          <div className="-mx-3 overflow-x-clip px-3 md:mx-0 md:px-0">
+            <div className="chip-row" role="tablist" aria-label="Velg hva du vil styre">
+              {TABS.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === t.id}
+                  onClick={() => chooseTab(t.id)}
+                  className={`min-h-12 rounded-full border-2 px-5 text-sm font-bold transition ${
+                    tab === t.id ? "border-primary bg-primary-soft text-primary-dark" : "border-line bg-card"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
       {!data.ok && (
         <div className={`${card} border-2 border-danger/30`} role="alert">
@@ -314,6 +335,7 @@ export function HousePage({ initial, setup: initialSetup, notice }: { initial: H
           onToggle={(s) => void run({ action: "toggle", id: s.id }, { playing: s.status !== "playing" })}
           onVolume={(id, volume, send) => (send ? void run({ action: "volume", id, volume }, { volume }) : preview(id, volume))}
           onMusic={(s) => setMusic(groups.find((g) => g.leader.id === s.id) ?? { leader: s, speakers: [s] })}
+          initialRoom={room}
         />
       )}
       {data.ok && tab === "lys" && <LightsTab home={data.home} run={runHome} />}

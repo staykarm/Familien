@@ -414,9 +414,9 @@ export async function disconnectSpotify(memberId: string): Promise<HouseResult> 
 // --- Spør huset ----------------------------------------------------------------
 
 /** Tolker en beskjed («skru av lyset i stua») med Claude og gjør det. Gir svaret og det som trengs for å angre. */
-export async function askHouse(text: string, history: AgentTurn[] = []): Promise<HouseResult & Partial<AgentResult>> {
+export async function askHouse(text: string, history: AgentTurn[] = [], family?: string): Promise<HouseResult & Partial<AgentResult>> {
   await requireFamily();
-  const parsed = houseAgentSchema.safeParse({ text, history });
+  const parsed = houseAgentSchema.safeParse({ text, history, family });
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
   if (!haConfigured()) return { ok: false, message: "Home Assistant er ikke koblet til ennå." };
   if (!process.env.ANTHROPIC_API_KEY) return { ok: false, message: "ANTHROPIC_API_KEY mangler, så Huset kan ikke tolke beskjeder." };
@@ -425,7 +425,7 @@ export async function askHouse(text: string, history: AgentTurn[] = []): Promise
   const { data } = await db.from("house_groups").select("id, name, speaker_ids, spotify_url, volume");
   const presets = (data ?? []).map((g) => ({ id: g.id, name: g.name, speakerIds: g.speaker_ids, spotifyUrl: g.spotify_url, volume: g.volume }));
   try {
-    return { ok: true, ...(await runHouseAgent(parsed.data.history, parsed.data.text, presets)) };
+    return { ok: true, ...(await runHouseAgent(parsed.data.history, parsed.data.text, presets, parsed.data.family)) };
   } catch (e) {
     console.error("Spør huset feilet", e);
     return { ok: false, message: e instanceof HaError || e instanceof SpotifyError ? e.message : "Huset fikk ikke tolket beskjeden akkurat nå. Prøv igjen." };

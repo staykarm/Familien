@@ -109,6 +109,42 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* --- Dashboardet (/dashboard): lyst, nøytralt og stramt -----------------------------
+ * Samme tokener som resten av appen, men med andre verdier, så Familien- og Huset-komponentene
+ * får dashboardets stil når de vises her. Mindre grunnstørrelse og systemfonten. */
+:root:has(.dash) {
+  font-size: 13px;
+}
+@media (min-width: 1024px) {
+  :root:has(.dash) {
+    font-size: 14px;
+  }
+}
+:root:has(.dash) body {
+  background: #f6f6f7;
+}
+.dash {
+  --color-ink: #1c1c1e;
+  --color-ink-light: #6e6e73;
+  --color-ink-faint: #aeaeb2;
+  --color-card: #ffffff;
+  --color-card-soft: #f4f4f6;
+  --color-line: #e5e5ea;
+  --color-primary: #2563eb;
+  --color-primary-dark: #1d4ed8;
+  --color-primary-soft: #e8efff;
+  --color-sky: #e6f0fb;
+  --color-mint: #e5f5ea;
+  --color-sun: #fff4cc;
+  --color-danger: #d92d20;
+  --font-nunito: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-fredoka: var(--font-nunito);
+  font-family: var(--font-nunito);
+  background: #f6f6f7;
+  color: var(--color-ink);
+  letter-spacing: -0.005em;
+}
+
 /* --- FullCalendar i familiens stil ------------------------------------------------- */
 .familien-fc {
   --fc-border-color: var(--color-line);

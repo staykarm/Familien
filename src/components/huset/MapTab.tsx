@@ -20,6 +20,8 @@ interface Props {
   onToggle: (leader: Speaker) => void;
   onVolume: (id: string, volume: number, send: boolean) => void;
   onMusic: (leader: Speaker) => void;
+  /** Rommet som er åpent fra start (fra dashboardet). */
+  initialRoom?: string | null;
 }
 
 type View = "1" | "2" | "ute";
@@ -72,12 +74,19 @@ function RoomShape({ shape, room, label, multi, selected, playing, onOpen }: {
   );
 }
 
-function FloorMap({ floor, rooms, selected, playing, onOpen }: { floor: Floor; rooms: Map<string, Room>; selected: string | null; playing: Set<string>; onOpen: (id: string) => void }) {
+export function FloorMap({ floor, rooms, selected, playing, onOpen, svgClassName = "max-h-[72dvh]" }: {
+  floor: Floor;
+  rooms: Map<string, Room>;
+  selected: string | null;
+  playing: Set<string>;
+  onOpen: (id: string) => void;
+  svgClassName?: string;
+}) {
   const count = (id: string) => floor.shapes.filter((s) => s.room === id).length;
   return (
     <figure className="flex flex-col gap-1">
       <figcaption className="text-xs font-bold uppercase tracking-wide text-ink-light">{floor.name}</figcaption>
-      <svg viewBox={`${VIEWBOX.x} ${VIEWBOX.y} ${VIEWBOX.w} ${VIEWBOX.h}`} className="h-auto max-h-[72dvh] w-full" role="group" aria-label={floor.name}>
+      <svg viewBox={`${VIEWBOX.x} ${VIEWBOX.y} ${VIEWBOX.w} ${VIEWBOX.h}`} className={`h-auto w-full ${svgClassName}`} role="group" aria-label={floor.name}>
         {floor.shapes.map((s, i) => {
           const room = rooms.get(s.room);
           return (
@@ -99,7 +108,7 @@ function FloorMap({ floor, rooms, selected, playing, onOpen }: { floor: Floor; r
 }
 
 /** Alt som kan styres i ett rom: lys og scener, varme, persienner og musikk. */
-function RoomSheet({ room, groups, onClose, ...p }: Omit<Props, "home"> & { room: Room; onClose: () => void }) {
+function RoomSheet({ room, groups, onClose, ...p }: Omit<Props, "home" | "initialRoom"> & { room: Room; onClose: () => void }) {
   const speakers = groups.flatMap((g) => g.speakers.map((s) => ({ speaker: s, leader: g.leader }))).filter((x) => room.speakers.includes(x.speaker.id));
   const empty = !room.lights.length && !room.climate && !room.covers.length && !speakers.length;
   return (
@@ -165,9 +174,10 @@ function RoomSheet({ room, groups, onClose, ...p }: Omit<Props, "home"> & { room
  * Kart over etasjene: trykk på et rom for å styre alt der. Rommet blir gult når lyset er på (sterkere jo høyere
  * lysstyrke), med merker for temperatur, varme, musikk og persienne nede. På PC står begge etasjene side om side.
  */
-export function MapTab({ home, groups, run, onToggle, onVolume, onMusic }: Props) {
-  const [view, setView] = useState<View>("2");
-  const [selected, setSelected] = useState<string | null>(null);
+export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initialRoom = null }: Props) {
+  const startFloor = home.rooms.find((r) => r.id === initialRoom)?.floor;
+  const [view, setView] = useState<View>(startFloor === 1 ? "1" : "2");
+  const [selected, setSelected] = useState<string | null>(initialRoom);
   const rooms = new Map(home.rooms.map((r) => [r.id, r]));
   const playing = new Set(groups.filter((g) => g.leader.status === "playing").flatMap((g) => g.speakers.map((s) => s.id)));
   const onMap = new Set(FLOORS.flatMap((f) => f.shapes.map((s) => s.room)));

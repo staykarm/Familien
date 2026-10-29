@@ -81,6 +81,8 @@ export const houseAgentSchema = z.object({
     .array(z.object({ role: z.enum(["user", "assistant"]), text: z.string().max(2000) }))
     .max(12)
     .default([]),
+  /** Kalender, henting, oppgaver og handleliste som tekst (fra dashboardet), så Huset kan svare på spørsmål om dem. */
+  family: z.string().max(8000).optional(),
 });
 
 const undoId = z.string().regex(/^(light|climate|cover|media_player)\.[a-z0-9_]+$/);

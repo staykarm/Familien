@@ -84,6 +84,9 @@ export function HousePage({
   notice,
   fixedTab,
   room,
+  mapClassName,
+  onData,
+  refreshKey = 0,
 }: {
   initial: HouseData;
   setup: HouseSetup;
@@ -92,6 +95,12 @@ export function HousePage({
   fixedTab?: Tab;
   /** Rommet som åpnes i kartet (fra dashboardet). */
   room?: string | null;
+  /** Høyden på kartet (dashboardet har mindre plass). */
+  mapClassName?: string;
+  /** Får hver nye tilstand, så resten av dashboardet viser det samme som kartet. */
+  onData?: (data: HouseData) => void;
+  /** Hent ny tilstand med en gang når denne endres (etter en handling et annet sted på siden). */
+  refreshKey?: number;
 }) {
   const [data, setData] = useState(initial);
   const [chosenTab, setTab] = useState<Tab>("musikk");
@@ -146,6 +155,14 @@ export function HousePage({
       document.removeEventListener("visibilitychange", tick);
     };
   }, [refresh]);
+
+  useEffect(() => {
+    onData?.(data);
+  }, [data, onData]);
+
+  useEffect(() => {
+    if (refreshKey) refresh();
+  }, [refreshKey, refresh]);
 
   // Fjern ?spotify=… fra adressen etter at beskjeden er vist, så den ikke kommer igjen ved oppfrisking.
   useEffect(() => {
@@ -336,6 +353,7 @@ export function HousePage({
           onVolume={(id, volume, send) => (send ? void run({ action: "volume", id, volume }, { volume }) : preview(id, volume))}
           onMusic={(s) => setMusic(groups.find((g) => g.leader.id === s.id) ?? { leader: s, speakers: [s] })}
           initialRoom={room}
+          svgClassName={mapClassName}
         />
       )}
       {data.ok && tab === "lys" && <LightsTab home={data.home} run={runHome} />}

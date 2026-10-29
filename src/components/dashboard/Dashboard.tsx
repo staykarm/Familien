@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { askDashboard } from "@/actions/dashboard";
 import { CareLine } from "@/components/care/CareLine";
-import { HouseAgent, HouseMiniMap, HouseNowPlaying, HouseQuickLights, HouseStatusList, useHouseLive } from "@/components/huset/public";
+import { HouseAgent, HouseNowPlaying, HousePage, HouseQuickLights, HouseStatusList, useHouseLive } from "@/components/huset/public";
 import { formatTemp, WeatherIcon } from "@/components/weather/WeatherBadge";
 import type { CalendarCategory, CalendarMember } from "@/lib/calendar/types";
 import type { CareData } from "@/lib/care/plan";
 import type { AgendaItem } from "@/lib/dashboard/day";
-import type { HouseData } from "@/lib/huset/public";
+import type { HouseData, HouseSetup } from "@/lib/huset/public";
 import type { ShoppingItem } from "@/lib/shopping/types";
 import type { Task } from "@/lib/tasks/types";
 import type { DailyWeather, HourlyWeather } from "@/lib/weather/yr";
@@ -47,6 +47,7 @@ export interface DashboardProps {
   hours: HourlyWeather[];
   days: DailyWeather[];
   house: HouseData;
+  houseSetup: HouseSetup;
 }
 
 /**
@@ -92,18 +93,9 @@ export function Dashboard(p: DashboardProps) {
         </div>
 
         <div className="flex min-h-0 flex-col gap-3">
-          <Card
-            title="Huset"
-            href={viewHref("kart")}
-            className="lg:flex-1"
-            aside={!live.data.ok ? <span className="text-xs text-danger">{live.data.message}</span> : undefined}
-          >
-            {live.data.ok && (
-              <>
-                <HouseMiniMap live={live} onRoom={(id) => router.push(viewHref("kart", { rom: id }))} />
-                <HouseQuickLights live={live} />
-              </>
-            )}
+          <Card title="Huset" href={viewHref("kart")} className="lg:flex-1" aside={live.data.ok ? <HouseQuickLights live={live} /> : undefined}>
+            {/* Samme kart som i Huset: trykk på et rom åpner det med lys, varme, persienner og musikk. */}
+            <HousePage initial={p.house} setup={p.houseSetup} notice={null} fixedTab="kart" mapClassName="max-h-[44dvh]" onData={live.push} refreshKey={live.version} />
           </Card>
           <Card title="Været" href={viewHref("vaer")} className="shrink-0">
             <HoursStrip hours={p.hours} />

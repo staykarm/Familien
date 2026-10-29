@@ -109,7 +109,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
     );
   }
 
-  const house = await loadHouse();
+  const [house, houseSetup] = await Promise.all([loadHouse(), loadHouseSetup()]);
   return (
     <Dashboard
       today={today}
@@ -124,6 +124,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
       hours={nextHours(forecast, new Date(), 16)}
       days={nextDays(forecast, today, 5)}
       house={house}
+      houseSetup={houseSetup}
     />
   );
 }

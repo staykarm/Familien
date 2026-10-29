@@ -22,6 +22,7 @@ const room = (name: string, lights: Light[], outdoor = false): Room => ({
   scenes: [],
   climate: null,
   covers: [],
+  speakers: [],
 });
 const robot = (over: Partial<Robot>): Robot => ({
   id: "vacuum.x",

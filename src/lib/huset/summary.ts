@@ -4,6 +4,7 @@
 import { roomBrightness, type HomeState } from "./home";
 import type { Robot } from "./robots";
 import { groupName, type SpeakerGroup } from "./sonos";
+import type { Watering } from "./watering";
 
 export interface SummaryLine {
   /** Rommet, gruppen av høyttalere eller roboten. */
@@ -19,7 +20,7 @@ export interface HouseSummary {
 }
 
 /** Bare det som er på. Tomt når alt er av og ingenting spiller. */
-export function summarizeHouse(home: HomeState, groups: SpeakerGroup[], robots: Robot[]): HouseSummary {
+export function summarizeHouse(home: HomeState, groups: SpeakerGroup[], robots: Robot[], watering: Watering = { valves: [], sensors: [] }): HouseSummary {
   const lines: SummaryLine[] = [];
   const line = (name: string) => {
     let found = lines.find((l) => l.name.toLowerCase() === name.toLowerCase());
@@ -46,6 +47,12 @@ export function summarizeHouse(home: HomeState, groups: SpeakerGroup[], robots: 
     line(r.name).parts.push(r.room ? `${r.status.toLowerCase()} i ${r.room}` : r.status.toLowerCase());
   }
 
-  const alerts = robots.flatMap((r) => r.problems.map((p) => `${r.name}: ${p}`));
+  const wet = watering.valves.filter((v) => v.open).map((v) => v.name);
+  if (wet.length) line("Vanning").parts.push(wet.join(", "));
+
+  const alerts = [
+    ...robots.flatMap((r) => r.problems.map((p) => `${r.name}: ${p}`)),
+    ...watering.valves.filter((v) => v.available && v.problem).map((v) => `Vanning ${v.name}: ${v.problem}`),
+  ];
   return { lines, alerts };
 }

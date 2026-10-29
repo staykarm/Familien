@@ -63,6 +63,13 @@ export const homeCommandSchema = z.discriminatedUnion("action", [
     id: z.string().regex(/^(vacuum|lawn_mower)\.[a-z0-9_]+$/, "Ukjent robot"),
     command: z.enum(["start", "pause", "home", "locate"]),
   }),
+  /** Vanning: åpne en ventil (eventuelt med vanningstid i minutter), eller stenge den. */
+  z.object({
+    action: z.literal("valve"),
+    id: entityOf("valve"),
+    command: z.enum(["open", "close"]),
+    minutes: z.number().int().min(1).max(240).optional(),
+  }),
 ]);
 
 export type HomeCommand = z.input<typeof homeCommandSchema>;

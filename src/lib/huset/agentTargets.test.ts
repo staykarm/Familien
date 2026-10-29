@@ -21,6 +21,7 @@ const room = (id: string, floor: 1 | 2 | null, lights: Light[], outdoor = false)
   scenes: [],
   climate: { id: `climate.${id}`, name: id, available: true, current: 21, target: 21.5, min: 5, max: 30, heating: false, humidity: null, floor: null },
   covers: [{ id: `cover.${id}`, name: id, available: true, position: 100, moving: null }],
+  speakers: [],
 });
 
 const home: HomeState = {

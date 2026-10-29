@@ -57,6 +57,8 @@ export interface Room {
   scenes: Scene[];
   climate: Climate | null;
   covers: Cover[];
+  /** Sonos-høyttalerne i rommet (media_player.*). */
+  speakers: string[];
 }
 
 export interface HomeState {
@@ -168,6 +170,7 @@ export function toHome(states: StateLike[], rooms: RoomConfig[] = ROOMS): HomeSt
         const s = byId.get(x.id);
         return s ? [toCover(s, x.name)] : [];
       }),
+      speakers: (r.speakers ?? []).filter((id) => byId.has(id)),
     };
   });
 
@@ -179,7 +182,7 @@ export function toHome(states: StateLike[], rooms: RoomConfig[] = ROOMS): HomeSt
     })
     .map((s) => toLight(s, String(s.attributes.friendly_name ?? s.entity_id).trim()))
     .sort((a, b) => a.name.localeCompare(b.name, "nb"));
-  if (others.length) result.push({ id: "andre", name: "Andre lys", outdoor: false, floor: null, lights: others, scenes: [], climate: null, covers: [] });
+  if (others.length) result.push({ id: "andre", name: "Andre lys", outdoor: false, floor: null, lights: others, scenes: [], climate: null, covers: [], speakers: [] });
 
   return {
     rooms: result,

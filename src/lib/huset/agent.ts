@@ -18,6 +18,7 @@ import { callService, getStates, type HaState } from "./ha";
 import { stepTarget, toHome, type HomeState } from "./home";
 import { robotService } from "./robotControl";
 import { toRobots, type Robot } from "./robots";
+import { DEFAULT_MINUTES, toWatering, type Watering } from "./watering";
 import { searchSpotify, spotifyConfigured } from "./spotify";
 import { membersToRemove, pickLeader, toGroups, toSpeakers, withJoined, withUnjoined, type Speaker } from "./sonos";
 
@@ -47,7 +48,7 @@ export interface PresetLite {
   speakerIds: string[];
 }
 
-const SYSTEM = `Du er «Huset», en hjelper som styrer huset til en norsk familie: lys, varme, persienner, musikk (Sonos) og roboter (støvsugere og gressklippere).
+const SYSTEM = `Du er «Huset», en hjelper som styrer huset til en norsk familie: lys, varme, persienner, musikk (Sonos), roboter (støvsugere og gressklippere) og vanning (Gardena).
 Du får en oversikt over huset akkurat nå, og en beskjed fra noen i familien (skrevet eller sagt). Bruk verktøyene for å gjøre det de ber om.
 
 Slik tolker du beskjeder:
@@ -176,6 +177,20 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "control_watering",
+    description: "Vanning (Gardena): start en eller flere soner med vanningstid i minutter, eller stopp dem.",
+    input_schema: {
+      type: "object",
+      properties: {
+        valves: { type: "array", items: { type: "string" }, description: "Ventil-id-er (valve.*)" },
+        command: { enum: ["start", "stop"] },
+        minutes: { type: "integer", minimum: 1, maximum: 240, description: "Vanningstid. Uten tall: 20 min plen, 15 min bedd, 10 min tak." },
+      },
+      required: ["valves", "command"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "start_house_group",
     description: "Start en av de faste gruppene (kobler rommene og setter eventuelt musikk og volum).",
     input_schema: {
@@ -217,6 +232,7 @@ const inputs = {
   }),
   group_speakers: z.object({ speakers: z.array(z.string()).min(1).max(30), alone: z.boolean().optional() }),
   start_house_group: z.object({ id: z.string() }),
+  control_watering: z.object({ valves: z.array(z.string()).min(1).max(20), command: z.enum(["start", "stop"]), minutes: z.number().int().min(1).max(240).optional() }),
   control_robot: z.object({ robots: z.array(z.string()).min(1).max(10), command: z.enum(["start", "pause", "home", "locate"]) }),
 };
 
@@ -224,6 +240,7 @@ interface Context {
   home: HomeState;
   speakers: Speaker[];
   robots: Robot[];
+  watering: Watering;
   presets: (PresetLite & { spotifyUrl: string | null; volume: number | null })[];
   actions: string[];
   undo: UndoItem[];
@@ -410,6 +427,24 @@ async function runTool(name: string, raw: unknown, ctx: Context): Promise<string
       ctx.actions.push(`Spiller sammen: ${names}`);
       return "Ferdig.";
     }
+    case "control_watering": {
+      const p = inputs.control_watering.parse(raw);
+      const chosen = ctx.watering.valves.filter((v) => p.valves.includes(v.id) && v.available);
+      if (!chosen.length) return "Fant ingen ventiler som svarer.";
+      if (p.command === "stop") {
+        await callService("valve", "close_valve", { entity_id: chosen.map((v) => v.id) });
+        ctx.actions.push(`Stoppet vanning: ${chosen.map((v) => v.name).join(", ")}`);
+        return "Ferdig.";
+      }
+      for (const v of chosen) {
+        const minutes = p.minutes ?? DEFAULT_MINUTES[v.kind];
+        if (v.durationId) await callService("number", "set_value", { entity_id: v.durationId, value: minutes });
+        await callService("valve", "open_valve", { entity_id: v.id });
+      }
+      ctx.actions.push(`Vanner: ${chosen.map((v) => `${v.name} ${p.minutes ?? DEFAULT_MINUTES[v.kind]} min`).join(", ")}`);
+      const blocked = chosen.filter((v) => v.problem).map((v) => `${v.name}: ${v.problem}`);
+      return blocked.length ? `Startet, men Gardena melder: ${blocked.join("; ")}.` : "Startet.";
+    }
     case "control_robot": {
       const p = inputs.control_robot.parse(raw);
       const chosen = ctx.robots.filter((r) => p.robots.includes(r.id) && r.available);
@@ -459,8 +494,8 @@ function speakerUndo(ctx: Context, id: string): UndoItem {
  */
 export async function askHouse(history: AgentTurn[], text: string, presets: Context["presets"]): Promise<AgentResult> {
   const states = await getStates();
-  const ctx: Context = { home: toHome(states), speakers: toSpeakers(states), robots: toRobots(states), presets, actions: [], undo: [] };
-  const overview = describeHome(ctx.home, ctx.speakers, presets, ctx.robots);
+  const ctx: Context = { home: toHome(states), speakers: toSpeakers(states), robots: toRobots(states), watering: toWatering(states), presets, actions: [], undo: [] };
+  const overview = describeHome(ctx.home, ctx.speakers, presets, ctx.robots, ctx.watering);
 
   const client = new Anthropic({ apiKey: serverEnv("ANTHROPIC_API_KEY") });
   const messages: Anthropic.MessageParam[] = [

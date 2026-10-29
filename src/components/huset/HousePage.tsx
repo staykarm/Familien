@@ -23,7 +23,9 @@ import { CoversTab } from "./CoversTab";
 import { HeatTab } from "./HeatTab";
 import { HouseAgent } from "./HouseAgent";
 import { LightsTab } from "./LightsTab";
+import { MapTab } from "./MapTab";
 import { RobotsTab } from "./RobotsTab";
+import { WateringTab } from "./WateringTab";
 import { MusicSheet } from "./MusicSheet";
 import { PresetSheet, type PresetDraft } from "./PresetSheet";
 import { RoomList } from "./RoomList";
@@ -60,13 +62,15 @@ function applyOverrides(groups: SpeakerGroup[], overrides: Overrides): SpeakerGr
   return groups.map((g) => ({ leader: fix(g.leader), speakers: g.speakers.map(fix) }));
 }
 
-type Tab = "musikk" | "lys" | "varme" | "persienner" | "roboter";
+type Tab = "musikk" | "kart" | "lys" | "varme" | "persienner" | "roboter" | "vanning";
 const TABS: { id: Tab; label: string }[] = [
   { id: "musikk", label: "🎵 Musikk" },
+  { id: "kart", label: "🗺️ Kart" },
   { id: "lys", label: "💡 Lys" },
   { id: "varme", label: "🌡️ Varme" },
   { id: "persienner", label: "🪟 Persienner" },
   { id: "roboter", label: "🤖 Roboter" },
+  { id: "vanning", label: "💧 Vanning" },
 ];
 const TAB_KEY = "familien.huset.fane";
 
@@ -302,10 +306,21 @@ export function HousePage({ initial, setup: initialSetup, notice }: { initial: H
         </p>
       )}
 
+      {data.ok && tab === "kart" && (
+        <MapTab
+          home={data.home}
+          groups={groups}
+          run={runHome}
+          onToggle={(s) => void run({ action: "toggle", id: s.id }, { playing: s.status !== "playing" })}
+          onVolume={(id, volume, send) => (send ? void run({ action: "volume", id, volume }, { volume }) : preview(id, volume))}
+          onMusic={(s) => setMusic(groups.find((g) => g.leader.id === s.id) ?? { leader: s, speakers: [s] })}
+        />
+      )}
       {data.ok && tab === "lys" && <LightsTab home={data.home} run={runHome} />}
       {data.ok && tab === "varme" && <HeatTab home={data.home} run={runHome} />}
       {data.ok && tab === "persienner" && <CoversTab home={data.home} run={runHome} />}
       {data.ok && tab === "roboter" && <RobotsTab robots={data.robots} run={runHome} />}
+      {data.ok && tab === "vanning" && <WateringTab watering={data.watering} outdoorTemp={data.home.outdoorTemp} run={runHome} />}
 
       {data.ok && tab === "musikk" && (
         <>

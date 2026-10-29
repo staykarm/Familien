@@ -23,14 +23,18 @@ export interface RoomConfig {
   humidity?: string;
   floorTemp?: string;
   covers?: RoomLight[];
+  /** Sonos-høyttalerne i rommet (media_player.*). Brukes på kartet og av «Spør huset». */
+  speakers?: string[];
 }
 
 const l = (id: string, name: string): RoomLight => ({ id: `light.${id}`, name });
 const c = (id: string, name: string): RoomLight => ({ id: `cover.${id}`, name });
+const sp = (...ids: string[]) => ids.map((id) => `media_player.${id}_${id}`);
 
 export const ROOMS: RoomConfig[] = [
   {
     id: "stue", floor: 2,
+    speakers: sp("stue", "hylla_i_stua"),
     name: "Stue",
     lights: [
       l("stue_ut", "Lys"),
@@ -49,6 +53,7 @@ export const ROOMS: RoomConfig[] = [
   },
   {
     id: "kjokken", floor: 2,
+    speakers: sp("kjokken"),
     name: "Kjøkken",
     lights: [l("kjokken_benkelys", "Benkelys"), l("kjokken_ut_oy", "Lys over øya"), l("kjokken_kap", "Lys"), l("kjokken_kap_peis", "Lys ved peisen")],
     climate: "climate.varme_kjokken",
@@ -57,6 +62,7 @@ export const ROOMS: RoomConfig[] = [
   },
   {
     id: "spisestue", floor: 2,
+    speakers: sp("spisestue"),
     name: "Spisestue",
     lights: [
       l("spisestue_taklys", "Taklys"),
@@ -71,6 +77,7 @@ export const ROOMS: RoomConfig[] = [
   },
   {
     id: "kontor-2", floor: 2,
+    speakers: sp("kontor_2etg"),
     name: "Kontor 2. etg",
     lights: [
       l("kontor_2etg_ut", "Lys"),
@@ -86,7 +93,7 @@ export const ROOMS: RoomConfig[] = [
   { id: "bod-2", floor: 2, name: "Bod 2. etg", lights: [l("bod_2etg_kap", "Lys")], climate: "climate.varme_bod_2etg" },
   {
     id: "trapp", floor: 1,
-    name: "Trapperom",
+    name: "Trappa",
     lights: [l("under_trappa_under_trappa_2", "Under trappa")],
     scenePrefix: "under_trappa_under_trappa",
     climate: "climate.varme_trapperom",
@@ -102,6 +109,7 @@ export const ROOMS: RoomConfig[] = [
   { id: "entre", floor: 1, name: "Entré", climate: "climate.varme_entre_hall", humidity: "sensor.entre_hall_fukt" },
   {
     id: "kontor-1", floor: 1,
+    speakers: sp("kontor_1etg"),
     name: "Kontor 1. etg",
     lights: [l("kontor_1etg_kap", "Lys"), l("kontoret_nede_lampe_kontoret_nede", "Lampe")],
     scenePrefix: "kontoret_nede_kontoret_nede",
@@ -111,6 +119,7 @@ export const ROOMS: RoomConfig[] = [
   },
   {
     id: "lekerom", floor: 1,
+    speakers: sp("lekerom"),
     name: "Lekerom",
     lights: [l("lekerom_ut", "Lys"), l("lekerom_kap", "Lys 2")],
     climate: "climate.varme_lekerom",
@@ -119,6 +128,7 @@ export const ROOMS: RoomConfig[] = [
   },
   {
     id: "master", floor: 1,
+    speakers: sp("soverom"),
     name: "Hovedsoverom",
     lights: [l("soverom_master_ut", "Lys"), l("nattbordlamper_hovedsov", "Nattbordlamper"), l("garderobe_master_ut", "Garderobe")],
     climate: "climate.varme_master_sov",
@@ -127,21 +137,22 @@ export const ROOMS: RoomConfig[] = [
   },
   {
     id: "sov-venstre", floor: 1,
-    name: "Soverom venstre",
+    name: "Soverom Olav",
     lights: [l("soverom_venstre_takpunkt", "Taklys")],
     climate: "climate.varme_soverom_venstre",
     humidity: "sensor.soverom_venstre_fukt",
   },
   {
     id: "sov-hoyre", floor: 1,
-    name: "Soverom høyre",
+    name: "Soverom Edvard",
     lights: [l("soverom_hoyre_takpunkt", "Taklys")],
     climate: "climate.varme_soverom_hoyre",
     humidity: "sensor.soverom_hoyre_fukt",
   },
   {
     id: "bad-stort", floor: 1,
-    name: "Bad stort",
+    speakers: sp("hovedbad"),
+    name: "Hovedbad",
     lights: [l("bad_stort_ut_og_kap", "Lys"), l("bad_stort_led_badekar_og_dusj", "LED badekar og dusj"), l("bad_stort_led_speil", "LED speil")],
     climate: "climate.varme_bad_stort",
     humidity: "sensor.bad_stort_fukt",
@@ -149,7 +160,8 @@ export const ROOMS: RoomConfig[] = [
   },
   {
     id: "bad-lite", floor: 1,
-    name: "Bad lite",
+    speakers: sp("guttas_bad"),
+    name: "Guttas bad",
     lights: [l("bad_lite_ut", "Lys"), l("bad_lite_led_badekar", "LED badekar"), l("bad_lite_led_speil", "LED speil")],
     climate: "climate.varme_bad_lite",
     humidity: "sensor.bad_lite_fukt",
@@ -157,7 +169,8 @@ export const ROOMS: RoomConfig[] = [
   },
   {
     id: "toalett", floor: 1,
-    name: "Toalett",
+    speakers: sp("wc"),
+    name: "WC",
     lights: [l("toalett_kap", "Lys")],
     climate: "climate.varme_toalett",
     humidity: "sensor.toalett_fukt",
@@ -166,14 +179,25 @@ export const ROOMS: RoomConfig[] = [
   { id: "vaskerom", floor: 1, name: "Vaskerom", lights: [l("vaskerom_kap", "Lys")], climate: "climate.varme_vaskerom", humidity: "sensor.vaskerom_fukt", covers: [c("persienne_vaskerom", "Vaskerom")] },
   { id: "teknisk", floor: 1, name: "Teknisk rom", lights: [l("teknisk_lux", "Lys")] },
   {
-    id: "terrasse",
-    name: "Terrasse og tak",
+    // Den store terrassen ved stua og kjøkkenet, over kontoret og vaskerommet i 1. etasje.
+    id: "takterrasse",
+    name: "Takterrasse",
     outdoor: true,
-    lights: [l("terrasse_utelys", "Utelys terrasse"), l("tak_terrasse_utelys", "Utelys takterrasse"), l("terrasse_terrasse", "Terrasse (Hue)"), l("taket_taket", "Taket (Hue)")],
+    lights: [l("tak_terrasse_utelys", "Utelys"), l("taket_taket", "Taket (Hue)")],
+    speakers: sp("taket"),
+  },
+  {
+    // Ved spisestua (på plantegningen: balkong).
+    id: "terrasse",
+    name: "Terrasse",
+    outdoor: true,
+    lights: [l("terrasse_utelys", "Utelys"), l("terrasse_terrasse", "Terrasse (Hue)")],
     covers: [c("persienne_felles_terrasse", "Alle på terrassen")],
+    speakers: sp("terrassen"),
   },
   {
     id: "ute",
+    speakers: sp("garasjen"),
     name: "Hage og inngang",
     outdoor: true,
     lights: [
@@ -197,7 +221,8 @@ export const SHARED_COVERS: RoomLight[] = [c("persienne_felles_alle_stue_kjok_sp
 
 /** Scener fra disse Hue-gruppene ute hører til rommene over. */
 export const OUTDOOR_SCENE_PREFIXES: Record<string, string[]> = {
-  terrasse: ["terrasse_terrasse", "taket_taket"],
+  takterrasse: ["taket_taket"],
+  terrasse: ["terrasse_terrasse"],
   ute: ["snuplassen_snuplassen", "skog_sor_skog_sor", "bedd_vest_bedd_vest", "ute_vv11b_ute_vv11b"],
 };
 

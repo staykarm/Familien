@@ -60,6 +60,7 @@ Slik tolker du beskjeder:
 - Når du starter musikk, gjør det i ett kall: ta med volume i samme kall hvis volum er nevnt (det settes før musikken starter). Rommet tas automatisk ut av en gruppe med andre rom, så du trenger ikke group_speakers først.
 - Gjør bare det som er bedt om. Er beskjeden uklar eller finnes ikke rommet/enheten, spør kort eller si fra, i stedet for å gjette.
 - Du kan ikke styre dører, låser, alarmer eller noe som ikke står i oversikten.
+- Får du med «FAMILIEN» (kalender, levering og henting, oppgaver, handleliste), kan du svare på spørsmål om det («hva skjer i morgen?», «hvem henter Olav?»). Du kan ikke endre det; si fra at det gjøres i appen.
 
 Svar alltid på norsk (bokmål), kort, én eller to setninger, og si hva du gjorde: «Slo av 4 lys i stua.» Ingen lister, ingen markdown.`;
 
@@ -492,7 +493,7 @@ function speakerUndo(ctx: Context, id: string): UndoItem {
  * Kjører én beskjed: Claude får oversikten over huset og samtalen så langt, og bruker verktøyene til den er ferdig.
  * `history` er tidligere beskjeder og svar (bare tekst), så man kan følge opp («og på kjøkkenet også»).
  */
-export async function askHouse(history: AgentTurn[], text: string, presets: Context["presets"]): Promise<AgentResult> {
+export async function askHouse(history: AgentTurn[], text: string, presets: Context["presets"], family?: string): Promise<AgentResult> {
   const states = await getStates();
   const ctx: Context = { home: toHome(states), speakers: toSpeakers(states), robots: toRobots(states), watering: toWatering(states), presets, actions: [], undo: [] };
   const overview = describeHome(ctx.home, ctx.speakers, presets, ctx.robots, ctx.watering);
@@ -500,7 +501,7 @@ export async function askHouse(history: AgentTurn[], text: string, presets: Cont
   const client = new Anthropic({ apiKey: serverEnv("ANTHROPIC_API_KEY") });
   const messages: Anthropic.MessageParam[] = [
     ...history.map((t) => ({ role: t.role, content: t.text })),
-    { role: "user", content: `Slik er huset nå:\n${overview}\n\nBeskjed: ${text}` },
+    { role: "user", content: `Slik er huset nå:\n${overview}${family ? `\n\nFAMILIEN:\n${family}` : ""}\n\nBeskjed: ${text}` },
   ];
 
   let reply = "";

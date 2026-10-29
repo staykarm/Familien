@@ -37,3 +37,9 @@ export function HouseSummaryCard({ summary }: { summary: HouseSummary }) {
 /** «Si det»: hvor beskjeden skal, og svaret når den gjaldt huset. */
 export { routeVoiceText } from "@/actions/huset";
 export { HouseVoiceReply } from "./HouseVoiceReply";
+
+/** Dashboardet: Huset i små biter, hele fanene som undersider og «Spør» med familien i tillegg. */
+export { HousePage, type HouseTab } from "./HousePage";
+export { HouseAgent } from "./HouseAgent";
+export { HouseMiniMap, HouseNowPlaying, HouseQuickLights, HouseStatusList, useHouseLive, type HouseLive } from "./DashboardHouse";
+export type { StatusArea } from "@/lib/huset/dashboard";

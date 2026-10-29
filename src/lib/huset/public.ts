@@ -24,3 +24,6 @@ export async function loadHouseSummary(): Promise<HouseSummary | null> {
     return null;
   }
 }
+
+/** Dashboardet: tilstanden i huset, faste grupper og Spotify, og «Spør» (med familien som ekstra tekst). */
+export { askHouse, loadHouse, loadHouseSetup, type HouseData, type HouseSetup } from "@/actions/huset";

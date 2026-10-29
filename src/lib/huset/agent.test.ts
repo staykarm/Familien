@@ -159,3 +159,13 @@ describe("roboter", () => {
     expect(JSON.stringify(requests[0].messages.at(-1))).toContain("Støve 2 [vacuum.stove_2] støvsuger");
   });
 });
+
+describe("familien", () => {
+  it("tar med kalender og henting når dashboardet sender dem, og styrer ingenting for et spørsmål", async () => {
+    script = [done("I morgen har Edvard tannlege kl. 08.10, og Marius leverer og henter.")];
+    const res = await askHouse([], "hva skjer i morgen?", [], "I MORGEN: 08:10 Tannlege (Edvard). Levering og henting: Marius.");
+    expect(calls).toEqual([]);
+    expect(res.reply).toContain("tannlege");
+    expect(JSON.stringify(requests[0].messages.at(-1))).toContain("FAMILIEN:\\nI MORGEN: 08:10 Tannlege (Edvard)");
+  });
+});

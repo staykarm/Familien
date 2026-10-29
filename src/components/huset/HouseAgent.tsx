@@ -53,7 +53,16 @@ function MicButton({ onText, disabled }: { onText: (text: string) => void; disab
  * «Spør huset»: skriv eller si hva du vil («skru av alt lyset i stua», «dim 1. etasje til 30 %»).
  * Claude gjør det med de samme sjekkene som knappene, og hvert svar har «Angre».
  */
-export function HouseAgent({ onChanged }: { onChanged: () => void }) {
+export function HouseAgent({
+  onChanged,
+  ask = askHouse,
+  placeholder = "Spør huset, f.eks. «skru av lyset i stua»",
+}: {
+  onChanged: () => void;
+  /** Dashboardet sender med det familien har i dag og i morgen (`askDashboard`). */
+  ask?: typeof askHouse;
+  placeholder?: string;
+}) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState<Exchange[]>([]);
@@ -79,7 +88,7 @@ export function HouseAgent({ onChanged }: { onChanged: () => void }) {
     setText("");
     setBusy(true);
     setLog((l) => [...l.slice(-2), { id, text: clean, reply: null, actions: [], undo: [], undone: false, error: false }]);
-    const res = await askHouse(clean, history).catch(() => ({ ok: false as const, message: "Fikk ikke kontakt med Huset." }));
+    const res = await ask(clean, history).catch(() => ({ ok: false as const, message: "Fikk ikke kontakt med Huset." }));
     setBusy(false);
     setLog((l) =>
       l.map((x) =>
@@ -116,7 +125,7 @@ export function HouseAgent({ onChanged }: { onChanged: () => void }) {
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Spør huset, f.eks. «skru av lyset i stua»"
+          placeholder={placeholder}
           aria-label="Hva vil du at huset skal gjøre?"
           enterKeyHint="send"
           maxLength={500}

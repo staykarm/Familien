@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { Pencil, Plus, X } from "lucide-react";
 import {
+  controlHome,
   controlSpeaker,
   deleteHouseGroup,
   loadHouse,
@@ -17,7 +18,10 @@ import {
 import { card } from "@/components/ui/styles";
 import { useUndo } from "@/components/ui/UndoToast";
 import { groupName, isMoved, moveSpeaker, type Speaker, type SpeakerGroup } from "@/lib/huset/sonos";
-import type { SpeakerCommand } from "@/lib/validation/huset";
+import type { HomeCommand, SpeakerCommand } from "@/lib/validation/huset";
+import { CoversTab } from "./CoversTab";
+import { HeatTab } from "./HeatTab";
+import { LightsTab } from "./LightsTab";
 import { MusicSheet } from "./MusicSheet";
 import { PresetSheet, type PresetDraft } from "./PresetSheet";
 import { RoomList } from "./RoomList";
@@ -54,11 +58,21 @@ function applyOverrides(groups: SpeakerGroup[], overrides: Overrides): SpeakerGr
   return groups.map((g) => ({ leader: fix(g.leader), speakers: g.speakers.map(fix) }));
 }
 
+type Tab = "musikk" | "lys" | "varme" | "persienner";
+const TABS: { id: Tab; label: string }[] = [
+  { id: "musikk", label: "🎵 Musikk" },
+  { id: "lys", label: "💡 Lys" },
+  { id: "varme", label: "🌡️ Varme" },
+  { id: "persienner", label: "🪟 Persienner" },
+];
+const TAB_KEY = "familien.huset.fane";
+
 const NEW_PRESET: PresetDraft = { name: "", speakerIds: [], spotifyUrl: null, spotifyName: null, volume: null };
 
-/** Huset: Sonos per rom som en liste, faste grupper øverst. Oppdateres hvert 4. sekund mens siden er synlig. */
+/** Huset: faner for musikk (Sonos), lys, varme og persienner. Oppdateres hvert 4. sekund mens siden er synlig. */
 export function HousePage({ initial, setup: initialSetup, notice }: { initial: HouseData; setup: HouseSetup; notice: string | null }) {
   const [data, setData] = useState(initial);
+  const [tab, setTab] = useState<Tab>("musikk");
   const [setup, setSetup] = useState(initialSetup);
   const [overrides, setOverrides] = useState<Overrides>({});
   const [message, setMessage] = useState<string | null>(notice ? (SPOTIFY_NOTICE[notice] ?? null) : null);
@@ -114,6 +128,41 @@ export function HousePage({ initial, setup: initialSetup, notice }: { initial: H
   useEffect(() => {
     if (notice) window.history.replaceState(null, "", "/huset");
   }, [notice]);
+
+  // Husk fanen på denne enheten.
+  useEffect(() => {
+    let saved: string | null = null;
+    try {
+      saved = localStorage.getItem(TAB_KEY);
+    } catch {
+      // Lagring er av (privat modus).
+    }
+    if (!saved || !TABS.some((t) => t.id === saved)) return;
+    const frame = requestAnimationFrame(() => setTab(saved as Tab));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  function chooseTab(next: Tab) {
+    setTab(next);
+    try {
+      localStorage.setItem(TAB_KEY, next);
+    } catch {
+      // Ikke viktig om det ikke huskes.
+    }
+  }
+
+  /** Lys, varme og persienner: kjør handlingen, vent litt og hent ny tilstand før endringen slippes. */
+  async function runHome(cmd: HomeCommand) {
+    confirming.current++;
+    try {
+      const result = await controlHome(cmd);
+      setMessage(result.ok ? null : (result.message ?? "Det virket ikke"));
+      await new Promise((r) => setTimeout(r, SETTLE_MS));
+      setData(await loadHouse());
+    } finally {
+      confirming.current--;
+    }
+  }
 
   /** Etter en handling: vis eventuell beskjed, vent litt og hent ny tilstand. */
   async function settle(result: HouseResult) {
@@ -210,6 +259,30 @@ export function HousePage({ initial, setup: initialSetup, notice }: { initial: H
     <div className="flex flex-col gap-4 pb-16 md:pb-0">
       <div className="flex items-center justify-between gap-3">
         <h1 className="font-display text-xl font-bold sm:text-2xl lg:text-3xl">🏠 Huset</h1>
+        {data.home.outdoorTemp !== null && (
+          <span className="text-sm text-ink-light">
+            Ute <span className="font-bold text-ink">{data.home.outdoorTemp.toLocaleString("nb-NO", { maximumFractionDigits: 1 })}°</span>
+          </span>
+        )}
+      </div>
+
+      <div className="-mx-3 overflow-x-clip px-3 md:mx-0 md:px-0">
+        <div className="chip-row" role="tablist" aria-label="Velg hva du vil styre">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.id}
+              onClick={() => chooseTab(t.id)}
+              className={`min-h-12 rounded-full border-2 px-5 text-sm font-bold transition ${
+                tab === t.id ? "border-primary bg-primary-soft text-primary-dark" : "border-line bg-card"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {!data.ok && (
@@ -224,7 +297,11 @@ export function HousePage({ initial, setup: initialSetup, notice }: { initial: H
         </p>
       )}
 
-      {data.ok && (
+      {data.ok && tab === "lys" && <LightsTab home={data.home} run={runHome} />}
+      {data.ok && tab === "varme" && <HeatTab home={data.home} run={runHome} />}
+      {data.ok && tab === "persienner" && <CoversTab home={data.home} run={runHome} />}
+
+      {data.ok && tab === "musikk" && (
         <>
           {/* chip-row går helt ut til skjermkanten på telefon; rammen her hindrer sidelengs rulling av hele siden. */}
           <div className="-mx-3 overflow-x-clip px-3 md:mx-0 md:px-0">

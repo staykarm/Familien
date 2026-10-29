@@ -64,11 +64,11 @@ export function VolumeSlider({
   onVolume: (id: string, volume: number, send: boolean) => void;
   showName?: boolean;
 }) {
-  const lastSent = useRef(0);
-  // `at` er tidspunktet for hendelsen (event.timeStamp).
+  const lastSent = useRef({ at: 0, value: NaN });
+  // `at` er tidspunktet for hendelsen (event.timeStamp). Samme verdi sendes ikke to ganger.
   function slide(volume: number, at: number, final: boolean) {
-    const send = final || at - lastSent.current > SEND_EVERY_MS;
-    if (send) lastSent.current = at;
+    const send = volume !== lastSent.current.value && (final || at - lastSent.current.at > SEND_EVERY_MS);
+    if (send) lastSent.current = { at, value: volume };
     onVolume(speaker.id, volume, send);
   }
   return (
@@ -82,12 +82,79 @@ export function VolumeSlider({
         max={100}
         value={speaker.volume ?? 0}
         disabled={speaker.volume === null}
-        onChange={(e) => slide(Number(e.target.value), e.timeStamp, false)}
+        onPointerDown={() => (lastSent.current = { at: 0, value: NaN })}
+        onKeyDown={() => (lastSent.current = { at: 0, value: NaN })}
+      onChange={(e) => slide(Number(e.target.value), e.timeStamp, false)}
         onPointerUp={(e) => slide(Number(e.currentTarget.value), e.timeStamp, true)}
         onKeyUp={(e) => slide(Number(e.currentTarget.value), e.timeStamp, true)}
         className="h-9 min-w-0 flex-1 accent-primary"
       />
       <span className="w-7 shrink-0 text-right text-sm tabular-nums text-ink-light">{speaker.volume ?? "–"}</span>
     </label>
+  );
+}
+
+/**
+ * Glidebryter som sender verdien jevnlig mens man drar (hvert 300. ms) og når man slipper.
+ * `send` er true når verdien skal sendes; ellers skal den bare vises.
+ */
+export function Range({
+  value,
+  min = 0,
+  max = 100,
+  step = 1,
+  disabled,
+  label,
+  onChange,
+  className = "",
+}: {
+  value: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  disabled?: boolean;
+  label: string;
+  onChange: (value: number, send: boolean) => void;
+  className?: string;
+}) {
+  const lastSent = useRef({ at: 0, value: NaN });
+  function slide(v: number, at: number, final: boolean) {
+    const send = v !== lastSent.current.value && (final || at - lastSent.current.at > SEND_EVERY_MS);
+    if (send) lastSent.current = { at, value: v };
+    onChange(v, send);
+  }
+  return (
+    <input
+      type="range"
+      aria-label={label}
+      min={min}
+      max={max}
+      step={step}
+      value={value}
+      disabled={disabled}
+      onPointerDown={() => (lastSent.current = { at: 0, value: NaN })}
+      onKeyDown={() => (lastSent.current = { at: 0, value: NaN })}
+      onChange={(e) => slide(Number(e.target.value), e.timeStamp, false)}
+      onPointerUp={(e) => slide(Number(e.currentTarget.value), e.timeStamp, true)}
+      onKeyUp={(e) => slide(Number(e.currentTarget.value), e.timeStamp, true)}
+      className={`h-9 min-w-0 flex-1 accent-primary disabled:opacity-40 ${className}`}
+    />
+  );
+}
+
+/** Av/på-bryter. */
+export function Toggle({ on, onChange, label, disabled }: { on: boolean; onChange: (on: boolean) => void; label: string; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onChange(!on)}
+      className={`relative h-8 w-14 shrink-0 rounded-full transition disabled:opacity-40 ${on ? "bg-primary" : "bg-line"}`}
+    >
+      <span className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow transition-all ${on ? "left-7" : "left-1"}`} />
+    </button>
   );
 }

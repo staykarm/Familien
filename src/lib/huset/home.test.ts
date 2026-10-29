@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lightsOn, stepTarget, toHome } from "./home";
+import { lightsOn, roomBrightness, stepTarget, toHome, type Light } from "./home";
 import type { RoomConfig } from "./rooms";
 
 const s = (entity_id: string, state: string, attributes: Record<string, unknown> = {}) => ({ entity_id, state, attributes });
@@ -78,5 +78,17 @@ describe("stepTarget", () => {
     expect(stepTarget(climate, -0.5)).toBe(22.5);
     expect(stepTarget({ ...climate, target: 23 }, 0.5)).toBe(23);
     expect(stepTarget({ ...climate, target: null }, 0.5)).toBeNull();
+  });
+});
+
+describe("roomBrightness", () => {
+  const light = (on: boolean, brightness: number | null, dimmable = true): Light => ({
+    id: "light.x", name: "x", on, available: true, brightness, dimmable, kelvin: null,
+  });
+
+  it("tar snittet av lysene som er på, og gir 0 når alt er av", () => {
+    expect(roomBrightness([light(true, 20), light(true, 60), light(false, 0)])).toBe(40);
+    expect(roomBrightness([light(false, 0), light(false, 0)])).toBe(0);
+    expect(roomBrightness([light(true, null, false)])).toBe(100);
   });
 });

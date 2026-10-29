@@ -200,3 +200,10 @@ export function stepTarget(climate: Climate, delta: number): number | null {
   const next = Math.round((climate.target + delta) * 2) / 2;
   return Math.min(climate.max, Math.max(climate.min, next));
 }
+
+/** Lysstyrken for et helt rom: snittet av lysene som er på og kan dimmes (0 når alt er av). */
+export function roomBrightness(lights: Light[]): number {
+  const on = lights.filter((x) => x.available && x.on && x.dimmable && x.brightness !== null);
+  if (!on.length) return lights.some((x) => x.available && x.on) ? 100 : 0;
+  return Math.round(on.reduce((sum, x) => sum + (x.brightness ?? 0), 0) / on.length);
+}

@@ -49,6 +49,8 @@ export const homeCommandSchema = z.discriminatedUnion("action", [
   }),
   /** Slå av flere lys på én gang (et rom, utelys eller hele huset). */
   z.object({ action: z.literal("lights_off"), ids: z.array(entityOf("light")).min(1).max(200) }),
+  /** Slå på flere lys (et rom), eventuelt med samme lysstyrke på alle som kan dimmes. */
+  z.object({ action: z.literal("lights_on"), ids: z.array(entityOf("light")).min(1).max(200), brightness: z.number().int().min(1).max(100).optional() }),
   z.object({ action: z.literal("scene"), id: entityOf("scene") }),
   /** Ønsket temperatur, i halve grader. */
   z.object({ action: z.literal("climate"), id: entityOf("climate"), temperature: z.number().min(5).max(30).multipleOf(0.5) }),

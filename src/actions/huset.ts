@@ -110,7 +110,7 @@ export async function controlHome(input: HomeCommand): Promise<HouseResult> {
   const cmd = parsed.data;
   try {
     const states = new Map((await getStates()).map((s) => [s.entity_id, s]));
-    const ids = cmd.action === "lights_off" ? cmd.ids : [cmd.id];
+    const ids = cmd.action === "lights_off" || cmd.action === "lights_on" ? cmd.ids : [cmd.id];
     const known = ids.filter((id) => states.has(id) && states.get(id)!.state !== "unavailable");
     if (!known.length) return { ok: false, message: "Fant ikke enheten, eller den svarer ikke" };
     const entity_id = known[0];
@@ -128,6 +128,18 @@ export async function controlHome(input: HomeCommand): Promise<HouseResult> {
       case "lights_off":
         await callService("light", "turn_off", { entity_id: known });
         break;
+      case "lights_on": {
+        // Lys som bare kan slås av og på, får ikke lysstyrke (Home Assistant avviser det).
+        const dimmable = known.filter((id) => {
+          const modes = states.get(id)!.attributes.supported_color_modes;
+          return Array.isArray(modes) && modes.some((m) => m !== "onoff");
+        });
+        const plain = known.filter((id) => !dimmable.includes(id));
+        if (cmd.brightness !== undefined && dimmable.length) await callService("light", "turn_on", { entity_id: dimmable, brightness_pct: cmd.brightness });
+        const rest = cmd.brightness !== undefined ? plain : known;
+        if (rest.length) await callService("light", "turn_on", { entity_id: rest });
+        break;
+      }
       case "scene":
         await callService("scene", "turn_on", { entity_id });
         break;

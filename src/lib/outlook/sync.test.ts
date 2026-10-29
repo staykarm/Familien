@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { DateTime } from "luxon";
+import { TIME_ZONE } from "@/lib/time";
 
 /**
  * Kjører hele synken mot en enkel database i minnet og en falsk Microsoft Graph,
@@ -102,10 +104,10 @@ let changeCounter = 0;
 const ck = () => `ck-${++changeCounter}`;
 
 function toUtcParts(t: { dateTime: string; timeZone: string }) {
-  // Testene sender bare Oslo-tid om høsten (UTC+2).
+  // Appen sender Oslo-tid. Regn om med riktig forskyvning for datoen (sommer- eller vintertid).
   if (t.timeZone === "UTC") return t;
-  const d = new Date(`${t.dateTime}+02:00`);
-  return { dateTime: d.toISOString().slice(0, 19), timeZone: "UTC" };
+  const d = DateTime.fromISO(t.dateTime, { zone: TIME_ZONE }).toUTC();
+  return { dateTime: d.toISO({ includeOffset: false, suppressMilliseconds: true })!.slice(0, 19), timeZone: "UTC" };
 }
 
 vi.stubGlobal("fetch", async (input: string, init: { method?: string; body?: string } = {}) => {

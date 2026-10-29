@@ -49,6 +49,15 @@ Arkitektur og faser står i README. Marius godkjenner hver fase før den startes
 - Varsler fra server actions sendes med funksjonene i `lib/push/notify.ts`. De kjører etter svaret (`after()`) og stopper aldri selve handlingen. Den som gjorde endringen (`activeMember`), får ikke varsel.
 - Varsler på tid (påminnelser, levering/henting, morgen) ligger i `lib/push/jobs.ts` og regnes ut per enhet. De kalles fra `/api/cron/push` hvert 5. minutt (Supabase `pg_cron`). `push_log` sørger for at hvert varsel bare sendes én gang per enhet.
 
+## Huset (Home Assistant)
+- «Huset» (`/huset`, i menyen ved Innstillinger) styrer musikk (Sonos) via Home Assistant. Lys, varme og persienner kommer i senere faser.
+- Huset er bygd for å kunne flyttes til en egen app senere. Koden ligger samlet i `app/(app)/huset/`, `components/huset/`, `lib/huset/`, `actions/huset.ts` og `app/api/huset/`, og bruker bare `requireFamily`, `lib/env` og UI-stilene fra resten av Familien. Resten av Familien skal ikke importere fra Huset, bortsett fra en eventuell `lib/huset/public.ts`.
+- Bare serveren snakker med Home Assistant (`lib/huset/ha.ts`, `HA_URL` + `HA_TOKEN`). Tokenet tilhører HA-brukeren «Familien-appen», som ikke er administrator. Cover-bilder går via `/api/huset/cover/[id]`.
+- Styring er lov overalt, så lenge appen er låst opp. Server actions sjekker at høyttaleren finnes i Home Assistant før de kaller en tjeneste.
+- Siden henter tilstanden hvert 4. sekund mens den er synlig. Egne endringer (volum, spill/pause) vinner i 3 sekunder, så glidebryteren ikke hopper.
+- Sonos-favoritter er kildene (`source_list`) på høyttaleren og spilles med `select_source`.
+- Huset har eget manifest (`/api/huset/manifest`), så det kan legges på hjemskjermen som en egen app.
+
 ## Lagring
 - Handleliste, oppgaver og notater lagres automatisk mens man skriver, som i iOS Notater. Dialogene har ingen «Lagre»-knapp, bare «Ferdig» som lukker etter at siste endring er lagret. Bruk `useAutosave` (`components/useAutosave.ts`, logikken ligger i `lib/autosave.ts`).
 - Unntak: forslag som skal godkjennes (Les inn fil) og kalenderaktiviteter, siden de synkes til Outlook.

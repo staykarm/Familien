@@ -57,6 +57,19 @@ export const homeCommandSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("cover"), id: entityOf("cover"), command: z.enum(["open", "close", "stop"]) }),
   /** Posisjon 0–100 (0 = nede, 100 = oppe). */
   z.object({ action: z.literal("cover_position"), id: entityOf("cover"), position: z.number().int().min(0).max(100) }),
+  /** Støvsuger eller gressklipper: start, pause, hjem til laderen, eller «finn meg» (bare støvsuger). */
+  z.object({
+    action: z.literal("robot"),
+    id: z.string().regex(/^(vacuum|lawn_mower)\.[a-z0-9_]+$/, "Ukjent robot"),
+    command: z.enum(["start", "pause", "home", "locate"]),
+  }),
+  /** Vanning: åpne en ventil (eventuelt med vanningstid i minutter), eller stenge den. */
+  z.object({
+    action: z.literal("valve"),
+    id: entityOf("valve"),
+    command: z.enum(["open", "close"]),
+    minutes: z.number().int().min(1).max(240).optional(),
+  }),
 ]);
 
 export type HomeCommand = z.input<typeof homeCommandSchema>;

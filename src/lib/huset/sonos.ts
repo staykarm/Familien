@@ -168,3 +168,23 @@ export function isMoved(groups: SpeakerGroup[], speakerId: string, to: string | 
   if (!group) return true;
   return to === null ? group.speakers.length === 1 : group.speakers.some((s) => s.id === to);
 }
+
+/** Grupperingen etter at `ids` er tatt ut og spiller hver for seg (uten å vente på at Sonos melder det). */
+export function withUnjoined(speakers: Speaker[], ids: string[]): Speaker[] {
+  const out = new Set(ids);
+  return speakers.map((s) => {
+    if (out.has(s.id)) return { ...s, groupMembers: [s.id] };
+    const left = s.groupMembers.filter((id) => !out.has(id));
+    return left.length === s.groupMembers.length ? s : { ...s, groupMembers: left.length ? left : [s.id] };
+  });
+}
+
+/** Grupperingen etter at `members` er koblet til `leader` (og har forlatt gruppene de var i). */
+export function withJoined(speakers: Speaker[], leader: string, members: string[]): Speaker[] {
+  const joined = members.filter((id) => id !== leader);
+  const base = withUnjoined(speakers, joined);
+  const own = base.find((s) => s.id === leader)?.groupMembers ?? [leader];
+  const group = [leader, ...own.filter((id) => id !== leader), ...joined.filter((id) => !own.includes(id))];
+  const inGroup = new Set(group);
+  return base.map((s) => (inGroup.has(s.id) ? { ...s, groupMembers: group } : s));
+}

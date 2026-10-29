@@ -55,6 +55,16 @@ function CoverRow({ cover, room, pending, run }: { cover: Cover; room?: string; 
   );
 }
 
+/** Én persienne (brukes i arket fra kartet). */
+export function CoverLine({ cover, run }: { cover: Cover; run: Props["run"] }) {
+  const pending = usePending<Cover>();
+  return (
+    <ul>
+      <CoverRow cover={cover} pending={pending} run={run} />
+    </ul>
+  );
+}
+
 /** Persienner i én liste: felles styring først, så rom for rom. */
 export function CoversTab({ home, run }: Props) {
   const pending = usePending<Cover>();

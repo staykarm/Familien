@@ -17,7 +17,7 @@ const rooms: RoomConfig[] = [
     humidity: "sensor.stue_fukt",
     covers: [{ id: "cover.persienne_stue", name: "Stue" }],
   },
-  { id: "terrasse", name: "Ute", outdoor: true, lights: [{ id: "light.taket_taket", name: "Taket" }] },
+  { id: "ute", name: "Ute", outdoor: true, lights: [{ id: "light.taket_taket", name: "Taket" }] },
 ];
 
 const states = [
@@ -32,8 +32,8 @@ const states = [
   s("scene.stue_stue_dimmet", "unknown", { friendly_name: "Stue Dimmet", group_name: "Stue" }),
   s("scene.stue_stue_ny_scene", "unknown", { name: "Ny scene" }),
   s("scene.stue_stue_ny_scene_2", "unknown", { name: "Ny scene" }),
-  s("scene.taket_taket_kveld", "unknown", { name: "Taket Kveld", group_name: "Taket" }),
-  s("scene.terrasse_terrasse_kveld", "unknown", { name: "kveld", group_name: "Terrasse" }),
+  s("scene.snuplassen_snuplassen_kveld", "unknown", { name: "Snuplassen Kveld", group_name: "Snuplassen" }),
+  s("scene.skog_sor_skog_sor_kveld", "unknown", { name: "kveld", group_name: "Skog Sør" }),
   s("climate.varme_stue", "heat", { current_temperature: 22.2, temperature: 22.8, min_temp: 5, max_temp: 30, hvac_action: "heating" }),
   s("sensor.stue_fukt", "41.0"),
   s("cover.persienne_stue", "open", { current_position: 100 }),
@@ -56,7 +56,7 @@ describe("toHome", () => {
     expect(stue.covers).toEqual([{ id: "cover.persienne_stue", name: "Stue", available: true, position: 100, moving: null }]);
     expect(home.outdoorTemp).toBe(5.21);
     // Flere Hue-grupper i samme rom: gruppenavnet står foran, så like scenenavn ikke slås sammen.
-    expect(home.rooms[1].scenes.map((x) => x.name)).toEqual(["Taket: Kveld", "Terrasse: Kveld"]);
+    expect(home.rooms[1].scenes.map((x) => x.name)).toEqual(["Skog Sør: Kveld", "Snuplassen: Kveld"]);
   });
 
   it("legger ukjente lys i «Andre lys», men ikke Hue-grupper, lys i en gruppe i kartet eller lys som ikke svarer", () => {

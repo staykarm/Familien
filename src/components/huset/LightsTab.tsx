@@ -155,6 +155,16 @@ function RoomCard({ room, pending, open, onOpen }: { room: Room; pending: Pendin
   );
 }
 
+/** Lysene i ett rom, åpent (brukes i arket fra kartet). */
+export function RoomLightsPanel({ room, run }: { room: Room; run: Props["run"] }) {
+  const pending = { ...usePending<Light>(), run };
+  return (
+    <ul>
+      <RoomCard room={room} pending={pending} open onOpen={() => undefined} />
+    </ul>
+  );
+}
+
 /** Lys per rom: hovedlinjen styrer hele rommet; pila åpner scener og hvert enkelt lys. */
 export function LightsTab({ home, run }: Props) {
   const pending = { ...usePending<Light>(), run };

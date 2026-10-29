@@ -4,7 +4,11 @@ import { z } from "zod";
 import { askHouse as runHouseAgent, undoHouse as runHouseUndo, type AgentResult, type AgentTurn } from "@/lib/huset/agent";
 import type { UndoItem } from "@/lib/huset/agentTargets";
 import { callService, getStates, haConfigured, HaError } from "@/lib/huset/ha";
+import { voiceTarget } from "@/lib/huset/intentAi";
 import { toHome, type HomeState } from "@/lib/huset/home";
+import { robotService } from "@/lib/huset/robotControl";
+import { toRobots, type Robot } from "@/lib/huset/robots";
+import { toWatering, type Watering } from "@/lib/huset/watering";
 import type { MusicItem, SearchResult } from "@/lib/huset/music";
 import { membersToRemove, pickLeader, toGroups, toSpeakers, type Speaker, type SpeakerGroup } from "@/lib/huset/sonos";
 import {
@@ -37,10 +41,15 @@ export interface HouseData {
   groups: SpeakerGroup[];
   /** Lys, varme og persienner per rom. */
   home: HomeState;
+  /** Støvsugere og gressklippere. */
+  robots: Robot[];
+  /** Vanningsanlegget (Gardena). */
+  watering: Watering;
   updatedAt: string;
 }
 
 const EMPTY_HOME: HomeState = { rooms: [], sharedCovers: [], outdoorTemp: null };
+const NO_WATERING: Watering = { valves: [], sensors: [] };
 
 export interface HouseResult {
   ok: boolean;
@@ -96,13 +105,13 @@ export async function loadHouse(): Promise<HouseData> {
   await requireFamily();
   const updatedAt = new Date().toISOString();
   if (!haConfigured()) {
-    return { ok: false, message: "Home Assistant er ikke koblet til ennå (HA_URL og HA_TOKEN mangler).", groups: [], home: EMPTY_HOME, updatedAt };
+    return { ok: false, message: "Home Assistant er ikke koblet til ennå (HA_URL og HA_TOKEN mangler).", groups: [], home: EMPTY_HOME, robots: [], watering: NO_WATERING, updatedAt };
   }
   try {
     const states = await getStates();
-    return { ok: true, groups: toGroups(toSpeakers(states)), home: toHome(states), updatedAt };
+    return { ok: true, groups: toGroups(toSpeakers(states)), home: toHome(states), robots: toRobots(states), watering: toWatering(states), updatedAt };
   } catch (e) {
-    return { ok: false, message: failure(e), groups: [], home: EMPTY_HOME, updatedAt };
+    return { ok: false, message: failure(e), groups: [], home: EMPTY_HOME, robots: [], watering: NO_WATERING, updatedAt };
   }
 }
 
@@ -156,6 +165,25 @@ export async function controlHome(input: HomeCommand): Promise<HouseResult> {
       case "cover_position":
         await callService("cover", "set_cover_position", { entity_id, position: cmd.position });
         break;
+      case "valve": {
+        if (cmd.command === "close") {
+          await callService("valve", "close_valve", { entity_id });
+          break;
+        }
+        // Vanningstiden ligger i Gardena; settes den, brukes den når ventilen åpnes.
+        const valve = toWatering([...states.values()]).valves.find((v) => v.id === entity_id);
+        if (cmd.minutes !== undefined && valve?.durationId) {
+          await callService("number", "set_value", { entity_id: valve.durationId, value: cmd.minutes });
+        }
+        await callService("valve", "open_valve", { entity_id });
+        break;
+      }
+      case "robot": {
+        const service = robotService(entity_id, cmd.command);
+        if (!service) return { ok: false, message: "Det kan ikke den roboten" };
+        await callService(service.domain, service.service, { entity_id });
+        break;
+      }
     }
     return { ok: true };
   } catch (e) {
@@ -415,4 +443,12 @@ export async function undoHouse(items: UndoItem[]): Promise<HouseResult> {
   } catch (e) {
     return { ok: false, message: failure(e) };
   }
+}
+
+/** «Si det»: skal beskjeden til «Spør huset» eller til «Les inn fil»? Uten Home Assistant går alt til «Les inn fil». */
+export async function routeVoiceText(text: string): Promise<"house" | "family"> {
+  await requireFamily();
+  const parsed = z.string().trim().min(2).max(2000).safeParse(text);
+  if (!parsed.success || !haConfigured()) return "family";
+  return voiceTarget(parsed.data);
 }

@@ -16,8 +16,11 @@ import {
 } from "./agentTargets";
 import { callService, getStates, type HaState } from "./ha";
 import { stepTarget, toHome, type HomeState } from "./home";
+import { robotService } from "./robotControl";
+import { toRobots, type Robot } from "./robots";
+import { DEFAULT_MINUTES, toWatering, type Watering } from "./watering";
 import { searchSpotify, spotifyConfigured } from "./spotify";
-import { membersToRemove, pickLeader, toGroups, toSpeakers, type Speaker } from "./sonos";
+import { membersToRemove, pickLeader, toGroups, toSpeakers, withJoined, withUnjoined, type Speaker } from "./sonos";
 
 // «Spør huset»: Claude tolker en beskjed («skru av lyset i stua») og bruker verktøyene under.
 // Verktøyene styrer bare det som finnes i Huset (romkartet og Sonos), med de samme sjekkene som knappene.
@@ -45,7 +48,7 @@ export interface PresetLite {
   speakerIds: string[];
 }
 
-const SYSTEM = `Du er «Huset», en hjelper som styrer huset til en norsk familie: lys, varme, persienner og musikk (Sonos).
+const SYSTEM = `Du er «Huset», en hjelper som styrer huset til en norsk familie: lys, varme, persienner, musikk (Sonos), roboter (støvsugere og gressklippere) og vanning (Gardena).
 Du får en oversikt over huset akkurat nå, og en beskjed fra noen i familien (skrevet eller sagt). Bruk verktøyene for å gjøre det de ber om.
 
 Slik tolker du beskjeder:
@@ -54,6 +57,7 @@ Slik tolker du beskjeder:
 - «Dimme» gjelder lysene som allerede er på (only_lit: true), med mindre de ber deg slå på. Uten tall: 30 %. «Litt» = 10 prosentpoeng.
 - «Varmere/kaldere» uten tall = 0,5 grader opp eller ned (change).
 - Musikk: bruk høyttalerne i rommet som er nevnt. Sonos-favoritter (f.eks. NRK P3) spilles med action "favorite". Ellers søk på Spotify med action "spotify" og et kort søk (artist, sang, sjanger eller spilleliste).
+- Når du starter musikk, gjør det i ett kall: ta med volume i samme kall hvis volum er nevnt (det settes før musikken starter). Rommet tas automatisk ut av en gruppe med andre rom, så du trenger ikke group_speakers først.
 - Gjør bare det som er bedt om. Er beskjeden uklar eller finnes ikke rommet/enheten, spør kort eller si fra, i stedet for å gjette.
 - Du kan ikke styre dører, låser, alarmer eller noe som ikke står i oversikten.
 
@@ -136,7 +140,7 @@ const TOOLS: Anthropic.Tool[] = [
       properties: {
         speakers: { type: "array", items: { type: "string" }, description: "Høyttaler-id-er (media_player.*)" },
         action: { enum: ["play", "pause", "next", "previous", "volume", "favorite", "spotify"] },
-        volume: { type: "integer", minimum: 0, maximum: 100 },
+        volume: { type: "integer", minimum: 0, maximum: 100, description: "Volum. Med favorite/spotify settes det før musikken starter." },
         change: { type: "integer", minimum: -50, maximum: 50, description: "Endre volumet med så mange prosentpoeng" },
         favorite: { type: "string", description: "Navnet på en Sonos-favoritt" },
         query: { type: "string", description: "Spotify-søk" },
@@ -156,6 +160,33 @@ const TOOLS: Anthropic.Tool[] = [
         alone: { type: "boolean", description: "true = hver høyttaler spiller for seg selv" },
       },
       required: ["speakers"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "control_robot",
+    description: "Støvsuger eller robotgressklipper: start, pause, send hjem til laderen, eller «finn meg» (støvsugeren piper).",
+    input_schema: {
+      type: "object",
+      properties: {
+        robots: { type: "array", items: { type: "string" }, description: "Robot-id-er (vacuum.* eller lawn_mower.*)" },
+        command: { enum: ["start", "pause", "home", "locate"] },
+      },
+      required: ["robots", "command"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "control_watering",
+    description: "Vanning (Gardena): start en eller flere soner med vanningstid i minutter, eller stopp dem.",
+    input_schema: {
+      type: "object",
+      properties: {
+        valves: { type: "array", items: { type: "string" }, description: "Ventil-id-er (valve.*)" },
+        command: { enum: ["start", "stop"] },
+        minutes: { type: "integer", minimum: 1, maximum: 240, description: "Vanningstid. Uten tall: 20 min plen, 15 min bedd, 10 min tak." },
+      },
+      required: ["valves", "command"],
       additionalProperties: false,
     },
   },
@@ -201,11 +232,15 @@ const inputs = {
   }),
   group_speakers: z.object({ speakers: z.array(z.string()).min(1).max(30), alone: z.boolean().optional() }),
   start_house_group: z.object({ id: z.string() }),
+  control_watering: z.object({ valves: z.array(z.string()).min(1).max(20), command: z.enum(["start", "stop"]), minutes: z.number().int().min(1).max(240).optional() }),
+  control_robot: z.object({ robots: z.array(z.string()).min(1).max(10), command: z.enum(["start", "pause", "home", "locate"]) }),
 };
 
 interface Context {
   home: HomeState;
   speakers: Speaker[];
+  robots: Robot[];
+  watering: Watering;
   presets: (PresetLite & { spotifyUrl: string | null; volume: number | null })[];
   actions: string[];
   undo: UndoItem[];
@@ -294,12 +329,31 @@ async function runTool(name: string, raw: unknown, ctx: Context): Promise<string
     }
     case "control_music": {
       const p = inputs.control_music.parse(raw);
-      const chosen = ctx.speakers.filter((s) => p.speakers.includes(s.id) && s.status !== "unavailable");
+      let chosen = ctx.speakers.filter((s) => p.speakers.includes(s.id) && s.status !== "unavailable");
       if (!chosen.length) return "Fant ingen høyttalere som svarer.";
-      // Avspilling styres av lederen i gruppen høyttaleren er med i.
+      const names = chosen.map((s) => s.name).join(", ");
+      const startsMusic = p.action === "spotify" || p.action === "favorite";
+      if (startsMusic) {
+        // Ny musikk skal bare spille der det er bedt om. Er rommet med i en gruppe med andre rom, tas det ut først
+        // (ellers ville musikken startet i hele gruppen, med volumet der).
+        const wanted = new Set(chosen.map((s) => s.id));
+        const leave = chosen.filter((s) => s.groupMembers.some((id) => !wanted.has(id))).map((s) => s.id);
+        if (leave.length) {
+          await callService("media_player", "unjoin", { entity_id: leave });
+          ctx.speakers = withUnjoined(ctx.speakers, leave);
+          chosen = ctx.speakers.filter((s) => wanted.has(s.id));
+          ctx.actions.push(`Tok ut av gruppen: ${leave.map((id) => ctx.speakers.find((s) => s.id === id)!.name).join(", ")}`);
+        }
+        // Volum som er nevnt, settes før musikken starter, så den aldri begynner for høyt.
+        if (p.volume !== undefined) {
+          for (const s of chosen) ctx.undo.push(speakerUndo(ctx, s.id));
+          await callService("media_player", "volume_set", { entity_id: chosen.map((s) => s.id), volume_level: p.volume / 100 });
+          ctx.actions.push(`Volum ${p.volume}: ${names}`);
+        }
+      }
+      // Avspilling styres av lederen i gruppen høyttaleren er med i (etter eventuelle endringer over).
       const groups = toGroups(ctx.speakers);
       const leaders = [...new Set(chosen.map((s) => groups.find((g) => g.speakers.some((x) => x.id === s.id))?.leader.id ?? s.id))];
-      const names = chosen.map((s) => s.name).join(", ");
       switch (p.action) {
         case "play":
         case "pause":
@@ -359,6 +413,7 @@ async function runTool(name: string, raw: unknown, ctx: Context): Promise<string
       const names = ids.map((id) => ctx.speakers.find((s) => s.id === id)!.name).join(", ");
       if (p.alone) {
         await callService("media_player", "unjoin", { entity_id: ids });
+        ctx.speakers = withUnjoined(ctx.speakers, ids);
         ctx.actions.push(`Spiller hver for seg: ${names}`);
         return "Ferdig.";
       }
@@ -368,8 +423,43 @@ async function runTool(name: string, raw: unknown, ctx: Context): Promise<string
       const remove = group ? membersToRemove(group, ids) : [];
       if (remove.length) await callService("media_player", "unjoin", { entity_id: remove });
       await callService("media_player", "join", { entity_id: leader, group_members: ids.filter((id) => id !== leader) });
+      ctx.speakers = withJoined(withUnjoined(ctx.speakers, remove), leader, ids);
       ctx.actions.push(`Spiller sammen: ${names}`);
       return "Ferdig.";
+    }
+    case "control_watering": {
+      const p = inputs.control_watering.parse(raw);
+      const chosen = ctx.watering.valves.filter((v) => p.valves.includes(v.id) && v.available);
+      if (!chosen.length) return "Fant ingen ventiler som svarer.";
+      if (p.command === "stop") {
+        await callService("valve", "close_valve", { entity_id: chosen.map((v) => v.id) });
+        ctx.actions.push(`Stoppet vanning: ${chosen.map((v) => v.name).join(", ")}`);
+        return "Ferdig.";
+      }
+      for (const v of chosen) {
+        const minutes = p.minutes ?? DEFAULT_MINUTES[v.kind];
+        if (v.durationId) await callService("number", "set_value", { entity_id: v.durationId, value: minutes });
+        await callService("valve", "open_valve", { entity_id: v.id });
+      }
+      ctx.actions.push(`Vanner: ${chosen.map((v) => `${v.name} ${p.minutes ?? DEFAULT_MINUTES[v.kind]} min`).join(", ")}`);
+      const blocked = chosen.filter((v) => v.problem).map((v) => `${v.name}: ${v.problem}`);
+      return blocked.length ? `Startet, men Gardena melder: ${blocked.join("; ")}.` : "Startet.";
+    }
+    case "control_robot": {
+      const p = inputs.control_robot.parse(raw);
+      const chosen = ctx.robots.filter((r) => p.robots.includes(r.id) && r.available);
+      if (!chosen.length) return "Fant ingen roboter som svarer.";
+      const done: string[] = [];
+      for (const r of chosen) {
+        const service = robotService(r.id, p.command);
+        if (!service) continue;
+        await callService(service.domain, service.service, { entity_id: r.id });
+        done.push(r.name);
+      }
+      if (!done.length) return "Det kan ikke de robotene.";
+      const verb = { start: "Startet", pause: "Satte på pause", home: "Sendte hjem", locate: "Fikk til å pipe" }[p.command];
+      ctx.actions.push(`${verb}: ${done.join(", ")}`);
+      return `${verb} ${done.join(", ")}.`;
     }
     case "start_house_group": {
       const p = inputs.start_house_group.parse(raw);
@@ -380,7 +470,10 @@ async function runTool(name: string, raw: unknown, ctx: Context): Promise<string
       if (!leader) return "Ingen av rommene i gruppen svarer.";
       for (const id of ids) ctx.undo.push(speakerUndo(ctx, id));
       const others = ids.filter((id) => id !== leader);
-      if (others.length) await callService("media_player", "join", { entity_id: leader, group_members: others });
+      if (others.length) {
+        await callService("media_player", "join", { entity_id: leader, group_members: others });
+        ctx.speakers = withJoined(ctx.speakers, leader, others);
+      }
       if (preset.volume !== null) await callService("media_player", "volume_set", { entity_id: ids, volume_level: preset.volume / 100 });
       if (preset.spotifyUrl) await callService("media_player", "play_media", { entity_id: leader, media_content_id: preset.spotifyUrl, media_content_type: "music" });
       ctx.actions.push(`Startet ${preset.name}`);
@@ -401,8 +494,8 @@ function speakerUndo(ctx: Context, id: string): UndoItem {
  */
 export async function askHouse(history: AgentTurn[], text: string, presets: Context["presets"]): Promise<AgentResult> {
   const states = await getStates();
-  const ctx: Context = { home: toHome(states), speakers: toSpeakers(states), presets, actions: [], undo: [] };
-  const overview = describeHome(ctx.home, ctx.speakers, presets);
+  const ctx: Context = { home: toHome(states), speakers: toSpeakers(states), robots: toRobots(states), watering: toWatering(states), presets, actions: [], undo: [] };
+  const overview = describeHome(ctx.home, ctx.speakers, presets, ctx.robots, ctx.watering);
 
   const client = new Anthropic({ apiKey: serverEnv("ANTHROPIC_API_KEY") });
   const messages: Anthropic.MessageParam[] = [

@@ -12,6 +12,8 @@ export const VIEW_TITLES = {
   roboter: "Roboter",
   vanning: "Vanning",
   musikk: "Musikk",
+  strom: "Strøm",
+  sikkerhet: "Sikkerhet",
 } as const;
 
 export type DashboardViewId = keyof typeof VIEW_TITLES;

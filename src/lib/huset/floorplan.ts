@@ -195,8 +195,10 @@ export function labelLines(text: string, width: number, font = FONT): string[] {
 export interface RoomLook {
   /** 0 = av, ellers 0,25–0,85: hvor sterk den gule fargen er. */
   glow: number;
-  /** Små merker på kartet: «22°», «🎵», «🔥», «▾» (persienne nede). */
+  /** Små merker på kartet: «🚨» (røykvarsleren har gått), «22°», «🎵», «🔥», «▾» (persienne nede). */
   badges: string[];
+  /** Røykvarsleren i rommet har gått: rommet blir rødt. */
+  alert?: boolean;
 }
 
 /** Hvordan et rom skal se ut på kartet: lys som farge, og merker for temperatur, varme, musikk og persienner. */
@@ -204,10 +206,10 @@ export function roomLook(room: Room | undefined, playing: Set<string>): RoomLook
   if (!room) return { glow: 0, badges: [] };
   const lit = room.lights.filter((l) => l.available && l.on);
   const glow = lit.length ? 0.25 + 0.6 * (roomBrightness(lit) / 100) : 0;
-  const badges: string[] = [];
+  const badges: string[] = room.fire ? ["🚨"] : [];
   if (room.climate?.current !== null && room.climate?.current !== undefined) badges.push(`${Math.round(room.climate.current)}°`);
   if (room.climate?.heating) badges.push("🔥");
   if (room.speakers.some((id) => playing.has(id))) badges.push("🎵");
   if (room.covers.some((c) => c.position !== null && c.position < 50)) badges.push("▾");
-  return { glow, badges };
+  return room.fire ? { glow, badges, alert: true } : { glow, badges };
 }

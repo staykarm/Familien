@@ -17,9 +17,11 @@ import {
 } from "@/actions/huset";
 import { card } from "@/components/ui/styles";
 import { useUndo } from "@/components/ui/UndoToast";
+import { kr } from "@/lib/huset/energy";
 import { groupName, isMoved, moveSpeaker, type Speaker, type SpeakerGroup } from "@/lib/huset/sonos";
 import type { HomeCommand, SpeakerCommand } from "@/lib/validation/huset";
 import { CoversTab } from "./CoversTab";
+import { EnergyTab, LEVEL_COLOR } from "./EnergyTab";
 import { HeatTab } from "./HeatTab";
 import { HouseAgent } from "./HouseAgent";
 import { LightsTab } from "./LightsTab";
@@ -29,6 +31,7 @@ import { WateringTab } from "./WateringTab";
 import { MusicSheet } from "./MusicSheet";
 import { PresetSheet, type PresetDraft } from "./PresetSheet";
 import { RoomList } from "./RoomList";
+import { SafetyBanner, SafetyTab } from "./SafetyTab";
 
 const POLL_MS = 4_000;
 /** Sonos trenger et øyeblikk før Home Assistant viser en endring. */
@@ -62,7 +65,7 @@ function applyOverrides(groups: SpeakerGroup[], overrides: Overrides): SpeakerGr
   return groups.map((g) => ({ leader: fix(g.leader), speakers: g.speakers.map(fix) }));
 }
 
-type Tab = "musikk" | "kart" | "lys" | "varme" | "persienner" | "roboter" | "vanning";
+type Tab = "musikk" | "kart" | "lys" | "varme" | "persienner" | "roboter" | "vanning" | "strom" | "sikkerhet";
 export type HouseTab = Tab;
 const TABS: { id: Tab; label: string }[] = [
   { id: "musikk", label: "🎵 Musikk" },
@@ -72,6 +75,8 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "persienner", label: "🪟 Persienner" },
   { id: "roboter", label: "🤖 Roboter" },
   { id: "vanning", label: "💧 Vanning" },
+  { id: "strom", label: "⚡ Strøm" },
+  { id: "sikkerhet", label: "🛡️ Sikkerhet" },
 ];
 const TAB_KEY = "familien.huset.fane";
 
@@ -84,6 +89,9 @@ export function HousePage({
   notice,
   fixedTab,
   room,
+  mapClassName,
+  onData,
+  refreshKey = 0,
 }: {
   initial: HouseData;
   setup: HouseSetup;
@@ -92,6 +100,12 @@ export function HousePage({
   fixedTab?: Tab;
   /** Rommet som åpnes i kartet (fra dashboardet). */
   room?: string | null;
+  /** Høyden på kartet (dashboardet har mindre plass). */
+  mapClassName?: string;
+  /** Får hver nye tilstand, så resten av dashboardet viser det samme som kartet. */
+  onData?: (data: HouseData) => void;
+  /** Hent ny tilstand med en gang når denne endres (etter en handling et annet sted på siden). */
+  refreshKey?: number;
 }) {
   const [data, setData] = useState(initial);
   const [chosenTab, setTab] = useState<Tab>("musikk");
@@ -146,6 +160,14 @@ export function HousePage({
       document.removeEventListener("visibilitychange", tick);
     };
   }, [refresh]);
+
+  useEffect(() => {
+    onData?.(data);
+  }, [data, onData]);
+
+  useEffect(() => {
+    if (refreshKey) refresh();
+  }, [refreshKey, refresh]);
 
   // Fjern ?spotify=… fra adressen etter at beskjeden er vist, så den ikke kommer igjen ved oppfrisking.
   useEffect(() => {
@@ -285,11 +307,18 @@ export function HousePage({
         <>
           <div className="flex items-center justify-between gap-3">
             <h1 className="font-display text-xl font-bold sm:text-2xl lg:text-3xl">🏠 Huset</h1>
-            {data.home.outdoorTemp !== null && (
-              <span className="text-sm text-ink-light">
-                Ute <span className="font-bold text-ink">{data.home.outdoorTemp.toLocaleString("nb-NO", { maximumFractionDigits: 1 })}°</span>
-              </span>
-            )}
+            <span className="flex flex-wrap items-center justify-end gap-x-3 text-sm text-ink-light">
+              {data.energy.price !== null && (
+                <button type="button" onClick={() => chooseTab("strom")} className="hover:text-ink">
+                  ⚡ <span className="font-bold" style={{ color: data.energy.level ? LEVEL_COLOR[data.energy.level] : undefined }}>{kr(data.energy.price)}</span>/kWh
+                </button>
+              )}
+              {data.home.outdoorTemp !== null && (
+                <span>
+                  Ute <span className="font-bold text-ink">{data.home.outdoorTemp.toLocaleString("nb-NO", { maximumFractionDigits: 1 })}°</span>
+                </span>
+              )}
+            </span>
           </div>
 
           {data.ok && <HouseAgent onChanged={() => setTimeout(refresh, SETTLE_MS)} />}
@@ -321,6 +350,7 @@ export function HousePage({
           <p className="text-sm text-ink-light">Prøver igjen av seg selv. Ligger feilen fast, sjekk HA_URL og HA_TOKEN i Vercel.</p>
         </div>
       )}
+      {data.ok && !fixedTab && tab !== "sikkerhet" && <SafetyBanner safety={data.safety} />}
       {message && (
         <p className="rounded-2xl bg-sun px-4 py-2 font-semibold" role="status">
           {message}
@@ -336,12 +366,15 @@ export function HousePage({
           onVolume={(id, volume, send) => (send ? void run({ action: "volume", id, volume }, { volume }) : preview(id, volume))}
           onMusic={(s) => setMusic(groups.find((g) => g.leader.id === s.id) ?? { leader: s, speakers: [s] })}
           initialRoom={room}
+          svgClassName={mapClassName}
         />
       )}
       {data.ok && tab === "lys" && <LightsTab home={data.home} run={runHome} />}
       {data.ok && tab === "varme" && <HeatTab home={data.home} run={runHome} />}
       {data.ok && tab === "persienner" && <CoversTab home={data.home} run={runHome} />}
       {data.ok && tab === "roboter" && <RobotsTab robots={data.robots} run={runHome} />}
+      {data.ok && tab === "strom" && <EnergyTab energy={data.energy} />}
+      {data.ok && tab === "sikkerhet" && <SafetyTab safety={data.safety} />}
       {data.ok && tab === "vanning" && <WateringTab watering={data.watering} outdoorTemp={data.home.outdoorTemp} run={runHome} />}
 
       {data.ok && tab === "musikk" && (

@@ -22,6 +22,8 @@ interface Props {
   onMusic: (leader: Speaker) => void;
   /** Rommet som er åpent fra start (fra dashboardet). */
   initialRoom?: string | null;
+  /** Høyden på kartet. */
+  svgClassName?: string;
 }
 
 type View = "1" | "2" | "ute";
@@ -46,7 +48,7 @@ function RoomShape({ shape, room, label, selected, playing, onOpen }: {
     }
   };
   return (
-    <g role="button" tabIndex={0} aria-label={`${label}${look.glow ? ", lys på" : ""}${look.badges.length ? `, ${look.badges.join(" ")}` : ""}`} onClick={onOpen} onKeyDown={onKey} className="cursor-pointer outline-none [&:focus-visible>polygon:first-child]:stroke-[var(--color-primary)]">
+    <g role="button" tabIndex={0} aria-label={`${label}${look.alert ? ", røykvarsleren har gått" : ""}${look.glow ? ", lys på" : ""}${look.badges.length ? `, ${look.badges.join(" ")}` : ""}`} onClick={onOpen} onKeyDown={onKey} className="cursor-pointer outline-none [&:focus-visible>polygon:first-child]:stroke-[var(--color-primary)]">
       <polygon
         points={points}
         fill={room?.outdoor ? "#e3f4e8" : "#ffffff"}
@@ -56,6 +58,7 @@ function RoomShape({ shape, room, label, selected, playing, onOpen }: {
         strokeLinejoin="round"
       />
       {look.glow > 0 && <polygon points={points} fill={GLOW} fillOpacity={look.glow} pointerEvents="none" />}
+      {look.alert && <polygon points={points} fill="var(--color-danger)" fillOpacity={0.55} pointerEvents="none" className="animate-pulse" />}
     </g>
   );
 }
@@ -136,7 +139,7 @@ export function FloorMap({ floor, rooms, selected, playing, onOpen, svgClassName
 }
 
 /** Alt som kan styres i ett rom: lys og scener, varme, persienner og musikk. */
-function RoomSheet({ room, groups, onClose, ...p }: Omit<Props, "home" | "initialRoom"> & { room: Room; onClose: () => void }) {
+function RoomSheet({ room, groups, onClose, ...p }: Omit<Props, "home" | "initialRoom" | "svgClassName"> & { room: Room; onClose: () => void }) {
   const speakers = groups.flatMap((g) => g.speakers.map((s) => ({ speaker: s, leader: g.leader }))).filter((x) => room.speakers.includes(x.speaker.id));
   const empty = !room.lights.length && !room.climate && !room.covers.length && !speakers.length;
   return (
@@ -202,7 +205,7 @@ function RoomSheet({ room, groups, onClose, ...p }: Omit<Props, "home" | "initia
  * Kart over etasjene: trykk på et rom for å styre alt der. Rommet blir gult når lyset er på (sterkere jo høyere
  * lysstyrke), med merker for temperatur, varme, musikk og persienne nede. På PC står begge etasjene side om side.
  */
-export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initialRoom = null }: Props) {
+export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initialRoom = null, svgClassName }: Props) {
   const startFloor = home.rooms.find((r) => r.id === initialRoom)?.floor;
   const [view, setView] = useState<View>(startFloor === 1 ? "1" : "2");
   const [selected, setSelected] = useState<string | null>(initialRoom);
@@ -258,19 +261,19 @@ export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initial
         <div className="lg:hidden">
           {view === "ute" ? (
             <div className="flex flex-col gap-3 p-1">
-              <FloorMap floor={FLOORS[1]} rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} />
+              <FloorMap floor={FLOORS[1]} rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} />
               {outdoorList}
             </div>
           ) : (
-            <FloorMap floor={FLOORS.find((f) => f.id === view)!} rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} />
+            <FloorMap floor={FLOORS.find((f) => f.id === view)!} rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} />
           )}
         </div>
         <div className="hidden grid-cols-2 gap-4 lg:grid">
           {FLOORS.map((f) => (
-            <FloorMap key={f.id} floor={f} rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} />
+            <FloorMap key={f.id} floor={f} rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} />
           ))}
         </div>
-        <p className="px-1 pt-1 text-xs text-ink-light">Gult = lys på · 🎵 musikk · 🔥 varmer · ▾ persienne nede. Trykk på et rom for å styre det.</p>
+        <p className="px-1 pt-1 text-xs text-ink-light">Gult = lys på · 🎵 musikk · 🔥 varmer · ▾ persienne nede · 🚨 røykvarsler har gått. Trykk på et rom for å styre det.</p>
       </div>
 
       <div className={view === "ute" ? "hidden lg:block" : ""}>{outdoorList}</div>

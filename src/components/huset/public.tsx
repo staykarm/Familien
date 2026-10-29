@@ -41,5 +41,8 @@ export { HouseVoiceReply } from "./HouseVoiceReply";
 /** Dashboardet: Huset i små biter, hele fanene som undersider og «Spør» med familien i tillegg. */
 export { HousePage, type HouseTab } from "./HousePage";
 export { HouseAgent } from "./HouseAgent";
-export { HouseMiniMap, HouseNowPlaying, HouseQuickLights, HouseStatusList, useHouseLive, type HouseLive } from "./DashboardHouse";
+export { HouseNowPlaying, HouseQuickLights, HouseStatusList, useHouseLive, type HouseLive } from "./DashboardHouse";
 export type { StatusArea } from "@/lib/huset/dashboard";
+export { CarList, LEVEL_COLOR, LEVEL_TEXT, PriceChart, usePrices } from "./EnergyTab";
+export { SafetyBanner } from "./SafetyTab";
+export { kr, watt } from "@/lib/huset/energy";

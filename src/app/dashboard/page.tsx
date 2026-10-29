@@ -13,7 +13,7 @@ import { loadFamilyUi } from "@/lib/familyUi";
 import { loadHouse, loadHouseSetup } from "@/lib/huset/public";
 import { requireFamily } from "@/lib/session";
 
-const HOUSE_TABS: HouseTab[] = ["kart", "lys", "varme", "persienner", "roboter", "vanning", "musikk"];
+const HOUSE_TABS: HouseTab[] = ["kart", "lys", "varme", "persienner", "roboter", "vanning", "musikk", "strom", "sikkerhet"];
 
 const dayTitle = (date: string, today: string) => {
   const label = osloDate(date).setLocale("nb").toFormat("cccc d. LLLL");
@@ -109,7 +109,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
     );
   }
 
-  const house = await loadHouse();
+  const [house, houseSetup] = await Promise.all([loadHouse(), loadHouseSetup()]);
   return (
     <Dashboard
       today={today}
@@ -124,6 +124,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
       hours={nextHours(forecast, new Date(), 16)}
       days={nextDays(forecast, today, 5)}
       house={house}
+      houseSetup={houseSetup}
     />
   );
 }

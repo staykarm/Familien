@@ -1,18 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { LightbulbOff, Moon, Pause, Play, Undo2 } from "lucide-react";
-import { controlHome, controlSpeaker, loadHouse, undoHouse, type HouseData } from "@/actions/huset";
+import { controlHome, controlSpeaker, undoHouse, type HouseData } from "@/actions/huset";
 import { goodNight, houseStatus, outdoorOff, playingNow, type LightsOff, type StatusArea } from "@/lib/huset/dashboard";
-import { FLOORS } from "@/lib/huset/floorplan";
 import type { UndoItem } from "@/lib/huset/agentTargets";
-import { FloorMap } from "./MapTab";
 import { Cover } from "./parts";
 
-// Huset på dashboardet: levende tilstand, små kart, «God natt», status per område og det som spiller.
+// Huset på dashboardet: felles tilstand, «God natt», status per område og det som spiller. Kartet er
+// Kart-fanen fra Huset (`HousePage fixedTab="kart"`), så det virker likt begge steder.
 // Brukes bare via components/huset/public.tsx.
 
-const POLL_MS = 5_000;
 /** Home Assistant trenger et øyeblikk før en endring vises. */
 const SETTLE_MS = 700;
 /** Så lenge «Angre» står etter «God natt». */
@@ -20,6 +18,10 @@ const UNDO_MS = 10_000;
 
 export interface HouseLive {
   data: HouseData;
+  /** Ny tilstand fra kartet (`HousePage onData`), som henter den selv hvert 4. sekund. */
+  push: (data: HouseData) => void;
+  /** Øker når noe er endret her, så kartet henter ny tilstand med en gang (`HousePage refreshKey`). */
+  version: number;
   refresh: () => void;
   /** Slår av lysene og gir beskjed om hvordan det gikk. */
   lightsOff: (off: LightsOff) => Promise<{ ok: boolean; message?: string }>;
@@ -27,37 +29,24 @@ export interface HouseLive {
   toggle: (leaderId: string) => Promise<void>;
 }
 
-/** Tilstanden i huset, hentet på nytt hvert 5. sekund mens siden er synlig. */
+/**
+ * Tilstanden i huset på dashboardet. Kartet (samme `HousePage` som i Huset) henter den og sender den hit,
+ * så det bare er én som spør Home Assistant, og alt på siden viser det samme.
+ */
 export function useHouseLive(initial: HouseData): HouseLive {
   const [data, setData] = useState(initial);
-  const busy = useRef(false);
-
-  const refresh = useCallback(() => {
-    if (busy.current) return;
-    busy.current = true;
-    loadHouse()
-      .then(setData)
-      .catch(() => {})
-      .finally(() => (busy.current = false));
-  }, []);
-
-  useEffect(() => {
-    const tick = () => document.visibilityState === "visible" && refresh();
-    const poll = setInterval(tick, POLL_MS);
-    document.addEventListener("visibilitychange", tick);
-    return () => {
-      clearInterval(poll);
-      document.removeEventListener("visibilitychange", tick);
-    };
-  }, [refresh]);
+  const [version, setVersion] = useState(0);
+  const refresh = useCallback(() => setVersion((v) => v + 1), []);
 
   const settle = useCallback(async () => {
     await new Promise((r) => setTimeout(r, SETTLE_MS));
-    setData(await loadHouse());
+    setVersion((v) => v + 1);
   }, []);
 
   return {
     data,
+    push: setData,
+    version,
     refresh,
     lightsOff: async (off) => {
       if (!off.ids.length) return { ok: true };
@@ -74,20 +63,6 @@ export function useHouseLive(initial: HouseData): HouseLive {
       await settle();
     },
   };
-}
-
-/** Begge etasjene side om side. Trykk på et rom åpner det i kartet. */
-export function HouseMiniMap({ live, onRoom }: { live: HouseLive; onRoom: (roomId: string) => void }) {
-  const { home, groups } = live.data;
-  const rooms = new Map(home.rooms.map((r) => [r.id, r]));
-  const playing = new Set(groups.filter((g) => g.leader.status === "playing").flatMap((g) => g.speakers.map((s) => s.id)));
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      {FLOORS.map((f) => (
-        <FloorMap key={f.id} floor={f} rooms={rooms} selected={null} playing={playing} onOpen={onRoom} svgClassName="max-h-[46dvh]" />
-      ))}
-    </div>
-  );
 }
 
 const button =
@@ -152,12 +127,12 @@ export function HouseQuickLights({ live }: { live: HouseLive }) {
 export function HouseStatusList({ live, onArea }: { live: HouseLive; onArea: (area: StatusArea) => void }) {
   const { data } = live;
   if (!data.ok) return <p className="text-xs text-ink-light">{data.message}</p>;
-  const rows = houseStatus(data.home, data.robots, data.watering);
+  const rows = houseStatus(data.home, data.robots, data.watering, data.energy, data.safety);
   return (
     <ul className="flex flex-col">
       {rows.map((r) => (
         <li key={r.area}>
-          <button type="button" onClick={() => onArea(r.area)} className="flex min-h-9 w-full items-center gap-2 border-b border-line text-left last:border-0 hover:bg-card-soft">
+          <button type="button" onClick={() => onArea(r.area)} className="flex min-h-8 w-full items-center gap-2 border-b border-line py-1 text-left last:border-0 hover:bg-card-soft">
             <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${r.alert ? "bg-danger" : r.active ? "bg-primary" : "bg-line"}`} aria-hidden />
             <span className="w-20 shrink-0 text-xs text-ink-light">{r.label}</span>
             <span className={`min-w-0 flex-1 text-xs wrap-break-word ${r.alert ? "font-semibold text-danger" : "text-ink"}`}>{r.value}</span>
@@ -169,12 +144,12 @@ export function HouseStatusList({ live, onArea }: { live: HouseLive; onArea: (ar
 }
 
 /** Det som spiller nå, med spill/pause. */
-export function HouseNowPlaying({ live }: { live: HouseLive }) {
+export function HouseNowPlaying({ live, hideEmpty = false }: { live: HouseLive; hideEmpty?: boolean }) {
   const { groups, ok } = live.data;
   const list = playingNow(groups);
   const [pending, setPending] = useState<string | null>(null);
   if (!ok) return null;
-  if (!list.length) return <p className="text-xs text-ink-light">Ingenting spiller.</p>;
+  if (!list.length) return hideEmpty ? null : <p className="text-xs text-ink-light">Ingenting spiller.</p>;
   return (
     <ul className="flex flex-col gap-1.5">
       {list.map((p) => {

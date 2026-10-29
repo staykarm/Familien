@@ -75,3 +75,10 @@ export async function getState(entityId: string): Promise<HaState | null> {
 export async function callService(domain: string, service: string, data: Record<string, unknown>): Promise<void> {
   await haFetch(`/api/services/${domain}/${service}`, { method: "POST", body: JSON.stringify(data) });
 }
+
+/** Kjører en tjeneste som svarer med data (`?return_response`), f.eks. `tibber.get_prices`. */
+export async function callServiceForResponse(domain: string, service: string, data: Record<string, unknown>): Promise<unknown> {
+  const res = await haFetch(`/api/services/${domain}/${service}?return_response`, { method: "POST", body: JSON.stringify(data) });
+  const body = (await res.json()) as { service_response?: unknown };
+  return body.service_response ?? null;
+}

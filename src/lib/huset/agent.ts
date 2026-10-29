@@ -17,7 +17,10 @@ import {
 import { callService, getStates, type HaState } from "./ha";
 import { stepTarget, toHome, type HomeState } from "./home";
 import { robotService } from "./robotControl";
+import { toEnergy } from "./energy";
+import { loadPriceHours } from "./prices";
 import { toRobots, type Robot } from "./robots";
+import { toSafety } from "./safety";
 import { DEFAULT_MINUTES, toWatering, type Watering } from "./watering";
 import { searchSpotify, spotifyConfigured } from "./spotify";
 import { membersToRemove, pickLeader, toGroups, toSpeakers, withJoined, withUnjoined, type Speaker } from "./sonos";
@@ -60,6 +63,7 @@ Slik tolker du beskjeder:
 - Når du starter musikk, gjør det i ett kall: ta med volume i samme kall hvis volum er nevnt (det settes før musikken starter). Rommet tas automatisk ut av en gruppe med andre rom, så du trenger ikke group_speakers først.
 - Gjør bare det som er bedt om. Er beskjeden uklar eller finnes ikke rommet/enheten, spør kort eller si fra, i stedet for å gjette.
 - Du kan ikke styre dører, låser, alarmer eller noe som ikke står i oversikten.
+- STRØM, ELBILER og SIKKERHET i oversikten er bare til info: svar på spørsmål om strømpris, når strømmen er billigst, forbruk, batteri på bilene og om alarmen er på. Alarmen og røykvarslerne kan du aldri styre; si at det gjøres i Homely-appen.
 - Får du med «FAMILIEN» (kalender, levering og henting, oppgaver, handleliste), kan du svare på spørsmål om det («hva skjer i morgen?», «hvem henter Olav?»). Du kan ikke endre det; si fra at det gjøres i appen.
 
 Svar alltid på norsk (bokmål), kort, én eller to setninger, og si hva du gjorde: «Slo av 4 lys i stua.» Ingen lister, ingen markdown.`;
@@ -496,7 +500,8 @@ function speakerUndo(ctx: Context, id: string): UndoItem {
 export async function askHouse(history: AgentTurn[], text: string, presets: Context["presets"], family?: string): Promise<AgentResult> {
   const states = await getStates();
   const ctx: Context = { home: toHome(states), speakers: toSpeakers(states), robots: toRobots(states), watering: toWatering(states), presets, actions: [], undo: [] };
-  const overview = describeHome(ctx.home, ctx.speakers, presets, ctx.robots, ctx.watering);
+  const prices = await loadPriceHours().catch(() => []);
+  const overview = describeHome(ctx.home, ctx.speakers, presets, ctx.robots, ctx.watering, { energy: toEnergy(states), safety: toSafety(states), prices });
 
   const client = new Anthropic({ apiKey: serverEnv("ANTHROPIC_API_KEY") });
   const messages: Anthropic.MessageParam[] = [

@@ -70,7 +70,8 @@ async function setGroup(speakers: Speaker[], leader: Speaker, members: string[])
   const remove = group ? membersToRemove(group, wanted) : [];
   if (remove.length) await callService("media_player", "unjoin", { entity_id: remove });
   if (wanted.length) await callService("media_player", "join", { entity_id: leader.id, group_members: wanted });
-  else if (leader.groupMembers.length > 1) await callService("media_player", "unjoin", { entity_id: leader.id });
+  // Lederen var med i en gruppe den ikke leder: ta den ut.
+  else if (!remove.length && leader.groupMembers.length > 1) await callService("media_player", "unjoin", { entity_id: leader.id });
 }
 
 /** Alle Sonos-høyttalerne, samlet i grupper. Kalles på nytt hvert par sekund mens siden er åpen. */
@@ -152,6 +153,20 @@ export async function controlSpeaker(input: SpeakerCommand): Promise<HouseResult
           ...(cmd.queue ? { enqueue: "add" } : {}),
         });
         return { ok: true, message: cmd.queue ? "Lagt i køen" : undefined };
+      case "join": {
+        const member = speakers.find((s) => s.id === cmd.member);
+        if (!member || member.id === entity_id) return { ok: false, message: "Ukjent rom" };
+        if (member.status === "unavailable") return { ok: false, message: `${member.name} svarer ikke` };
+        await callService("media_player", "join", { entity_id, group_members: [member.id] });
+        break;
+      }
+      case "unjoin": {
+        // Sendes uten å sjekke grupperingen her: tilstanden i Home Assistant kan henge noen sekunder etter
+        // (for eksempel rett etter at rommet ble koblet til), og unjoin på et rom som spiller alene gjør ingenting.
+        const ids = [entity_id, ...(cmd.also ?? [])].filter((id) => speakers.some((s) => s.id === id && s.status !== "unavailable"));
+        await callService("media_player", "unjoin", { entity_id: [...new Set(ids)] });
+        break;
+      }
       case "group": {
         const known = new Set(speakers.filter((s) => s.status !== "unavailable").map((s) => s.id));
         if (cmd.members.some((id) => !known.has(id))) return { ok: false, message: "Et av rommene svarer ikke" };
@@ -159,24 +174,6 @@ export async function controlSpeaker(input: SpeakerCommand): Promise<HouseResult
         break;
       }
     }
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, message: failure(e) };
-  }
-}
-
-/** Kobler sammen de valgte rommene. Rommet som spiller, bestemmer musikken. */
-export async function joinRooms(ids: string[]): Promise<HouseResult> {
-  await requireFamily();
-  const parsed = z.array(z.string().regex(/^media_player\.[a-z0-9_]+$/)).min(2, "Velg minst to rom").max(30).safeParse(ids);
-  if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
-  try {
-    const speakers = await loadSpeakers();
-    const leaderId = pickLeader(speakers, parsed.data);
-    const leader = speakers.find((s) => s.id === leaderId);
-    if (!leader) return { ok: false, message: "Ingen av rommene svarer" };
-    const members = parsed.data.filter((id) => speakers.some((s) => s.id === id && s.status !== "unavailable"));
-    await setGroup(speakers, leader, members);
     return { ok: true };
   } catch (e) {
     return { ok: false, message: failure(e) };

@@ -137,3 +137,34 @@ export function pickLeader(speakers: Speaker[], ids: string[]): string | null {
     null
   );
 }
+
+/**
+ * Flytter et rom inn i gruppen til `toLeader`, eller ut for seg selv (`null`). Brukes for å vise endringen
+ * med en gang, før Sonos har svart. Var rommet leder for andre, tar neste i gruppen over (som i Sonos).
+ */
+export function moveSpeaker(groups: SpeakerGroup[], speakerId: string, toLeader: string | null): SpeakerGroup[] {
+  const from = groups.findIndex((g) => g.speakers.some((s) => s.id === speakerId));
+  if (from < 0 || toLeader === speakerId) return groups;
+  const source = groups[from];
+  const speaker = source.speakers.find((s) => s.id === speakerId)!;
+  if (toLeader === null && source.speakers.length === 1) return groups;
+  if (toLeader !== null && source.leader.id === toLeader) return groups;
+
+  const rest = source.speakers.filter((s) => s.id !== speakerId);
+  const next: SpeakerGroup[] = [];
+  groups.forEach((g, i) => {
+    if (i !== from) return next.push(g);
+    if (rest.length) next.push({ leader: source.leader.id === speakerId ? rest[0] : source.leader, speakers: rest });
+    // Alene: rett etter gruppen det kom fra, så lista ikke hopper.
+    if (toLeader === null) next.push({ leader: speaker, speakers: [speaker] });
+  });
+  if (toLeader === null) return next;
+  return next.map((g) => (g.leader.id === toLeader ? { leader: g.leader, speakers: [...g.speakers, speaker] } : g));
+}
+
+/** Har Sonos gjort flyttingen? (`to` = lederen rommet skal være med, `null` = alene.) */
+export function isMoved(groups: SpeakerGroup[], speakerId: string, to: string | null): boolean {
+  const group = groups.find((g) => g.speakers.some((s) => s.id === speakerId));
+  if (!group) return true;
+  return to === null ? group.speakers.length === 1 : group.speakers.some((s) => s.id === to);
+}

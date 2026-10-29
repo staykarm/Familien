@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupName, membersToRemove, pickLeader, toGroups, toSpeakers } from "./sonos";
+import { groupName, isMoved, membersToRemove, moveSpeaker, pickLeader, toGroups, toSpeakers } from "./sonos";
 
 function player(id: string, state: string, attributes: Record<string, unknown> = {}) {
   return { entity_id: `media_player.${id}`, state, attributes: { device_class: "speaker", ...attributes } };
@@ -101,5 +101,55 @@ describe("pickLeader", () => {
     expect(pickLeader(speakers, ["media_player.bad", "media_player.stue"])).toBe("media_player.stue");
     expect(pickLeader(speakers, ["media_player.terrassen", "media_player.bad"])).toBe("media_player.bad");
     expect(pickLeader(speakers, ["media_player.terrassen"])).toBeNull();
+  });
+});
+
+describe("moveSpeaker", () => {
+  const groups = toGroups(
+    toSpeakers([
+      player("stue", "playing", { friendly_name: "Stue", group_members: ["media_player.stue", "media_player.kjokken"] }),
+      player("kjokken", "playing", { friendly_name: "Kjøkken", group_members: ["media_player.stue", "media_player.kjokken"] }),
+      player("bad", "idle", { friendly_name: "Bad" }),
+      player("wc", "idle", { friendly_name: "WC" }),
+    ])
+  );
+  const names = (gs: ReturnType<typeof toGroups>) => gs.map(groupName);
+
+  it("legger et rom til i en gruppe", () => {
+    expect(names(moveSpeaker(groups, "media_player.bad", "media_player.stue"))).toEqual(["Stue + Kjøkken + Bad", "WC"]);
+  });
+
+  it("tar et rom ut av gruppen og legger det rett etter", () => {
+    expect(names(moveSpeaker(groups, "media_player.kjokken", null))).toEqual(["Stue", "Kjøkken", "Bad", "WC"]);
+  });
+
+  it("lar neste ta over når lederen går ut", () => {
+    const moved = moveSpeaker(groups, "media_player.stue", null);
+    expect(names(moved)).toEqual(["Kjøkken", "Stue", "Bad", "WC"]);
+    expect(moved[0].leader.id).toBe("media_player.kjokken");
+  });
+
+  it("flytter fra én gruppe til en annen, og gjør ingenting når det ikke er noe å flytte", () => {
+    expect(names(moveSpeaker(groups, "media_player.kjokken", "media_player.bad"))).toEqual(["Stue", "Bad + Kjøkken", "WC"]);
+    expect(moveSpeaker(groups, "media_player.bad", null)).toBe(groups);
+    expect(moveSpeaker(groups, "media_player.kjokken", "media_player.stue")).toBe(groups);
+    expect(moveSpeaker(groups, "media_player.ukjent", null)).toBe(groups);
+  });
+});
+
+describe("isMoved", () => {
+  const groups = toGroups(
+    toSpeakers([
+      player("stue", "playing", { friendly_name: "Stue", group_members: ["media_player.stue", "media_player.kjokken"] }),
+      player("kjokken", "playing", { friendly_name: "Kjøkken", group_members: ["media_player.stue", "media_player.kjokken"] }),
+      player("bad", "idle", { friendly_name: "Bad" }),
+    ])
+  );
+
+  it("ser om et rom er med i riktig gruppe, eller alene", () => {
+    expect(isMoved(groups, "media_player.kjokken", "media_player.stue")).toBe(true);
+    expect(isMoved(groups, "media_player.bad", "media_player.stue")).toBe(false);
+    expect(isMoved(groups, "media_player.bad", null)).toBe(true);
+    expect(isMoved(groups, "media_player.kjokken", null)).toBe(false);
   });
 });

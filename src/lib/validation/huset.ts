@@ -11,6 +11,10 @@ export const speakerCommandSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("source"), id: speakerId, source: z.string().trim().min(1).max(200) }),
   /** Hvem som skal spille sammen med `id` (lederen). Tom liste = spill alene. */
   z.object({ action: z.literal("group"), id: speakerId, members: z.array(speakerId).max(30) }),
+  /** Koble ett rom (`member`) til gruppen som `id` leder. */
+  z.object({ action: z.literal("join"), id: speakerId, member: speakerId }),
+  /** Ta rommet (og eventuelt flere, `also`) ut av gruppen, så de spiller for seg selv. */
+  z.object({ action: z.literal("unjoin"), id: speakerId, also: z.array(speakerId).max(30).optional() }),
   /** Spill fra Spotify nå, eller legg i køen etter det som spilles. */
   z.object({ action: z.literal("play"), id: speakerId, url: spotifyUrl, queue: z.boolean().default(false) }),
 ]);

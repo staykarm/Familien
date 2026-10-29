@@ -1,11 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { Link2, Pencil, Plus, X } from "lucide-react";
+import { Pencil, Plus, X } from "lucide-react";
 import {
   controlSpeaker,
   deleteHouseGroup,
-  joinRooms,
   loadHouse,
   loadHouseSetup,
   restoreHouseGroup,
@@ -15,9 +14,9 @@ import {
   type HouseResult,
   type HouseSetup,
 } from "@/actions/huset";
-import { buttonPrimary, buttonSecondary, card } from "@/components/ui/styles";
+import { card } from "@/components/ui/styles";
 import { useUndo } from "@/components/ui/UndoToast";
-import { groupName, type Speaker, type SpeakerGroup } from "@/lib/huset/sonos";
+import { groupName, isMoved, moveSpeaker, type Speaker, type SpeakerGroup } from "@/lib/huset/sonos";
 import type { SpeakerCommand } from "@/lib/validation/huset";
 import { MusicSheet } from "./MusicSheet";
 import { PresetSheet, type PresetDraft } from "./PresetSheet";
@@ -26,6 +25,8 @@ import { RoomList } from "./RoomList";
 const POLL_MS = 4_000;
 /** Sonos trenger et øyeblikk før Home Assistant viser en endring. */
 const SETTLE_MS = 700;
+/** Så mange ganger venter vi på at Sonos bekrefter en gruppering (Sonos kan bruke flere sekunder). */
+const CONFIRM_TRIES = 8;
 
 const SPOTIFY_NOTICE: Record<string, string> = {
   koblet: "Spotify er koblet til 🎉",
@@ -62,14 +63,20 @@ export function HousePage({ initial, setup: initialSetup, notice }: { initial: H
   const [overrides, setOverrides] = useState<Overrides>({});
   const [message, setMessage] = useState<string | null>(notice ? (SPOTIFY_NOTICE[notice] ?? null) : null);
   const [open, setOpen] = useState<string | null>(null);
-  const [selected, setSelected] = useState<Set<string> | null>(null);
+  /** Gruppen man legger til rom i (lederens id). */
+  const [adding, setAdding] = useState<string | null>(null);
+  /** Rom som er flyttet, men som Sonos ennå ikke har bekreftet. Vises med en gang (`moveSpeaker`). */
+  const [moves, setMoves] = useState<{ seq: number; speaker: string; to: string | null }[]>([]);
   const [music, setMusic] = useState<SpeakerGroup | null>(null);
   const [editing, setEditing] = useState(false);
   const [preset, setPreset] = useState<PresetDraft | null>(null);
   const [, start] = useTransition();
-  /** En handling (fast gruppe, «Spill sammen», lagring) pågår. Ikke det samme som at siden henter ny tilstand. */
+  /** En handling (fast gruppe, lagring) pågår. Ikke det samme som at siden henter ny tilstand. */
   const [acting, setActing] = useState(false);
   const busy = useRef(false);
+  /** Grupperinger som venter på bekreftelse. Da hoppes den vanlige oppfriskingen over, fordi server actions
+   *  kjøres én om gangen og ellers ville stilt seg i kø foran neste trykk. */
+  const confirming = useRef(0);
   const seq = useRef(0);
 
   const reloadSetup = useCallback(async () => {
@@ -82,7 +89,7 @@ export function HousePage({ initial, setup: initialSetup, notice }: { initial: H
   });
 
   const refresh = useCallback(() => {
-    if (busy.current) return;
+    if (busy.current || confirming.current > 0) return;
     busy.current = true;
     start(async () => {
       try {
@@ -129,25 +136,56 @@ export function HousePage({ initial, setup: initialSetup, notice }: { initial: H
     });
   }
 
+  /**
+   * Flytter rom mellom grupper (`to` = lederen, `null` = alene). Vises med en gang, og holdes til Sonos
+   * har bekreftet det (eller vi har ventet lenge nok), så lista ikke hopper fram og tilbake.
+   */
+  async function regroup(changes: { speaker: string; to: string | null }[], cmd: SpeakerCommand) {
+    if (!changes.length) return;
+    const mine = ++seq.current;
+    confirming.current++;
+    setMoves((m) => [...m, ...changes.map((c) => ({ ...c, seq: mine }))]);
+    const result = await controlSpeaker(cmd);
+    setMessage(result.ok ? (result.message ?? null) : (result.message ?? "Det virket ikke"));
+    for (let i = 0; i < CONFIRM_TRIES; i++) {
+      await new Promise((r) => setTimeout(r, SETTLE_MS));
+      const fresh = await loadHouse();
+      setData(fresh);
+      // En nyere gruppering tar over kontrollen, så denne slutter å spørre.
+      if (!result.ok || mine !== seq.current || changes.every((c) => isMoved(fresh.groups, c.speaker, c.to))) break;
+    }
+    confirming.current--;
+    setMoves((m) => m.filter((x) => x.seq !== mine));
+  }
+
+  function move(speaker: string, to: string | null) {
+    const before = groups.find((g) => g.speakers.some((s) => s.id === speaker));
+    if (!before || (to === null ? before.speakers.length === 1 : before.leader.id === to)) return;
+    void regroup([{ speaker, to }], to === null ? { action: "unjoin", id: speaker } : { action: "join", id: to, member: speaker });
+  }
+
+  function ungroup(leader: Speaker) {
+    const group = groups.find((g) => g.leader.id === leader.id);
+    const others = (group?.speakers ?? []).filter((s) => s.id !== leader.id);
+    // Rommene som skal ut, sendes med navn, så det virker selv om Home Assistant ikke har vist grupperingen ennå.
+    const [first, ...rest] = others.map((s) => s.id);
+    if (!first) return;
+    void regroup(
+      others.map((s) => ({ speaker: s.id, to: null })),
+      { action: "unjoin", id: first, also: rest }
+    );
+  }
+
   /** Under dra: vis volumet uten å sende (sendes med jevne mellomrom og når man slipper). */
   function preview(id: string, volume: number) {
     setOverrides((o) => ({ ...o, [id]: { ...o[id], volume, seq: o[id]?.seq ?? 0 } }));
   }
 
-  const groups = applyOverrides(data.groups, overrides);
+  const groups = moves.reduce((g, m) => moveSpeaker(g, m.speaker, m.to), applyOverrides(data.groups, overrides));
   const active = groups.filter((g) => g.leader.status !== "unavailable");
   const missing = groups.filter((g) => g.leader.status === "unavailable");
   const allSpeakers = groups.flatMap((g) => g.speakers).sort((a, b) => a.name.localeCompare(b.name, "nb"));
   const nameOf = (id: string) => allSpeakers.find((s) => s.id === id)?.name ?? id.replace(/^media_player\./, "");
-
-  function toggleSelect(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
 
   async function savePreset(draft: PresetDraft) {
     setActing(true);
@@ -172,12 +210,6 @@ export function HousePage({ initial, setup: initialSetup, notice }: { initial: H
     <div className="flex flex-col gap-4 pb-16 md:pb-0">
       <div className="flex items-center justify-between gap-3">
         <h1 className="font-display text-xl font-bold sm:text-2xl lg:text-3xl">🏠 Huset</h1>
-        {data.ok && !selected && (
-          <button type="button" className={buttonSecondary} onClick={() => setSelected(new Set())} aria-label="Grupper rom">
-            <Link2 size={20} aria-hidden />
-            <span className="hidden sm:inline">Grupper rom</span>
-          </button>
-        )}
       </div>
 
       {!data.ok && (
@@ -247,48 +279,28 @@ export function HousePage({ initial, setup: initialSetup, notice }: { initial: H
               🎵 Rom
             </h2>
             {active.length === 0 && <p className="text-ink-light">Fant ingen høyttalere i Home Assistant.</p>}
-            {selected && <p className="text-sm text-ink-light">Kryss av rommene som skal spille det samme. Rommet som spiller nå, bestemmer musikken.</p>}
+            <p className="text-sm text-ink-light">
+              Trykk på lenken ved et rom for å spille det samme i flere rom.
+              <span className="hidden md:inline"> Du kan også dra et rom i håndtaket og slippe det på et annet.</span>
+            </p>
             <RoomList
               groups={active}
               open={open}
               onOpen={setOpen}
-              selected={selected}
-              onSelect={toggleSelect}
+              adding={adding}
+              onAdding={setAdding}
+              onJoin={(leader, speaker) => move(speaker, leader)}
+              onUnjoin={(speaker) => move(speaker, null)}
               onToggle={(s) => void run({ action: "toggle", id: s.id }, { playing: s.status !== "playing" })}
               onSkip={(s, action) => void run({ action, id: s.id })}
               onVolume={(id, volume, send) => (send ? void run({ action: "volume", id, volume }, { volume }) : preview(id, volume))}
               onSource={(s, source) => void run({ action: "source", id: s.id, source }, { playing: true })}
               onMusic={(s) => setMusic(groups.find((g) => g.leader.id === s.id) ?? { leader: s, speakers: [s] })}
-              onUngroup={(s) => void run({ action: "group", id: s.id, members: [] })}
+              onUngroup={ungroup}
             />
             {missing.length > 0 && <p className="text-sm text-ink-light">Svarer ikke nå: {missing.map((g) => g.leader.name).join(", ")}</p>}
           </section>
         </>
-      )}
-
-      {selected && (
-        <div className="pb-safe fixed inset-x-0 bottom-16 z-40 flex justify-center px-3 md:bottom-6">
-          <div className="flex items-center gap-2 rounded-full bg-ink p-2 pl-5 text-white shadow-lg">
-            <span className="font-bold">{selected.size} valgt</span>
-            <button
-              type="button"
-              className={`${buttonPrimary} rounded-full`}
-              disabled={selected.size < 2 || acting}
-              onClick={async () => {
-                const ids = [...selected];
-                setSelected(null);
-                setActing(true);
-                await settle(await joinRooms(ids));
-                setActing(false);
-              }}
-            >
-              Spill sammen
-            </button>
-            <button type="button" className="min-h-12 rounded-full px-4 font-bold text-sun" onClick={() => setSelected(null)}>
-              Avbryt
-            </button>
-          </div>
-        </div>
       )}
 
       {music && (

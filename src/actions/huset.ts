@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { callService, getStates, haConfigured, HaError } from "@/lib/huset/ha";
+import { toHome, type HomeState } from "@/lib/huset/home";
 import type { MusicItem, SearchResult } from "@/lib/huset/music";
 import { membersToRemove, pickLeader, toGroups, toSpeakers, type Speaker, type SpeakerGroup } from "@/lib/huset/sonos";
 import {
@@ -15,15 +16,27 @@ import {
 } from "@/lib/huset/spotify";
 import { requireFamily } from "@/lib/session";
 import { getDb } from "@/lib/supabase/db";
-import { houseGroupSchema, musicQuerySchema, speakerCommandSchema, type HouseGroupInput, type SpeakerCommand } from "@/lib/validation/huset";
+import {
+  homeCommandSchema,
+  houseGroupSchema,
+  musicQuerySchema,
+  speakerCommandSchema,
+  type HomeCommand,
+  type HouseGroupInput,
+  type SpeakerCommand,
+} from "@/lib/validation/huset";
 
 export interface HouseData {
   ok: boolean;
   /** Forklaring når Home Assistant ikke svarer eller ikke er satt opp. */
   message?: string;
   groups: SpeakerGroup[];
+  /** Lys, varme og persienner per rom. */
+  home: HomeState;
   updatedAt: string;
 }
+
+const EMPTY_HOME: HomeState = { rooms: [], sharedCovers: [], outdoorTemp: null };
 
 export interface HouseResult {
   ok: boolean;
@@ -78,11 +91,59 @@ async function setGroup(speakers: Speaker[], leader: Speaker, members: string[])
 export async function loadHouse(): Promise<HouseData> {
   await requireFamily();
   const updatedAt = new Date().toISOString();
-  if (!haConfigured()) return { ok: false, message: "Home Assistant er ikke koblet til ennå (HA_URL og HA_TOKEN mangler).", groups: [], updatedAt };
+  if (!haConfigured()) {
+    return { ok: false, message: "Home Assistant er ikke koblet til ennå (HA_URL og HA_TOKEN mangler).", groups: [], home: EMPTY_HOME, updatedAt };
+  }
   try {
-    return { ok: true, groups: toGroups(await loadSpeakers()), updatedAt };
+    const states = await getStates();
+    return { ok: true, groups: toGroups(toSpeakers(states)), home: toHome(states), updatedAt };
   } catch (e) {
-    return { ok: false, message: failure(e), groups: [], updatedAt };
+    return { ok: false, message: failure(e), groups: [], home: EMPTY_HOME, updatedAt };
+  }
+}
+
+/** Lys, scener, varme og persienner. Bare enheter som finnes i Home Assistant og svarer, kan styres. */
+export async function controlHome(input: HomeCommand): Promise<HouseResult> {
+  await requireFamily();
+  const parsed = homeCommandSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
+  const cmd = parsed.data;
+  try {
+    const states = new Map((await getStates()).map((s) => [s.entity_id, s]));
+    const ids = cmd.action === "lights_off" ? cmd.ids : [cmd.id];
+    const known = ids.filter((id) => states.has(id) && states.get(id)!.state !== "unavailable");
+    if (!known.length) return { ok: false, message: "Fant ikke enheten, eller den svarer ikke" };
+    const entity_id = known[0];
+
+    switch (cmd.action) {
+      case "light":
+        if (cmd.on === false) await callService("light", "turn_off", { entity_id });
+        else
+          await callService("light", "turn_on", {
+            entity_id,
+            ...(cmd.brightness !== undefined ? { brightness_pct: cmd.brightness } : {}),
+            ...(cmd.kelvin !== undefined ? { color_temp_kelvin: cmd.kelvin } : {}),
+          });
+        break;
+      case "lights_off":
+        await callService("light", "turn_off", { entity_id: known });
+        break;
+      case "scene":
+        await callService("scene", "turn_on", { entity_id });
+        break;
+      case "climate":
+        await callService("climate", "set_temperature", { entity_id, temperature: cmd.temperature });
+        break;
+      case "cover":
+        await callService("cover", cmd.command === "open" ? "open_cover" : cmd.command === "close" ? "close_cover" : "stop_cover", { entity_id });
+        break;
+      case "cover_position":
+        await callService("cover", "set_cover_position", { entity_id, position: cmd.position });
+        break;
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, message: failure(e) };
   }
 }
 

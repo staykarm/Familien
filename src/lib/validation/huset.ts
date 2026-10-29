@@ -34,3 +34,27 @@ export const houseGroupSchema = z.object({
 export type HouseGroupInput = z.input<typeof houseGroupSchema>;
 
 export const musicQuerySchema = z.string().trim().min(2, "Skriv minst to tegn").max(100, "Søket er for langt");
+
+const entityOf = (domain: string) => z.string().regex(new RegExp(`^${domain}\\.[a-z0-9_]+$`), "Ukjent enhet");
+
+/** Én handling på lys, scener, varme eller persienner. */
+export const homeCommandSchema = z.discriminatedUnion("action", [
+  /** Slå av/på, sett lysstyrke (1–100 %) og/eller fargetemperatur (kelvin). */
+  z.object({
+    action: z.literal("light"),
+    id: entityOf("light"),
+    on: z.boolean().optional(),
+    brightness: z.number().int().min(1).max(100).optional(),
+    kelvin: z.number().int().min(1500).max(9000).optional(),
+  }),
+  /** Slå av flere lys på én gang (et rom, utelys eller hele huset). */
+  z.object({ action: z.literal("lights_off"), ids: z.array(entityOf("light")).min(1).max(200) }),
+  z.object({ action: z.literal("scene"), id: entityOf("scene") }),
+  /** Ønsket temperatur, i halve grader. */
+  z.object({ action: z.literal("climate"), id: entityOf("climate"), temperature: z.number().min(5).max(30).multipleOf(0.5) }),
+  z.object({ action: z.literal("cover"), id: entityOf("cover"), command: z.enum(["open", "close", "stop"]) }),
+  /** Posisjon 0–100 (0 = nede, 100 = oppe). */
+  z.object({ action: z.literal("cover_position"), id: entityOf("cover"), position: z.number().int().min(0).max(100) }),
+]);
+
+export type HomeCommand = z.input<typeof homeCommandSchema>;

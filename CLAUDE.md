@@ -50,7 +50,10 @@ Arkitektur og faser står i README. Marius godkjenner hver fase før den startes
 - Varsler på tid (påminnelser, levering/henting, morgen) ligger i `lib/push/jobs.ts` og regnes ut per enhet. De kalles fra `/api/cron/push` hvert 5. minutt (Supabase `pg_cron`). `push_log` sørger for at hvert varsel bare sendes én gang per enhet.
 
 ## Huset (Home Assistant)
-- «Huset» (`/huset`, i menyen ved Innstillinger) styrer musikk (Sonos) via Home Assistant, med musikk fra Spotify. Lys, varme og persienner kommer i senere faser.
+- «Huset» (`/huset`, i menyen ved Innstillinger) styrer huset via Home Assistant, i fire faner: Musikk (Sonos og Spotify), Lys, Varme og Persienner. Fanen huskes på enheten.
+- Romkartet (`lib/huset/rooms.ts`) bestemmer hvilke lys, termostater, persienner og sensorer som hører til hvilket rom, og hva de heter. KNX kommer fra ETS-prosjektet via `knx.yaml` i Home Assistant (UT og KAP er spottetyper fra Flos). Hue-grupper ute vises som ett lys. Lys som ikke står i kartet, havner i «Andre lys». `toHome` (`lib/huset/home.ts`) bygger rommene.
+- Lys: av/på, lysstyrke, fargetemperatur (trykk på navnet), Hue-scener per rom, «Alt av» per rom, «Alt av i huset» og «Utelys av» (rom med `outdoor`). Varme: −/+ i halve grader (`stepTarget`). Persienner: opp/stopp/ned og posisjon (100 = oppe), felles styring øverst. Alt går gjennom `controlHome`, som sjekker at enheten finnes og svarer.
+- Endringer vises med en gang (`usePending`) og slippes når siden har hentet ny tilstand. Glidebryterne (`Range`) sender jevnlig mens man drar, og aldri samme verdi to ganger.
 - Huset er bygd for å kunne flyttes til en egen app senere. Koden ligger samlet i `app/(app)/huset/`, `components/huset/`, `lib/huset/`, `actions/huset.ts` og `app/api/huset/`. Fra resten av Familien bruker den bare `requireFamily`, `getDb`/`createAdminClient`, `lib/env`, `lib/crypto` og UI-komponentene. Resten av Familien skal ikke importere fra Huset, bortsett fra en eventuell `lib/huset/public.ts`.
 - Bare serveren snakker med Home Assistant (`lib/huset/ha.ts`, `HA_URL` + `HA_TOKEN`). Tokenet tilhører HA-brukeren «Familien-appen», som ikke er administrator. Cover-bilder går via `/api/huset/cover/[id]`.
 - Styring er lov overalt, så lenge appen er låst opp. Server actions sjekker at høyttaleren finnes i Home Assistant før de kaller en tjeneste.

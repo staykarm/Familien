@@ -19,13 +19,10 @@ const home: HomeState = {
 };
 
 describe("God natt og utelys", () => {
-  it("slår av alt lys som er på, inne og ute, og kan sette det tilbake", () => {
+  it("slår av lys som er på inne, lar utelyset være, og kan sette det tilbake", () => {
     const night = goodNight(home);
-    expect(night.ids).toEqual(["light.a", "light.ute"]);
-    expect(night.undo).toEqual([
-      { kind: "light", id: "light.a", on: true, brightness: 40, kelvin: null },
-      { kind: "light", id: "light.ute", on: true, brightness: 40, kelvin: null },
-    ]);
+    expect(night.ids).toEqual(["light.a"]);
+    expect(night.undo).toEqual([{ kind: "light", id: "light.a", on: true, brightness: 40, kelvin: null }]);
   });
 
   it("«Utelys av» tar bare rommene ute", () => {

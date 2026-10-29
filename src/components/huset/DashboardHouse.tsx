@@ -93,7 +93,7 @@ export function HouseMiniMap({ live, onRoom }: { live: HouseLive; onRoom: (roomI
 const button =
   "inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-line bg-card px-3 text-xs font-semibold text-ink transition hover:border-ink-faint disabled:opacity-40";
 
-/** «God natt» (alt lys av, inne og ute) og «Utelys av», med «Angre» en liten stund etterpå. */
+/** «God natt» (alt lys inne av, utelyset røres ikke) og «Utelys av», med «Angre» en liten stund etterpå. */
 export function HouseQuickLights({ live }: { live: HouseLive }) {
   const [undo, setUndo] = useState<{ text: string; items: UndoItem[] } | null>(null);
   const [working, setWorking] = useState(false);
@@ -115,7 +115,7 @@ export function HouseQuickLights({ live }: { live: HouseLive }) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <button type="button" className={button} disabled={working || !live.data.ok || !night.ids.length} onClick={() => void run(night, "God natt – alt lys er av")}>
+      <button type="button" className={button} disabled={working || !live.data.ok || !night.ids.length} onClick={() => void run(night, "God natt – lyset inne er av")}>
         <Moon size={14} aria-hidden />
         God natt
       </button>
@@ -142,7 +142,7 @@ export function HouseQuickLights({ live }: { live: HouseLive }) {
           )}
         </span>
       ) : (
-        <span className="text-xs text-ink-light">{night.ids.length ? `${night.ids.length} lys på` : "Alt lys er av"}</span>
+        <span className="text-xs text-ink-light">{night.ids.length ? `${night.ids.length} lys på inne` : "Alt lys inne er av"}</span>
       )}
     </div>
   );

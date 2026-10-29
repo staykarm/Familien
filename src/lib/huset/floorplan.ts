@@ -1,69 +1,184 @@
-// Forenklet kart over etasjene, laget fra plantegningene (A22-105 og A22-106, hus C), med omtrent samme
-// detaljnivå som kartene i Roborock-appen: ett felt per rom, ingen møbler. Mål i meter.
-// x = 0 er vestveggen (akse 22), y = 0 er nordveggen (akse P). Rom-id-ene er de i romkartet (rooms.ts).
+// Kart over etasjene, målt fra plantegningene (A22-105 og A22-106, hus C, målestokk 1:50). Mål i meter.
+// x = 0 er akse 22 (innsiden av vestveggen), y = 0 er akse P (innsiden av nordveggen). Rommene er
+// innvendige mål (veggflate til veggflate), så veggene blir de grå båndene mellom rommene.
+// Rom-id-ene er de i romkartet (rooms.ts).
 
 import { roomBrightness, type Room } from "./home";
 
+export type Pt = [number, number];
+
 export interface Shape {
   room: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
+  /** Omrisset, med klokka. */
+  pts: Pt[];
   /** Eget navn på feltet (f.eks. «Garderobe» i hovedsoverommet). Uten: navnet på rommet. */
   label?: string;
   /** Rom med flere felt får navn og merker bare på det ene. */
   main?: boolean;
+  /** Hvor navnet står, når midten av feltet ikke ligger inne i rommet (L-formede rom). */
+  at?: Pt;
+}
+
+/**
+ * Dør i en vegg. `wall: "v"` er en loddrett vegg ved x = `at`, med åpning fra y = `from` til `to`
+ * (og motsatt for `"h"`). `t` er veggtykkelsen åpningen dekker. Slagdører har hengsel i `hinge`-enden og
+ * slår mot `side` (+1 = økende x/y). Skyvedører (`slide`) vises bare som åpning.
+ */
+export interface Door {
+  wall: "h" | "v";
+  at: number;
+  from: number;
+  to: number;
+  t: number;
+  hinge?: "from" | "to" | "both";
+  side?: 1 | -1;
+  slide?: boolean;
 }
 
 export interface Floor {
   id: "1" | "2";
   name: string;
+  /** Ytterkanten av huset (rektangler [x0, y0, x1, y1]). Det som ikke er rom, er vegg. */
+  footprint: [number, number, number, number][];
   shapes: Shape[];
+  doors: Door[];
 }
 
+/** Rektangel fra hjørne til hjørne. */
+const rect = (x0: number, y0: number, x1: number, y1: number): Pt[] => [
+  [x0, y0],
+  [x1, y0],
+  [x1, y1],
+  [x0, y1],
+];
+
 /** Samme utsnitt for begge etasjene, så de har samme målestokk. */
-export const VIEWBOX = { x: -4.4, y: -0.2, w: 12.2, h: 15.8 };
+export const VIEWBOX = { x: -5.85, y: -0.45, w: 13.6, h: 15.75 };
 
 export const FLOORS: Floor[] = [
   {
     id: "1",
     name: "1. etasje",
+    footprint: [
+      [-0.25, -0.38, 6.86, 15.08],
+      [-5.65, 2.58, -2.5, 8.38],
+      [-2.5, 3.88, -0.25, 7.77],
+    ],
     shapes: [
-      { room: "bad-stort", x: 0, y: 0, w: 2.2, h: 4.3 },
-      { room: "master", x: 2.2, y: 0, w: 4.8, h: 2.8, main: true },
-      { room: "master", x: 2.2, y: 2.8, w: 4.8, h: 1.5, label: "Garderobe" },
-      { room: "kontor-1", x: -3.1, y: 2.85, w: 3.1, h: 2.35 },
-      { room: "vaskerom", x: -3.1, y: 5.2, w: 3.1, h: 1.8 },
-      { room: "entre", x: 0, y: 4.3, w: 4.6, h: 2.7 },
-      { room: "trapp", x: 4.6, y: 4.3, w: 2.4, h: 2.7 },
-      { room: "toalett", x: 0, y: 7, w: 1.3, h: 1.2 },
-      { room: "bad-lite", x: 0, y: 8.2, w: 1.3, h: 2.8 },
-      { room: "gang", x: 1.3, y: 7, w: 1.3, h: 4.0 },
-      { room: "sov-venstre", x: 2.6, y: 7, w: 4.4, h: 2.15 },
-      { room: "sov-hoyre", x: 2.6, y: 9.15, w: 4.4, h: 1.85 },
-      { room: "teknisk", x: 0, y: 11, w: 2.6, h: 3.8 },
-      { room: "lekerom", x: 2.6, y: 11, w: 4.4, h: 3.8 },
+      { room: "bad-stort", pts: rect(0, 0, 1.9, 4.17) },
+      { room: "master", pts: rect(2, 0, 6.5, 2.87), main: true },
+      { room: "master", label: "Garderobe", pts: [[2, 2.87], [6.5, 2.87], [6.5, 4.83], [3.35, 4.83], [3.35, 4.17], [2, 4.17]] },
+      { room: "kontor-1", pts: [[-5.4, 2.83], [-2.75, 2.83], [-2.75, 5.09], [-3.37, 5.09], [-3.37, 5.8], [-5.4, 5.8]], at: [-4.2, 4.2] },
+      { room: "vaskerom", pts: [[-5.4, 5.9], [-3.37, 5.9], [-3.37, 6.56], [-2.75, 6.56], [-2.75, 8.13], [-5.4, 8.13]], at: [-4.1, 7.2] },
+      { room: "entre", pts: [[-2.5, 4.23], [-0.25, 4.23], [-0.25, 4.28], [2, 4.28], [2, 6.93], [-0.25, 6.93], [-0.25, 7.42], [-2.5, 7.42]], at: [-0.6, 5.6] },
+      { room: "gang", pts: rect(2, 4.28, 3.2, 11.68), at: [2.6, 9.4] },
+      { room: "trapp", pts: rect(3.2, 4.93, 6.5, 6.93) },
+      { room: "toalett", pts: rect(0, 7.03, 1.9, 8.13) },
+      { room: "bad-lite", pts: rect(0, 8.23, 1.9, 10.63) },
+      { room: "teknisk", pts: rect(0, 10.73, 1.9, 14.83) },
+      { room: "sov-venstre", pts: rect(3.35, 7.03, 6.5, 9.31) },
+      { room: "sov-hoyre", pts: rect(3.35, 9.41, 6.5, 11.69) },
+      { room: "lekerom", pts: rect(2, 11.79, 6.5, 14.83) },
+    ],
+    doors: [
+      { wall: "v", at: 1.95, from: 2.6, to: 3.42, t: 0.12, hinge: "from", side: 1 }, // Hovedbad – hovedsoverom
+      { wall: "h", at: 4.055, from: -1.56, to: -0.63, t: 0.36, hinge: "to", side: -1 }, // Inngang nord
+      { wall: "h", at: 7.595, from: -1.56, to: -0.63, t: 0.36, hinge: "to", side: 1 }, // Inngang sør
+      { wall: "v", at: -2.625, from: 4.25, to: 5.06, t: 0.26, hinge: "to", side: -1 }, // Kontor
+      { wall: "v", at: -2.625, from: 6.59, to: 7.4, t: 0.26, hinge: "from", side: -1 }, // Vaskerom
+      { wall: "h", at: 6.98, from: 0.74, to: 1.45, t: 0.12, hinge: "to", side: -1 }, // WC
+      { wall: "v", at: 1.95, from: 8.33, to: 9.14, t: 0.12, hinge: "from", side: 1 }, // Guttas bad
+      { wall: "v", at: 1.95, from: 10.78, to: 11.59, t: 0.12, hinge: "from", side: -1 }, // Teknisk rom
+      { wall: "v", at: 3.275, from: 7.18, to: 7.99, t: 0.17, hinge: "from", side: 1 }, // Soverom Olav
+      { wall: "v", at: 3.275, from: 9.56, to: 10.37, t: 0.17, hinge: "from", side: 1 }, // Soverom Edvard
+      { wall: "h", at: 4.225, from: 2, to: 3.2, t: 0.13, slide: true }, // Gang – hovedsoverom
+      { wall: "h", at: 11.735, from: 2, to: 3.2, t: 0.13, slide: true }, // Gang – kjellerstue
+      { wall: "h", at: 14.955, from: 2.03, to: 3.15, t: 0.27, hinge: "from", side: 1 }, // Utgang sør
     ],
   },
   {
     id: "2",
     name: "2. etasje",
+    footprint: [
+      [-0.37, -0.38, 6.86, 15.08],
+      [-0.97, 9.18, -0.25, 11.39],
+      [6.5, 7.02, 7.46, 11.23],
+    ],
     shapes: [
-      { room: "stue", x: 0, y: 0, w: 7, h: 4.95 },
-      { room: "takterrasse", x: -4.2, y: 2.85, w: 4.2, h: 5.3 },
-      { room: "kjokken", x: 0, y: 4.95, w: 4.6, h: 6.2 },
-      { room: "trapp", x: 4.6, y: 4.95, w: 2.4, h: 2.0 },
-      { room: "kontor-2", x: 4.6, y: 6.95, w: 2.4, h: 3.05 },
-      { room: "bod-2", x: 4.6, y: 10, w: 2.4, h: 1.15 },
-      { room: "spisestue", x: 0, y: 11.15, w: 7, h: 4.2 },
-      { room: "terrasse", x: 7, y: 11, w: 0.7, h: 3.0, label: "Terrasse" },
+      { room: "stue", pts: rect(0, 0, 6.5, 4.83) },
+      { room: "takterrasse", pts: rect(-5.55, 2.6, -0.34, 8.35) },
+      {
+        room: "kjokken",
+        pts: [[0, 4.83], [3.2, 4.83], [3.2, 7.03], [3.86, 7.03], [3.86, 11.23], [0, 11.23], [0, 11.09], [-0.71, 11.09], [-0.71, 9.48], [0, 9.48]],
+        at: [1.9, 7.6],
+      },
+      { room: "trapp", pts: rect(3.3, 4.93, 6.5, 6.93) },
+      {
+        room: "kontor-2",
+        pts: [[3.96, 7.04], [6.5, 7.04], [6.5, 7.27], [7.21, 7.27], [7.21, 11.01], [6.5, 11.01], [6.5, 11.22], [5.48, 11.22], [5.48, 9.2], [3.96, 9.2]],
+        at: [5.3, 8.1],
+      },
+      { room: "bod-2", pts: rect(3.96, 9.3, 5.38, 11.22) },
+      { room: "spisestue", pts: [[0, 11.23], [3.22, 11.23], [3.22, 11.33], [6.5, 11.33], [6.5, 14.83], [0, 14.83]], at: [3.25, 13.1] },
+      { room: "terrasse", pts: rect(6.86, 11.34, 7.6, 13.3) },
+    ],
+    doors: [
+      { wall: "v", at: -0.165, from: 2.81, to: 3.64, t: 0.36, hinge: "from", side: -1 }, // Takterrasse nord
+      { wall: "v", at: -0.165, from: 5.97, to: 7.6, t: 0.36, hinge: "both", side: -1 }, // Takterrasse, dobbel dør
+      { wall: "v", at: 6.68, from: 11.4, to: 13.27, t: 0.38, slide: true }, // Terrasse
+      { wall: "h", at: 11.28, from: 5.48, to: 6.5, t: 0.13, slide: true }, // Kontor – spisestue
+      { wall: "v", at: 5.43, from: 9.47, to: 10.31, t: 0.12, slide: true }, // Bod
     ],
   },
 ];
 
 /** Bokstavhøyden på kartet (meter). */
-export const FONT = 0.36;
+export const FONT = 0.34;
+
+/** Rammen rundt et felt. */
+export function bounds(pts: Pt[]): { x: number; y: number; w: number; h: number } {
+  const xs = pts.map((p) => p[0]);
+  const ys = pts.map((p) => p[1]);
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+}
+
+/** Arealet av et felt (m²), med skolissemetoden. */
+export function area(pts: Pt[]): number {
+  let sum = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const [x1, y1] = pts[i];
+    const [x2, y2] = pts[(i + 1) % pts.length];
+    sum += x1 * y2 - x2 * y1;
+  }
+  return Math.abs(sum) / 2;
+}
+
+/** Strekene som tegner en dør: dørbladet (åpent 90°) og buen den går i. Tomt for skyvedører. */
+export function doorSwing(d: Door): { leaf: [Pt, Pt]; arc: { from: Pt; to: Pt; r: number; sweep: 0 | 1 } }[] {
+  if (d.slide || !d.hinge || !d.side) return [];
+  const pt = (along: number, across: number): Pt => (d.wall === "v" ? [across, along] : [along, across]);
+  const leaf = (hinge: number, free: number) => {
+    const w = Math.abs(free - hinge);
+    const h = pt(hinge, d.at);
+    const open = pt(hinge, d.at + d.side! * w);
+    const closed = pt(free, d.at);
+    // SVG-buen går den korte veien fra det åpne bladet til den lukkede kanten: retningen gir kryssproduktet.
+    const cross = (open[0] - h[0]) * (closed[1] - h[1]) - (open[1] - h[1]) * (closed[0] - h[0]);
+    return { leaf: [h, open] as [Pt, Pt], arc: { from: open, to: closed, r: w, sweep: (cross > 0 ? 1 : 0) as 0 | 1 } };
+  };
+  if (d.hinge === "both") {
+    const mid = (d.from + d.to) / 2;
+    return [leaf(d.from, mid), leaf(d.to, mid)];
+  }
+  return d.hinge === "from" ? [leaf(d.from, d.to)] : [leaf(d.to, d.from)];
+}
+
+/** Åpningen i veggen (rektangel [x, y, w, h]), så rommene på hver side henger sammen. */
+export function doorGap(d: Door): [number, number, number, number] {
+  return d.wall === "v" ? [d.at - d.t / 2, d.from, d.t, d.to - d.from] : [d.from, d.at - d.t / 2, d.to - d.from, d.t];
+}
 
 /** Deler navnet på flere linjer når feltet er smalt (ca. 0,55 × bokstavhøyde per tegn). */
 export function labelLines(text: string, width: number, font = FONT): string[] {

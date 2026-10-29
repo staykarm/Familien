@@ -19,9 +19,9 @@ function off(lights: Light[]): LightsOff {
   return { ids: lights.map((l) => l.id), undo: lights.map(undoLight) };
 }
 
-/** «God natt»: alt lys som er på, inne og ute. Foreløpig bare lys. */
+/** «God natt»: alt lys som er på inne. Utelyset røres ikke. Foreløpig bare lys. */
 export function goodNight(home: HomeState): LightsOff {
-  return off(home.rooms.flatMap((r) => lit(r.lights)));
+  return off(home.rooms.filter((r) => !r.outdoor).flatMap((r) => lit(r.lights)));
 }
 
 /** «Utelys av»: lys som er på i rommene ute. */

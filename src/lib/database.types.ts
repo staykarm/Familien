@@ -264,6 +264,30 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["weather_cache"]["Insert"]>;
         Relationships: [];
       };
+      house_groups: {
+        Row: {
+          id: string;
+          name: string;
+          speaker_ids: string[];
+          spotify_url: string | null;
+          spotify_name: string | null;
+          volume: number | null;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          speaker_ids?: string[];
+          spotify_url?: string | null;
+          spotify_name?: string | null;
+          volume?: number | null;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["house_groups"]["Insert"]>;
+        Relationships: [];
+      };
       shopping_category_memory: {
         Row: { name_key: string; category_id: string; source: "user" | "ai"; updated_at: string };
         Insert: { name_key: string; category_id: string; source?: "user" | "ai"; updated_at?: string };
@@ -292,6 +316,12 @@ export type Database = {
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["shopping_items"]["Insert"]>;
+        Relationships: [];
+      };
+      spotify_accounts: {
+        Row: { member_id: string; spotify_user_id: string; display_name: string | null; tokens_encrypted: string; updated_at: string };
+        Insert: { member_id: string; spotify_user_id: string; display_name?: string | null; tokens_encrypted: string; updated_at?: string };
+        Update: Partial<Database["public"]["Tables"]["spotify_accounts"]["Insert"]>;
         Relationships: [];
       };
       shopping_templates: {

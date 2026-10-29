@@ -123,3 +123,17 @@ export function isPlaying(group: SpeakerGroup): boolean {
 export function membersToRemove(group: SpeakerGroup, wanted: string[]): string[] {
   return group.speakers.map((s) => s.id).filter((id) => id !== group.leader.id && !wanted.includes(id));
 }
+
+/**
+ * Hvem som skal lede når rom kobles sammen: et rom som spiller (da fortsetter musikken),
+ * så et som står på pause midt i noe, ellers det første. Bare rom som svarer, telles med.
+ */
+export function pickLeader(speakers: Speaker[], ids: string[]): string | null {
+  const chosen = ids.map((id) => speakers.find((s) => s.id === id)).filter((s): s is Speaker => !!s && s.status !== "unavailable");
+  return (
+    chosen.find((s) => s.status === "playing")?.id ??
+    chosen.find((s) => s.status === "paused" && s.title)?.id ??
+    chosen[0]?.id ??
+    null
+  );
+}

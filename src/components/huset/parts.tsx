@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, type ReactNode } from "react";
 import { Music, Pause, Play } from "lucide-react";
 import type { Speaker } from "@/lib/huset/sonos";
 
@@ -142,7 +142,7 @@ export function Range({
   );
 }
 
-/** Av/på-bryter. */
+/** Av/på-bryter. Trykkflaten er større enn selve bryteren, så den er lett å treffe. */
 export function Toggle({ on, onChange, label, disabled }: { on: boolean; onChange: (on: boolean) => void; label: string; disabled?: boolean }) {
   return (
     <button
@@ -152,9 +152,26 @@ export function Toggle({ on, onChange, label, disabled }: { on: boolean; onChang
       aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!on)}
-      className={`relative h-8 w-14 shrink-0 rounded-full transition disabled:opacity-40 ${on ? "bg-primary" : "bg-line"}`}
+      className="flex h-10 shrink-0 items-center px-1 disabled:opacity-40"
     >
-      <span className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow transition-all ${on ? "left-7" : "left-1"}`} />
+      <span className={`relative h-6 w-11 rounded-full transition ${on ? "bg-primary" : "bg-line"}`}>
+        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${on ? "left-[1.375rem]" : "left-0.5"}`} />
+      </span>
+    </button>
+  );
+}
+
+/** Rund ikonknapp i kompakt størrelse (Lys, Varme og Persienner). */
+export function IconButton({ onClick, label, children, disabled }: { onClick: () => void; label: string; children: ReactNode; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      disabled={disabled}
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-line bg-card transition active:scale-95 hover:border-primary disabled:opacity-40"
+    >
+      {children}
     </button>
   );
 }

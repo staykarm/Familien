@@ -52,6 +52,7 @@ export interface Room {
   id: string;
   name: string;
   outdoor: boolean;
+  floor: 1 | 2 | null;
   lights: Light[];
   scenes: Scene[];
   climate: Climate | null;
@@ -143,6 +144,7 @@ export function toHome(states: StateLike[], rooms: RoomConfig[] = ROOMS): HomeSt
       id: r.id,
       name: r.name,
       outdoor: !!r.outdoor,
+      floor: r.floor ?? null,
       lights: (r.lights ?? []).flatMap((x) => {
         const s = byId.get(x.id);
         return s ? [toLight(s, x.name)] : [];
@@ -177,7 +179,7 @@ export function toHome(states: StateLike[], rooms: RoomConfig[] = ROOMS): HomeSt
     })
     .map((s) => toLight(s, String(s.attributes.friendly_name ?? s.entity_id).trim()))
     .sort((a, b) => a.name.localeCompare(b.name, "nb"));
-  if (others.length) result.push({ id: "andre", name: "Andre lys", outdoor: false, lights: others, scenes: [], climate: null, covers: [] });
+  if (others.length) result.push({ id: "andre", name: "Andre lys", outdoor: false, floor: null, lights: others, scenes: [], climate: null, covers: [] });
 
   return {
     rooms: result,
@@ -199,4 +201,11 @@ export function stepTarget(climate: Climate, delta: number): number | null {
   if (climate.target === null) return null;
   const next = Math.round((climate.target + delta) * 2) / 2;
   return Math.min(climate.max, Math.max(climate.min, next));
+}
+
+/** Lysstyrken for et helt rom: snittet av lysene som er på og kan dimmes (0 når alt er av). */
+export function roomBrightness(lights: Light[]): number {
+  const on = lights.filter((x) => x.available && x.on && x.dimmable && x.brightness !== null);
+  if (!on.length) return lights.some((x) => x.available && x.on) ? 100 : 0;
+  return Math.round(on.reduce((sum, x) => sum + (x.brightness ?? 0), 0) / on.length);
 }

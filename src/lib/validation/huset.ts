@@ -49,6 +49,8 @@ export const homeCommandSchema = z.discriminatedUnion("action", [
   }),
   /** Slå av flere lys på én gang (et rom, utelys eller hele huset). */
   z.object({ action: z.literal("lights_off"), ids: z.array(entityOf("light")).min(1).max(200) }),
+  /** Slå på flere lys (et rom), eventuelt med samme lysstyrke på alle som kan dimmes. */
+  z.object({ action: z.literal("lights_on"), ids: z.array(entityOf("light")).min(1).max(200), brightness: z.number().int().min(1).max(100).optional() }),
   z.object({ action: z.literal("scene"), id: entityOf("scene") }),
   /** Ønsket temperatur, i halve grader. */
   z.object({ action: z.literal("climate"), id: entityOf("climate"), temperature: z.number().min(5).max(30).multipleOf(0.5) }),
@@ -58,3 +60,27 @@ export const homeCommandSchema = z.discriminatedUnion("action", [
 ]);
 
 export type HomeCommand = z.input<typeof homeCommandSchema>;
+
+/** En beskjed til «Spør huset», med samtalen så langt (bare tekst). */
+export const houseAgentSchema = z.object({
+  text: z.string().trim().min(2, "Skriv eller si hva du vil gjøre").max(500, "Beskjeden er for lang"),
+  history: z
+    .array(z.object({ role: z.enum(["user", "assistant"]), text: z.string().max(2000) }))
+    .max(12)
+    .default([]),
+});
+
+const undoId = z.string().regex(/^(light|climate|cover|media_player)\.[a-z0-9_]+$/);
+
+/** Det «Angre» setter tilbake. */
+export const houseUndoSchema = z
+  .array(
+    z.discriminatedUnion("kind", [
+      z.object({ kind: z.literal("light"), id: undoId, on: z.boolean(), brightness: z.number().int().min(0).max(100).nullable(), kelvin: z.number().int().min(1500).max(9000).nullable() }),
+      z.object({ kind: z.literal("climate"), id: undoId, target: z.number().min(5).max(30) }),
+      z.object({ kind: z.literal("cover"), id: undoId, position: z.number().int().min(0).max(100) }),
+      z.object({ kind: z.literal("speaker"), id: undoId, volume: z.number().int().min(0).max(100).nullable(), playing: z.boolean() }),
+    ])
+  )
+  .min(1)
+  .max(300);

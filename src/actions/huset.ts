@@ -1,6 +1,8 @@
 "use server";
 
 import { z } from "zod";
+import { askHouse as runHouseAgent, undoHouse as runHouseUndo, type AgentResult, type AgentTurn } from "@/lib/huset/agent";
+import type { UndoItem } from "@/lib/huset/agentTargets";
 import { callService, getStates, haConfigured, HaError } from "@/lib/huset/ha";
 import { toHome, type HomeState } from "@/lib/huset/home";
 import type { MusicItem, SearchResult } from "@/lib/huset/music";
@@ -18,6 +20,8 @@ import { requireFamily } from "@/lib/session";
 import { getDb } from "@/lib/supabase/db";
 import {
   homeCommandSchema,
+  houseAgentSchema,
+  houseUndoSchema,
   houseGroupSchema,
   musicQuerySchema,
   speakerCommandSchema,
@@ -110,7 +114,7 @@ export async function controlHome(input: HomeCommand): Promise<HouseResult> {
   const cmd = parsed.data;
   try {
     const states = new Map((await getStates()).map((s) => [s.entity_id, s]));
-    const ids = cmd.action === "lights_off" ? cmd.ids : [cmd.id];
+    const ids = cmd.action === "lights_off" || cmd.action === "lights_on" ? cmd.ids : [cmd.id];
     const known = ids.filter((id) => states.has(id) && states.get(id)!.state !== "unavailable");
     if (!known.length) return { ok: false, message: "Fant ikke enheten, eller den svarer ikke" };
     const entity_id = known[0];
@@ -128,6 +132,18 @@ export async function controlHome(input: HomeCommand): Promise<HouseResult> {
       case "lights_off":
         await callService("light", "turn_off", { entity_id: known });
         break;
+      case "lights_on": {
+        // Lys som bare kan slås av og på, får ikke lysstyrke (Home Assistant avviser det).
+        const dimmable = known.filter((id) => {
+          const modes = states.get(id)!.attributes.supported_color_modes;
+          return Array.isArray(modes) && modes.some((m) => m !== "onoff");
+        });
+        const plain = known.filter((id) => !dimmable.includes(id));
+        if (cmd.brightness !== undefined && dimmable.length) await callService("light", "turn_on", { entity_id: dimmable, brightness_pct: cmd.brightness });
+        const rest = cmd.brightness !== undefined ? plain : known;
+        if (rest.length) await callService("light", "turn_on", { entity_id: rest });
+        break;
+      }
       case "scene":
         await callService("scene", "turn_on", { entity_id });
         break;
@@ -365,4 +381,38 @@ export async function disconnectSpotify(memberId: string): Promise<HouseResult> 
   if (!session.members.some((m) => m.id === memberId)) return { ok: false, message: "Ukjent person" };
   await disconnectAccount(memberId);
   return { ok: true, message: "Spotify er koblet fra" };
+}
+
+// --- Spør huset ----------------------------------------------------------------
+
+/** Tolker en beskjed («skru av lyset i stua») med Claude og gjør det. Gir svaret og det som trengs for å angre. */
+export async function askHouse(text: string, history: AgentTurn[] = []): Promise<HouseResult & Partial<AgentResult>> {
+  await requireFamily();
+  const parsed = houseAgentSchema.safeParse({ text, history });
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
+  if (!haConfigured()) return { ok: false, message: "Home Assistant er ikke koblet til ennå." };
+  if (!process.env.ANTHROPIC_API_KEY) return { ok: false, message: "ANTHROPIC_API_KEY mangler, så Huset kan ikke tolke beskjeder." };
+
+  const db = await getDb();
+  const { data } = await db.from("house_groups").select("id, name, speaker_ids, spotify_url, volume");
+  const presets = (data ?? []).map((g) => ({ id: g.id, name: g.name, speakerIds: g.speaker_ids, spotifyUrl: g.spotify_url, volume: g.volume }));
+  try {
+    return { ok: true, ...(await runHouseAgent(parsed.data.history, parsed.data.text, presets)) };
+  } catch (e) {
+    console.error("Spør huset feilet", e);
+    return { ok: false, message: e instanceof HaError || e instanceof SpotifyError ? e.message : "Huset fikk ikke tolket beskjeden akkurat nå. Prøv igjen." };
+  }
+}
+
+/** «Angre» etter «Spør huset»: setter lys, varme, persienner og volum tilbake. */
+export async function undoHouse(items: UndoItem[]): Promise<HouseResult> {
+  await requireFamily();
+  const parsed = houseUndoSchema.safeParse(items);
+  if (!parsed.success) return { ok: false, message: "Kunne ikke angre" };
+  try {
+    const n = await runHouseUndo(parsed.data);
+    return { ok: true, message: n ? "Satt tilbake" : "Det var ingenting å sette tilbake" };
+  } catch (e) {
+    return { ok: false, message: failure(e) };
+  }
 }

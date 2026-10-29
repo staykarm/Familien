@@ -4,7 +4,7 @@ import { useState, type KeyboardEvent } from "react";
 import { ListMusic } from "lucide-react";
 import { Sheet } from "@/components/ui/Sheet";
 import { buttonPrimary, buttonSecondary } from "@/components/ui/styles";
-import { FLOORS, FONT, labelLines, roomLook, VIEWBOX, type Floor, type Shape } from "@/lib/huset/floorplan";
+import { bounds, doorGap, doorSwing, FLOORS, FONT, labelLines, roomLook, VIEWBOX, type Door, type Floor, type Shape } from "@/lib/huset/floorplan";
 import type { HomeState, Room } from "@/lib/huset/home";
 import type { Speaker, SpeakerGroup } from "@/lib/huset/sonos";
 import type { HomeCommand } from "@/lib/validation/huset";
@@ -28,26 +28,17 @@ type View = "1" | "2" | "ute";
 
 const GLOW = "#ffc94d";
 
-/** Ett felt på kartet: hvit (eller grønn ute) bunn, gul farge etter lysstyrken, navn og merker. */
-function RoomShape({ shape, room, label, multi, selected, playing, onOpen }: {
+/** Ett felt på kartet: hvit (eller grønn ute) bunn og gul farge etter lysstyrken. Navnet tegnes for seg (`RoomLabel`). */
+function RoomShape({ shape, room, label, selected, playing, onOpen }: {
   shape: Shape;
   room: Room | undefined;
   label: string;
-  multi: boolean;
   selected: boolean;
   playing: Set<string>;
   onOpen: () => void;
 }) {
-  const { x, y, w, h } = shape;
   const look = roomLook(room, playing);
-  const showName = !multi || shape.main;
-  const vertical = w < 1.2 && h > 2;
-  const lines = showName ? labelLines(label, vertical ? h : w) : shape.label ? labelLines(shape.label, w, FONT * 0.8) : [];
-  const font = showName ? FONT : FONT * 0.8;
-  const cx = x + w / 2;
-  const cy = y + h / 2;
-  const total = lines.length * font * 1.15 + (showName && look.badges.length ? font : 0);
-  const top = cy - total / 2 + font * 0.85;
+  const points = shape.pts.map((p) => p.join(",")).join(" ");
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
@@ -55,21 +46,59 @@ function RoomShape({ shape, room, label, multi, selected, playing, onOpen }: {
     }
   };
   return (
-    <g role="button" tabIndex={0} aria-label={`${label}${look.glow ? ", lys på" : ""}${look.badges.length ? `, ${look.badges.join(" ")}` : ""}`} onClick={onOpen} onKeyDown={onKey} className="cursor-pointer outline-none [&:focus-visible>rect:first-child]:stroke-[var(--color-primary)]">
-      <rect x={x} y={y} width={w} height={h} rx={0.2} fill={room?.outdoor ? "#e3f4e8" : "#ffffff"} stroke={selected ? "var(--color-primary)" : "#cfc6d8"} strokeWidth={selected ? 0.12 : 0.05} />
-      {look.glow > 0 && <rect x={x + 0.04} y={y + 0.04} width={w - 0.08} height={h - 0.08} rx={0.18} fill={GLOW} fillOpacity={look.glow} pointerEvents="none" />}
-      <g transform={vertical ? `rotate(-90 ${cx} ${cy})` : undefined} pointerEvents="none">
-        {lines.map((line, i) => (
-          <text key={i} x={cx} y={top + i * font * 1.15} fontSize={font} textAnchor="middle" fill="var(--color-ink)" fontWeight={showName ? 700 : 500}>
-            {line}
-          </text>
-        ))}
-        {showName && look.badges.length > 0 && (
-          <text x={cx} y={top + lines.length * font * 1.15} fontSize={font * 0.85} textAnchor="middle" fill="var(--color-ink-light)">
-            {look.badges.join(" ")}
-          </text>
-        )}
-      </g>
+    <g role="button" tabIndex={0} aria-label={`${label}${look.glow ? ", lys på" : ""}${look.badges.length ? `, ${look.badges.join(" ")}` : ""}`} onClick={onOpen} onKeyDown={onKey} className="cursor-pointer outline-none [&:focus-visible>polygon:first-child]:stroke-[var(--color-primary)]">
+      <polygon
+        points={points}
+        fill={room?.outdoor ? "#e3f4e8" : "#ffffff"}
+        stroke={selected ? "var(--color-primary)" : room?.outdoor ? "#9cc9a9" : "none"}
+        strokeWidth={selected ? 0.12 : 0.04}
+        strokeDasharray={room?.outdoor && !selected ? "0.15 0.1" : undefined}
+        strokeLinejoin="round"
+      />
+      {look.glow > 0 && <polygon points={points} fill={GLOW} fillOpacity={look.glow} pointerEvents="none" />}
+    </g>
+  );
+}
+
+/** Navn og merker midt i feltet (eller i `at`). Smale, høye felt får navnet på langs. */
+function RoomLabel({ shape, room, label, multi, playing }: { shape: Shape; room: Room | undefined; label: string; multi: boolean; playing: Set<string> }) {
+  const { x, y, w, h } = bounds(shape.pts);
+  const look = roomLook(room, playing);
+  const showName = !multi || shape.main;
+  const vertical = w < 1 && h > 1.8;
+  const lines = showName ? labelLines(label, vertical ? h : w) : shape.label ? labelLines(shape.label, w, FONT * 0.8) : [];
+  const font = showName ? FONT : FONT * 0.8;
+  const [cx, cy] = shape.at ?? [x + w / 2, y + h / 2];
+  const total = lines.length * font * 1.15 + (showName && look.badges.length ? font : 0);
+  const top = cy - total / 2 + font * 0.85;
+  return (
+    <g transform={vertical ? `rotate(-90 ${cx} ${cy})` : undefined} pointerEvents="none">
+      {lines.map((line, i) => (
+        <text key={i} x={cx} y={top + i * font * 1.15} fontSize={font} textAnchor="middle" fill="var(--color-ink)" fontWeight={showName ? 700 : 500}>
+          {line}
+        </text>
+      ))}
+      {showName && look.badges.length > 0 && (
+        <text x={cx} y={top + lines.length * font * 1.15} fontSize={font * 0.85} textAnchor="middle" fill="var(--color-ink-light)">
+          {look.badges.join(" ")}
+        </text>
+      )}
+    </g>
+  );
+}
+
+/** Døra: åpning i veggen, og dørblad med bue for slagdører. */
+function DoorMark({ door }: { door: Door }) {
+  const [x, y, w, h] = doorGap(door);
+  return (
+    <g pointerEvents="none">
+      <rect x={x} y={y} width={w} height={h} fill="#ffffff" />
+      {doorSwing(door).map(({ leaf, arc }, i) => (
+        <g key={i} fill="none" stroke="var(--color-ink-faint)" strokeWidth={0.035}>
+          <line x1={leaf[0][0]} y1={leaf[0][1]} x2={leaf[1][0]} y2={leaf[1][1]} strokeWidth={0.05} />
+          <path d={`M ${arc.from[0]} ${arc.from[1]} A ${arc.r} ${arc.r} 0 0 ${arc.sweep} ${arc.to[0]} ${arc.to[1]}`} strokeDasharray="0.08 0.06" />
+        </g>
+      ))}
     </g>
   );
 }
@@ -83,25 +112,24 @@ export function FloorMap({ floor, rooms, selected, playing, onOpen, svgClassName
   svgClassName?: string;
 }) {
   const count = (id: string) => floor.shapes.filter((s) => s.room === id).length;
+  const labelOf = (s: Shape) => (s.label && count(s.room) === 1 ? s.label : (rooms.get(s.room)?.name ?? s.room));
   return (
     <figure className="flex flex-col gap-1">
       <figcaption className="text-xs font-bold uppercase tracking-wide text-ink-light">{floor.name}</figcaption>
       <svg viewBox={`${VIEWBOX.x} ${VIEWBOX.y} ${VIEWBOX.w} ${VIEWBOX.h}`} className={`h-auto w-full ${svgClassName}`} role="group" aria-label={floor.name}>
-        {floor.shapes.map((s, i) => {
-          const room = rooms.get(s.room);
-          return (
-            <RoomShape
-              key={`${s.room}-${i}`}
-              shape={s}
-              room={room}
-              label={s.label && count(s.room) === 1 ? s.label : (room?.name ?? s.room)}
-              multi={count(s.room) > 1}
-              selected={selected === s.room}
-              playing={playing}
-              onOpen={() => onOpen(s.room)}
-            />
-          );
-        })}
+        {/* Huset er vegg der det ikke er rom. */}
+        {floor.footprint.map(([x0, y0, x1, y1], i) => (
+          <rect key={i} x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="var(--color-ink-faint)" />
+        ))}
+        {floor.shapes.map((s, i) => (
+          <RoomShape key={`${s.room}-${i}`} shape={s} room={rooms.get(s.room)} label={labelOf(s)} selected={selected === s.room} playing={playing} onOpen={() => onOpen(s.room)} />
+        ))}
+        {floor.doors.map((d, i) => (
+          <DoorMark key={i} door={d} />
+        ))}
+        {floor.shapes.map((s, i) => (
+          <RoomLabel key={`${s.room}-${i}`} shape={s} room={rooms.get(s.room)} label={labelOf(s)} multi={count(s.room) > 1} playing={playing} />
+        ))}
       </svg>
     </figure>
   );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FLOORS, labelLines, roomLook } from "./floorplan";
+import { area, doorGap, doorSwing, FLOORS, labelLines, roomLook } from "./floorplan";
 import type { Room } from "./home";
 import { ROOMS } from "./rooms";
 
@@ -30,6 +30,43 @@ describe("kartet", () => {
     for (const r of ROOMS.filter((x) => x.floor)) {
       expect(FLOORS.find((f) => f.id === String(r.floor))!.shapes.some((s) => s.room === r.id), r.id).toBe(true);
     }
+  });
+
+  it("har samme areal som på plantegningene (innenfor 8 %)", () => {
+    // m² fra A22-105 og A22-106. Hovedsoverommet er Sov 01 + Garderobe.
+    const drawing: Record<string, number> = {
+      "bad-stort": 7.8, master: 13.4 + 7.4, "kontor-1": 7.3, vaskerom: 5.4, toalett: 2.0, "bad-lite": 4.5, teknisk: 7.7,
+      "sov-venstre": 7.2, "sov-hoyre": 7.2, lekerom: 13.5, gang: 8.7, stue: 31.0, spisestue: 22.5, kjokken: 23.3, "kontor-2": 9.6, "bod-2": 2.7,
+    };
+    for (const [room, m2] of Object.entries(drawing)) {
+      const total = FLOORS.flatMap((f) => f.shapes.filter((s) => s.room === room)).reduce((sum, s) => sum + area(s.pts), 0);
+      expect(Math.abs(total - m2) / m2, `${room}: ${total.toFixed(1)} m²`).toBeLessThan(0.08);
+    }
+  });
+
+  it("har dørene i veggene, med blad like bredt som åpningen", () => {
+    for (const f of FLOORS) {
+      for (const d of f.doors) {
+        const [x, y, w, h] = doorGap(d);
+        const inside = f.footprint.some(([x0, y0, x1, y1]) => x >= x0 - 0.05 && y >= y0 - 0.05 && x + w <= x1 + 0.05 && y + h <= y1 + 0.05);
+        expect(inside, `${f.name} ${d.wall}${d.at}`).toBe(true);
+        expect(d.to - d.from).toBeGreaterThan(0.6);
+        for (const { leaf, arc } of doorSwing(d)) {
+          expect(Math.hypot(leaf[1][0] - leaf[0][0], leaf[1][1] - leaf[0][1])).toBeCloseTo(arc.r);
+        }
+      }
+    }
+  });
+
+  it("tegner slagdører med bladet åpent mot riktig side", () => {
+    const [swing] = doorSwing({ wall: "v", at: 2, from: 3, to: 3.8, t: 0.1, hinge: "from", side: 1 });
+    expect(swing.leaf).toEqual([
+      [2, 3],
+      [2.8, 3],
+    ]);
+    expect(swing.arc.to).toEqual([2, 3.8]);
+    expect(doorSwing({ wall: "h", at: 5, from: 0, to: 1.6, t: 0.3, hinge: "both", side: -1 })).toHaveLength(2);
+    expect(doorSwing({ wall: "h", at: 5, from: 0, to: 1.2, t: 0.1, slide: true })).toEqual([]);
   });
 
   it("deler lange navn i smale felt", () => {

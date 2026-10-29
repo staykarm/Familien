@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, LightbulbOff, Moon, Sparkles } from "lucide-react";
+import { ChevronRight, Lightbulb, LightbulbOff, Moon, Sparkles } from "lucide-react";
 import { lightsOn, roomBrightness, type HomeState, type Light, type Room } from "@/lib/huset/home";
 import type { HomeCommand } from "@/lib/validation/huset";
 import { Range, Toggle } from "./parts";
@@ -158,10 +158,45 @@ function RoomCard({ room, pending, open, onOpen }: { room: Room; pending: Pendin
 /** Lysene i ett rom, åpent (brukes i arket fra kartet). */
 export function RoomLightsPanel({ room, run }: { room: Room; run: Props["run"] }) {
   const pending = { ...usePending<Light>(), run };
+  const [open, setOpen] = useState(false);
+  const usable = room.lights.map((x) => pending.show(x.id, x)).filter((x) => x.available);
+  const on = usable.filter((x) => x.on);
+  const lit = on.length > 0;
+  // Ett trykk: alt lys i rommet av, eller alt på (lysene velger selv lysstyrken de slås på med).
+  const toggleAll = () =>
+    void pending.sendMany(
+      Object.fromEntries(usable.map((x) => [x.id, { on: !lit, brightness: x.dimmable ? (lit ? 0 : Math.max(x.brightness ?? 0, 1)) : null }])),
+      () => run(lit ? { action: "lights_off", ids: on.map((x) => x.id) } : { action: "lights_on", ids: usable.map((x) => x.id) })
+    );
   return (
-    <ul>
-      <RoomCard room={room} pending={pending} open onOpen={() => undefined} />
-    </ul>
+    <div className="flex flex-col gap-1">
+      <button
+        type="button"
+        onClick={toggleAll}
+        disabled={!usable.length}
+        aria-pressed={lit}
+        className={`flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl text-base font-bold transition active:scale-[0.98] disabled:opacity-40 ${
+          lit ? "bg-[#ffd36b] text-ink shadow-sm" : "border-2 border-line bg-card text-ink"
+        }`}
+      >
+        {lit ? <Lightbulb size={22} aria-hidden /> : <LightbulbOff size={22} aria-hidden />}
+        {!usable.length ? "Lyset svarer ikke" : lit ? `Skru av lyset (${on.length} av ${usable.length} på)` : "Skru på lyset"}
+      </button>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex min-h-10 items-center gap-1 self-start text-sm font-semibold text-ink-light"
+      >
+        <ChevronRight size={16} className={`transition ${open ? "rotate-90" : ""}`} aria-hidden />
+        {open ? "Skjul lysene" : "Vis lysene og scener"}
+      </button>
+      {open && (
+        <ul>
+          <RoomCard room={room} pending={pending} open onOpen={() => undefined} />
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -187,8 +222,12 @@ export function LightsTab({ home, run }: Props) {
       else next.add(id);
       return next;
     });
-  const inside = rooms.filter((r) => !r.outdoor);
-  const outside = rooms.filter((r) => r.outdoor);
+  // Etter etasje, så rommene i alfabetisk rekkefølge. Lys uten rom («Andre lys») står for seg selv nederst.
+  const byName = (a: Room, b: Room) => a.name.localeCompare(b.name, "nb");
+  const floor1 = rooms.filter((r) => !r.outdoor && r.floor === 1).sort(byName);
+  const floor2 = rooms.filter((r) => !r.outdoor && r.floor === 2).sort(byName);
+  const outside = rooms.filter((r) => r.outdoor).sort(byName);
+  const others = rooms.filter((r) => !r.outdoor && r.floor === null);
   const list = (items: Room[], title: string) => (
     <section aria-label={title} className="rounded-2xl bg-card px-3 py-1 shadow-[0_2px_12px_rgba(120,90,60,0.08)]">
       <h3 className="pt-1 text-xs font-bold uppercase tracking-wide text-ink-light">{title}</h3>
@@ -216,8 +255,10 @@ export function LightsTab({ home, run }: Props) {
         </span>
       </div>
       <div className="grid items-start gap-2 lg:grid-cols-2">
-        {list(inside, "Inne")}
+        {floor1.length > 0 && list(floor1, "1. etasje")}
+        {floor2.length > 0 && list(floor2, "2. etasje")}
         {outside.length > 0 && list(outside, "Ute")}
+        {others.length > 0 && list(others, "Andre")}
       </div>
     </div>
   );

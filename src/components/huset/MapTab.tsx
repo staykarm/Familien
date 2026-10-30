@@ -112,16 +112,16 @@ function DoorMark({ door }: { door: Door }) {
 }
 
 /** Fyllfarge per type møbel (svak, så lyset i rommet synes gjennom). */
-const FURNITURE_FILL: Record<string, string> = { teppe: "none", dusj: "none", strek: "none", skap: "#ddd5ca", kar: "#ffffff", vask: "#ffffff", maskin: "#ffffff" };
+const FURNITURE_FILL: Record<string, string> = { teppe: "none", dusj: "none", strek: "none", skap: "#efe9e1", kar: "#ffffff", vask: "#ffffff", maskin: "#ffffff" };
 
-/** Ett møbel fra lysplanen: tynn grå strek. */
+/** Ett møbel fra lysplanen: lys, tynn strek. Kjøkkenøya og hylla i stua (`strong`) står tydeligere. */
 function FurnitureMark({ item }: { item: Furniture }) {
   const style = item.style;
   const props = {
-    fill: FURNITURE_FILL[style ?? ""] ?? "#f4efe8",
-    fillOpacity: 0.75,
-    stroke: "var(--color-ink-faint)",
-    strokeWidth: style === "teppe" ? 0.025 : 0.035,
+    fill: item.strong ? "#e6dccd" : (FURNITURE_FILL[style ?? ""] ?? "#ffffff"),
+    fillOpacity: item.strong ? 0.9 : 0.4,
+    stroke: item.strong ? "var(--color-ink-light)" : "#c9c1d3",
+    strokeWidth: item.strong ? 0.045 : 0.02,
     strokeDasharray: style === "teppe" || style === "dusj" ? "0.1 0.07" : undefined,
     strokeLinejoin: "round" as const,
   };

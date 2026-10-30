@@ -74,6 +74,16 @@ export interface Room {
   valves?: Valve[];
   /** Takluka (bare visning). */
   hatch?: Hatch;
+  /** Brytere som kan styres (varmekabler o.l.). */
+  switches?: Switch[];
+}
+
+/** En bryter (switch.*), f.eks. varmekablene i utetrappa. */
+export interface Switch {
+  id: string;
+  name: string;
+  on: boolean;
+  available: boolean;
 }
 
 export interface HomeState {
@@ -198,6 +208,14 @@ export function toHome(states: StateLike[], rooms: RoomConfig[] = ROOMS): HomeSt
       ...(appliances.some((a) => a.roomId === r.id) ? { appliances: appliances.filter((a) => a.roomId === r.id) } : {}),
       ...(r.hatch && toHatch(states, r.hatch) ? { hatch: toHatch(states, r.hatch)! } : {}),
       ...(r.valves?.some((id) => valves.some((v) => v.id === id)) ? { valves: valves.filter((v) => r.valves!.includes(v.id)) } : {}),
+      ...(r.switches?.some((x) => byId.has(x.id))
+        ? {
+            switches: r.switches.flatMap((x) => {
+              const s = byId.get(x.id);
+              return s ? [{ id: x.id, name: x.name, on: s.state === "on", available: s.state !== "unavailable" && s.state !== "unknown" }] : [];
+            }),
+          }
+        : {}),
     };
   });
 

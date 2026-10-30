@@ -33,7 +33,11 @@ export interface RoomConfig {
   appliances?: string[];
   /** Vanningsventilene i rommet (valve.*). */
   valves?: string[];
+  /** Takluka (bare visning, styres aldri fra appen). */
+  hatch?: HatchConfig;
 }
+
+import type { HatchConfig } from "./hatch";
 
 const l = (id: string, name: string): RoomLight => ({ id: `light.${id}`, name });
 const c = (id: string, name: string): RoomLight => ({ id: `cover.${id}`, name });
@@ -200,6 +204,8 @@ export const ROOMS: RoomConfig[] = [
     lights: [l("taket_taket", "Taket (Hue)")],
     speakers: sp("taket"),
     valves: ["valve.taket"],
+    // KNX 5/1/9 og 5/1/10 som binary_sensor i knx.yaml («Takluke åpne»/«Takluke lukke»).
+    hatch: { open: "binary_sensor.takluke_apne", close: "binary_sensor.takluke_lukke", contact: "binary_sensor.takluke_kontakt" },
   },
   {
     // Den store terrassen ved stua og kjøkkenet, over kontoret og vaskerommet i 1. etasje.

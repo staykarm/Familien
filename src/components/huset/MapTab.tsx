@@ -153,7 +153,7 @@ export function FloorMap({ floor, rooms, selected, playing, onOpen, svgClassName
 /** Alt som kan styres i ett rom: lys og scener, varme, persienner og musikk. */
 function RoomSheet({ room, groups, onClose, ...p }: Omit<Props, "home" | "initialRoom" | "svgClassName"> & { room: Room; onClose: () => void }) {
   const speakers = groups.flatMap((g) => g.speakers.map((s) => ({ speaker: s, leader: g.leader }))).filter((x) => room.speakers.includes(x.speaker.id));
-  const empty = !room.lights.length && !room.climate && !room.air && !room.appliances?.length && !room.valves?.length && !room.covers.length && !speakers.length;
+  const empty = !room.lights.length && !room.climate && !room.air && !room.appliances?.length && !room.valves?.length && !room.hatch && !room.covers.length && !speakers.length;
   return (
     <Sheet
       title={room.name}
@@ -185,6 +185,22 @@ function RoomSheet({ room, groups, onClose, ...p }: Omit<Props, "home" | "initia
           {room.appliances.map((a) => (
             <ApplianceLine key={a.id} appliance={a} />
           ))}
+        </section>
+      )}
+      {room.hatch && (
+        <section>
+          <h3 className="text-xs font-bold uppercase tracking-wide text-ink-light">Takluke</h3>
+          <p className="flex flex-wrap items-baseline gap-x-2 py-1 text-sm">
+            <span className={`font-semibold ${room.hatch.state === "closed" || room.hatch.state === "unknown" ? "" : "text-primary-dark"}`}>{room.hatch.text}</span>
+            {room.hatch.since && (
+              <span className="text-xs text-ink-light">
+                siden {new Intl.DateTimeFormat("nb-NO", { timeZone: "Europe/Oslo", weekday: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(room.hatch.since))}
+              </span>
+            )}
+          </p>
+          <p className="text-xs text-ink-light">
+            {room.hatch.fromContact ? "Fra sensoren på luka." : "Anslått ut fra om den sist ble åpnet eller lukket."} Luka åpnes og lukkes ikke fra appen.
+          </p>
         </section>
       )}
       {room.valves && room.valves.length > 0 && (

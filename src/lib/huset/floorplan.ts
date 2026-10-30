@@ -235,6 +235,7 @@ export function roomLook(room: Room | undefined, playing: Set<string>): RoomLook
   // Miele-maskiner som går eller er ferdige.
   for (const a of room.appliances ?? []) if (a.running || a.done) badges.push(APPLIANCE_ICON[a.kind]);
   if (room.valves?.some((v) => v.open)) badges.push("💧");
+  if (room.hatch && room.hatch.state !== "closed" && room.hatch.state !== "unknown") badges.push("Luke åpen");
   if (room.speakers.some((id) => playing.has(id))) badges.push("🎵");
   if (room.covers.some((c) => c.position !== null && c.position < 50)) badges.push("▾");
   return room.fire ? { glow, badges, alert: true } : { glow, badges };

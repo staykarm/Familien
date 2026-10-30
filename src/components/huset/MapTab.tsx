@@ -10,6 +10,7 @@ import type { Speaker, SpeakerGroup } from "@/lib/huset/sonos";
 import type { HomeCommand } from "@/lib/validation/huset";
 import { CoverLine } from "./CoversTab";
 import { ApplianceLine } from "./AppliancesTab";
+import { ValveLine } from "./WateringTab";
 import { AirLine, ClimateLine } from "./HeatTab";
 import { RoomLightsPanel } from "./LightsTab";
 import { nowPlaying, PlayButton, VolumeSlider } from "./parts";
@@ -27,7 +28,7 @@ interface Props {
   svgClassName?: string;
 }
 
-type View = "1" | "2" | "ute";
+type View = "1" | "2" | "tak" | "ute";
 
 const GLOW = "#ffc94d";
 
@@ -120,13 +121,23 @@ export function FloorMap({ floor, rooms, selected, playing, onOpen, svgClassName
   return (
     <figure className="flex flex-col gap-1">
       <figcaption className="text-xs font-bold uppercase tracking-wide text-ink-light">{floor.name}</figcaption>
-      <svg viewBox={`${VIEWBOX.x} ${VIEWBOX.y} ${VIEWBOX.w} ${VIEWBOX.h}`} className={`h-auto w-full ${svgClassName}`} role="group" aria-label={floor.name}>
+      <svg viewBox={`${(floor.viewBox ?? VIEWBOX).x} ${(floor.viewBox ?? VIEWBOX).y} ${(floor.viewBox ?? VIEWBOX).w} ${(floor.viewBox ?? VIEWBOX).h}`} className={`h-auto w-full ${svgClassName}`} role="group" aria-label={floor.name}>
         {/* Huset er vegg der det ikke er rom. */}
         {floor.footprint.map(([x0, y0, x1, y1], i) => (
           <rect key={i} x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="var(--color-ink-faint)" />
         ))}
         {floor.shapes.map((s, i) => (
           <RoomShape key={`${s.room}-${i}`} shape={s} room={rooms.get(s.room)} label={labelOf(s)} selected={selected === s.room} playing={playing} onOpen={() => onOpen(s.room)} />
+        ))}
+        {floor.obstacles?.map(([x0, y0, x1, y1, name], i) => (
+          <g key={i} pointerEvents="none">
+            <rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="var(--color-ink-faint)" />
+            {name && (
+              <text x={(x0 + x1) / 2} y={(y0 + y1) / 2 + FONT * 0.3} fontSize={FONT * 0.8} textAnchor="middle" fill="#ffffff" fontWeight={600}>
+                {name}
+              </text>
+            )}
+          </g>
         ))}
         {floor.doors.map((d, i) => (
           <DoorMark key={i} door={d} />
@@ -142,7 +153,7 @@ export function FloorMap({ floor, rooms, selected, playing, onOpen, svgClassName
 /** Alt som kan styres i ett rom: lys og scener, varme, persienner og musikk. */
 function RoomSheet({ room, groups, onClose, ...p }: Omit<Props, "home" | "initialRoom" | "svgClassName"> & { room: Room; onClose: () => void }) {
   const speakers = groups.flatMap((g) => g.speakers.map((s) => ({ speaker: s, leader: g.leader }))).filter((x) => room.speakers.includes(x.speaker.id));
-  const empty = !room.lights.length && !room.climate && !room.air && !room.appliances?.length && !room.covers.length && !speakers.length;
+  const empty = !room.lights.length && !room.climate && !room.air && !room.appliances?.length && !room.valves?.length && !room.hatch && !room.covers.length && !speakers.length;
   return (
     <Sheet
       title={room.name}
@@ -173,6 +184,30 @@ function RoomSheet({ room, groups, onClose, ...p }: Omit<Props, "home" | "initia
           <h3 className="text-xs font-bold uppercase tracking-wide text-ink-light">Maskiner</h3>
           {room.appliances.map((a) => (
             <ApplianceLine key={a.id} appliance={a} />
+          ))}
+        </section>
+      )}
+      {room.hatch && (
+        <section>
+          <h3 className="text-xs font-bold uppercase tracking-wide text-ink-light">Takluke</h3>
+          <p className="flex flex-wrap items-baseline gap-x-2 py-1 text-sm">
+            <span className={`font-semibold ${room.hatch.state === "closed" || room.hatch.state === "unknown" ? "" : "text-primary-dark"}`}>{room.hatch.text}</span>
+            {room.hatch.since && (
+              <span className="text-xs text-ink-light">
+                siden {new Intl.DateTimeFormat("nb-NO", { timeZone: "Europe/Oslo", weekday: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(room.hatch.since))}
+              </span>
+            )}
+          </p>
+          <p className="text-xs text-ink-light">
+            {room.hatch.fromContact ? "Fra sensoren på luka." : "Anslått ut fra om den sist ble åpnet eller lukket."} Luka åpnes og lukkes ikke fra appen.
+          </p>
+        </section>
+      )}
+      {room.valves && room.valves.length > 0 && (
+        <section>
+          <h3 className="text-xs font-bold uppercase tracking-wide text-ink-light">Vanning</h3>
+          {room.valves.map((v) => (
+            <ValveLine key={v.id} valve={v} run={p.run} />
           ))}
         </section>
       )}
@@ -222,7 +257,7 @@ function RoomSheet({ room, groups, onClose, ...p }: Omit<Props, "home" | "initia
  */
 export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initialRoom = null, svgClassName }: Props) {
   const startFloor = home.rooms.find((r) => r.id === initialRoom)?.floor;
-  const [view, setView] = useState<View>(startFloor === 1 ? "1" : "2");
+  const [view, setView] = useState<View>(initialRoom && FLOORS[2].shapes.some((x) => x.room === initialRoom) ? "tak" : startFloor === 1 ? "1" : "2");
   const [selected, setSelected] = useState<string | null>(initialRoom);
   const rooms = new Map(home.rooms.map((r) => [r.id, r]));
   const playing = new Set(groups.filter((g) => g.leader.status === "playing").flatMap((g) => g.speakers.map((s) => s.id)));
@@ -232,6 +267,7 @@ export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initial
   const views: { id: View; label: string }[] = [
     { id: "1", label: "1. etasje" },
     { id: "2", label: "2. etasje" },
+    { id: "tak", label: "Taket" },
     { id: "ute", label: "Ute" },
   ];
 
@@ -272,7 +308,7 @@ export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initial
       </div>
 
       <div className="rounded-2xl bg-card p-2 shadow-[0_2px_12px_rgba(120,90,60,0.08)]">
-        {/* Telefon og nettbrett: én etasje om gangen. PC: begge side om side. */}
+        {/* Telefon og nettbrett: én etasje om gangen. PC: alle side om side, i samme målestokk. */}
         <div className="lg:hidden">
           {view === "ute" ? (
             <div className="flex flex-col gap-3 p-1">
@@ -283,12 +319,12 @@ export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initial
             <FloorMap floor={FLOORS.find((f) => f.id === view)!} rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} />
           )}
         </div>
-        <div className="hidden grid-cols-2 gap-4 lg:grid">
+        <div className="hidden gap-4 lg:grid" style={{ gridTemplateColumns: FLOORS.map((f) => `${(f.viewBox ?? VIEWBOX).w}fr`).join(" ") }}>
           {FLOORS.map((f) => (
             <FloorMap key={f.id} floor={f} rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} />
           ))}
         </div>
-        <p className="px-1 pt-1 text-xs text-ink-light">Gult = lys på · 🎵 musikk · 🔥 varmer · 🧺 🍽️ ♨️ maskin går · ▾ persienne nede · CO₂ dårlig luft · 🚨 røykvarsler har gått. Trykk på et rom for å styre det.</p>
+        <p className="px-1 pt-1 text-xs text-ink-light">Gult = lys på · 🎵 musikk · 🔥 varmer · 💧 vanner · 🧺 🍽️ ♨️ maskin går · ▾ persienne nede · CO₂ dårlig luft · 🚨 røykvarsler har gått. Trykk på et rom for å styre det.</p>
       </div>
 
       <div className={view === "ute" ? "hidden lg:block" : ""}>{outdoorList}</div>

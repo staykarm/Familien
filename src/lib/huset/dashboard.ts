@@ -33,7 +33,7 @@ export function outdoorOff(home: HomeState): LightsOff {
   return off(home.rooms.filter((r) => r.outdoor).flatMap((r) => lit(r.lights)));
 }
 
-export type StatusArea = "lys" | "varme" | "persienner" | "roboter" | "vanning" | "strom" | "sikkerhet" | "maskiner";
+export type StatusArea = "lys" | "varme" | "persienner" | "roboter" | "vanning" | "strom" | "sikkerhet" | "maskiner" | "kart";
 
 export interface StatusRow {
   area: StatusArea;
@@ -92,6 +92,12 @@ export function houseStatus(home: HomeState, robots: Robot[], watering: Watering
         ? `${air.length} sensorer · ${Math.round(Math.min(...temps)) === Math.round(Math.max(...temps)) ? deg(temps[0]) : `${Math.round(Math.min(...temps))}–${deg(Math.max(...temps))}`}`
         : `${air.length} sensorer`;
     rows.push({ area: "varme", label: "Luft", value, alert: co2.length > 0 && co2[0].co2! > CO2_HIGH, active: false });
+  }
+
+  const hatch = home.rooms.find((r) => r.hatch)?.hatch;
+  if (hatch) {
+    const open = hatch.state !== "closed" && hatch.state !== "unknown";
+    rows.push({ area: "kart", label: "Takluke", value: hatch.text, alert: false, active: open });
   }
 
   const appliances = home.appliances ?? [];

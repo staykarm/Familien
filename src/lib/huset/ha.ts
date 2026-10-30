@@ -82,3 +82,11 @@ export async function callServiceForResponse(domain: string, service: string, da
   const body = (await res.json()) as { service_response?: unknown };
   return body.service_response ?? null;
 }
+
+/** Historikken til én entitet fra `start` (ISO) til nå, uten attributter. Tomt hvis den ikke finnes. */
+export async function getHistory(entityId: string, start: string): Promise<{ state: string; last_changed: string }[]> {
+  const res = await haFetch(`/api/history/period/${encodeURIComponent(start)}?filter_entity_id=${encodeURIComponent(entityId)}&minimal_response&no_attributes`);
+  const body = (await res.json()) as unknown;
+  const list = Array.isArray(body) && Array.isArray(body[0]) ? (body[0] as { state?: unknown; last_changed?: unknown }[]) : [];
+  return list.flatMap((p) => (typeof p.state === "string" && typeof p.last_changed === "string" ? [{ state: p.state, last_changed: p.last_changed }] : []));
+}

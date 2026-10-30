@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { DateTime } from "luxon";
 import { BatteryCharging, Car, Plug, Zap } from "lucide-react";
 import { loadPrices } from "@/actions/huset";
 import { cheapestWindow, kr, levelOf, watt, windowLabel, type Energy, type PriceLevel, type PricePoint } from "@/lib/huset/energy";
@@ -35,48 +36,82 @@ export function usePrices(): { hours: PricePoint[]; now: Date | null } {
 const hourOf = (iso: string) => iso.slice(11, 13);
 
 /**
- * Søyler per time: grønn = billig, gul = normal, rød = dyr (i forhold til timene som vises). Timen vi er i,
- * har mørk kant, og de tre billigste timene fram i tid er streket under.
+ * Strømgrafen: søyler for forbruket per time (kWh), farget etter prisen den timen (grønn = billig, gul = normal,
+ * rød = dyr), og en linje for strømprisen, også for timene som kommer. Timen vi er i, er markert, og de tre
+ * billigste timene fram i tid er streket under. `compact`: 12 timer bak og 12 fram. Ellers i dag og i morgen.
  */
 export function PriceChart({ hours, now, compact = false }: { hours: PricePoint[]; now: Date | null; compact?: boolean }) {
   if (!hours.length || !now) return <p className="text-xs text-ink-light">{now ? "Fant ikke strømprisene." : "Henter strømprisene …"}</p>;
-  const from = now.getTime() - 60 * 60_000;
-  const shown = compact ? hours.filter((h) => Date.parse(h.start) > from).slice(0, 24) : hours;
+  const nowMs = now.getTime();
+  const today = DateTime.fromJSDate(now).setZone("Europe/Oslo").startOf("day").toMillis();
+  const shown = compact
+    ? hours.filter((h) => Date.parse(h.start) > nowMs - 12 * 60 * 60_000).slice(0, 24)
+    : hours.filter((h) => Date.parse(h.start) >= today);
+  if (!shown.length) return <p className="text-xs text-ink-light">Fant ikke strømprisene.</p>;
   const prices = shown.map((h) => h.price);
   const min = Math.min(...prices);
   const max = Math.max(...prices);
+  const maxKwh = Math.max(0.1, ...shown.map((h) => h.kwh ?? 0));
   const best = cheapestWindow(hours, now, 3);
   const inBest = (h: PricePoint) => !!best && Date.parse(h.start) >= Date.parse(best.start) && Date.parse(h.start) < Date.parse(best.end);
-  const isNow = (h: PricePoint) => Date.parse(h.start) <= now.getTime() && now.getTime() < Date.parse(h.start) + 60 * 60_000;
+  const nowIndex = shown.findIndex((h) => Date.parse(h.start) <= nowMs && nowMs < Date.parse(h.start) + 60 * 60_000);
   const every = compact ? 6 : 3;
-  // Søylene starter litt under laveste pris, så forskjellene synes.
-  const floor = Math.max(0, min - (max - min) * 0.6);
-  const height = (p: number) => `${Math.max(6, ((p - floor) / (max - floor || 1)) * 100)}%`;
+  // Prislinjen bruker øvre del av grafen, og starter litt under laveste pris så forskjellene synes.
+  const floor = Math.max(0, min - (max - min) * 0.8);
+  const y = (p: number) => 100 - ((p - floor) / (max - floor || 1)) * 90;
+  const x = (i: number) => ((i + 0.5) / shown.length) * 100;
+  const line = shown.map((h, i) => `${x(i).toFixed(2)},${y(h.price).toFixed(2)}`).join(" ");
+  const used = shown.reduce((sum, h) => sum + (h.kwh ?? 0), 0);
   return (
-    <figure className="flex flex-col gap-1" aria-label={`Strømpris per time, fra ${kr(min)} til ${kr(max)} per kWh`}>
-      <div className={`flex items-end gap-px ${compact ? "h-12" : "h-36"}`}>
-        {shown.map((h) => (
-          <div
-            key={h.start}
-            title={`kl. ${hourOf(h.start)}: ${kr(h.price)}/kWh`}
-            className={`flex-1 rounded-t-sm ${isNow(h) ? "outline-2 outline-ink" : ""}`}
-            style={{ height: height(h.price), background: LEVEL_COLOR[levelOf(h.price, min, max)], opacity: isNow(h) ? 1 : 0.6 }}
+    <figure className="flex flex-col gap-1" aria-label={`Strømpris per time fra ${kr(min)} til ${kr(max)} per kWh, og forbruket per time`}>
+      <div className={`relative ${compact ? "h-14" : "h-40"}`}>
+        <div className="absolute inset-0 flex items-end gap-px">
+          {shown.map((h, i) => (
+            <div
+              key={h.start}
+              title={`kl. ${hourOf(h.start)}: ${kr(h.price)}/kWh${h.kwh != null ? ` · ${h.kwh.toLocaleString("nb-NO", { maximumFractionDigits: 1 })} kWh` : ""}`}
+              className={`relative flex h-full flex-1 items-end ${i === nowIndex ? "bg-card-soft" : ""}`}
+            >
+              {h.kwh != null && h.kwh > 0 && (
+                <div className="w-full rounded-t-sm" style={{ height: `${Math.max(3, (h.kwh / maxKwh) * 100)}%`, background: LEVEL_COLOR[levelOf(h.price, min, max)], opacity: 0.55 }} />
+              )}
+            </div>
+          ))}
+        </div>
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden>
+          <polyline points={line} fill="none" stroke="var(--color-ink)" strokeWidth={1.5} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        </svg>
+        {nowIndex >= 0 && (
+          <span
+            className="pointer-events-none absolute h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-ink ring-2 ring-card"
+            style={{ left: `${x(nowIndex)}%`, top: `${y(shown[nowIndex].price)}%` }}
+            aria-hidden
           />
-        ))}
+        )}
       </div>
       <div className="flex gap-px" aria-hidden>
         {shown.map((h, i) => (
           <div key={h.start} className="flex flex-1 flex-col items-center">
             <span className={`h-0.5 w-full ${inBest(h) ? "bg-[#2e9d57]" : ""}`} />
-            <span className={`h-3 text-[0.6rem] leading-3 tabular-nums text-ink-light ${hourOf(h.start) === "00" ? "font-bold" : ""}`}>{i % every === 0 || hourOf(h.start) === "00" ? hourOf(h.start) : ""}</span>
+            <span className={`h-3 text-[0.6rem] leading-3 tabular-nums text-ink-light ${hourOf(h.start) === "00" || i === nowIndex ? "font-bold text-ink" : ""}`}>
+              {i === nowIndex ? "nå" : i % every === 0 || hourOf(h.start) === "00" ? hourOf(h.start) : ""}
+            </span>
           </div>
         ))}
       </div>
-      {best && (
-        <figcaption className="text-xs text-ink-light">
-          Billigst de neste timene: <span className="font-semibold text-ink">kl. {windowLabel(best)}</span> ({kr(best.avg)}/kWh)
-        </figcaption>
-      )}
+      <figcaption className="flex flex-wrap gap-x-3 text-xs text-ink-light">
+        <span>
+          <span className="inline-block h-2 w-3 rounded-sm bg-ink-faint align-middle" /> forbruk{used > 0 ? ` (${used.toLocaleString("nb-NO", { maximumFractionDigits: 1 })} kWh)` : ""}
+        </span>
+        <span>
+          <span className="inline-block h-0.5 w-3 bg-ink align-middle" /> pris {kr(min)}–{kr(max)}
+        </span>
+        {best && (
+          <span>
+            Billigst: <span className="font-semibold text-ink">kl. {windowLabel(best)}</span> ({kr(best.avg)})
+          </span>
+        )}
+      </figcaption>
     </figure>
   );
 }
@@ -141,7 +176,7 @@ export function EnergyTab({ energy }: { energy: Energy }) {
       </section>
       <section className={panel} aria-label="Strømpris time for time">
         <h3 className="flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-ink-light">
-          <Zap size={12} aria-hidden /> Strømpris time for time{hours.length > 24 ? " (i dag og i morgen)" : ""}
+          <Zap size={12} aria-hidden /> Forbruk og strømpris time for time
         </h3>
         <PriceChart hours={hours} now={now} />
         {energy.min !== null && (

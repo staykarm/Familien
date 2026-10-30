@@ -10,7 +10,7 @@ import { robotService } from "@/lib/huset/robotControl";
 import { toRobots, type Robot } from "@/lib/huset/robots";
 import { toWatering, type Watering } from "@/lib/huset/watering";
 import { NO_ENERGY, toEnergy, type Energy, type PricePoint } from "@/lib/huset/energy";
-import { loadPriceHours } from "@/lib/huset/prices";
+import { loadPriceAndUse } from "@/lib/huset/prices";
 import { NO_SAFETY, toSafety, type Safety } from "@/lib/huset/safety";
 import type { MusicItem, SearchResult } from "@/lib/huset/music";
 import { membersToRemove, pickLeader, toGroups, toSpeakers, type Speaker, type SpeakerGroup } from "@/lib/huset/sonos";
@@ -122,11 +122,11 @@ export async function loadHouse(): Promise<HouseData> {
   }
 }
 
-/** Strømprisen time for time i dag og i morgen (Tibber). Hentes sjeldnere enn resten. */
+/** Strømprisen og forbruket time for time, fra i går til i morgen (Tibber). Hentes sjeldnere enn resten. */
 export async function loadPrices(): Promise<PricePoint[]> {
   await requireFamily();
   if (!haConfigured()) return [];
-  return loadPriceHours();
+  return loadPriceAndUse();
 }
 
 /** Lys, scener, varme og persienner. Bare enheter som finnes i Home Assistant og svarer, kan styres. */

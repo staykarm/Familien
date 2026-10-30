@@ -15,7 +15,7 @@ interface Props {
 const SECTIONS: { kind: ZoneKind; title: string }[] = [
   { kind: "plen", title: "Plen" },
   { kind: "bedd", title: "Bed" },
-  { kind: "tak", title: "Takterrasse" },
+  { kind: "tak", title: "Taket" },
 ];
 
 const time = (iso: string) => new Intl.DateTimeFormat("nb-NO", { timeZone: "Europe/Oslo", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
@@ -92,6 +92,16 @@ function ValveRow({ valve, pending, run }: { valve: Valve; pending: ReturnType<t
   );
 }
 
+/** Én ventil for seg (i arket for rommet på kartet, f.eks. Taket). */
+export function ValveLine({ valve, run }: { valve: Valve; run: Props["run"] }) {
+  const pending = usePending<Valve>();
+  return (
+    <ul className="flex flex-col">
+      <ValveRow valve={valve} pending={pending} run={run} />
+    </ul>
+  );
+}
+
 /** Gode tommelfingerregler for vanning med Gardena i norsk klima. */
 function Recommendations() {
   const [open, setOpen] = useState(false);
@@ -110,7 +120,7 @@ function Recommendations() {
             <strong>Bed:</strong> 15–20 min, 2–4 ganger i uka. Hver dag bare i hetebølger.
           </li>
           <li>
-            <strong>Takterrasse og krukker:</strong> 10 min hver dag i juni–august, sjeldnere vår og høst. Krukker tørker fortere enn bed.
+            <strong>Taket og krukker:</strong> 10 min hver dag i juni–august, sjeldnere vår og høst. Krukker tørker fortere enn bed.
           </li>
           <li>
             <strong>Tidspunkt:</strong> tidlig morgen, kl. 04–07. Midt på dagen fordamper vannet, og sent på kvelden blir plen og blader liggende våte (sopp).
@@ -130,7 +140,7 @@ function Recommendations() {
   );
 }
 
-/** Vanning: jorda øverst med råd, så sonene (plen, bed, takterrasse), og anbefalte innstillinger nederst. */
+/** Vanning: jorda øverst med råd, så sonene (plen, bed, taket), og anbefalte innstillinger nederst. */
 export function WateringTab({ watering, outdoorTemp, run }: Props) {
   const pending = usePending<Valve>();
   if (!watering.valves.length) return <p className="text-sm text-ink-light">Fant ikke noe vanningsanlegg i Home Assistant.</p>;

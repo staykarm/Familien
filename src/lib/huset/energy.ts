@@ -48,6 +48,8 @@ export interface PricePoint {
   /** Starten på perioden (ISO). Tibber gir kvarter; vi samler dem per time. */
   start: string;
   price: number;
+  /** Strøm brukt i timen (kWh). Bare for timer som har vært (og som Home Assistant har historikk for). */
+  kwh?: number | null;
 }
 
 export interface PriceWindow {
@@ -159,6 +161,38 @@ export function hourlyPrices(points: PricePoint[], zone = "Europe/Oslo"): PriceP
     hours.set(hour, [...(hours.get(hour) ?? []), p.price]);
   }
   return [...hours].map(([start, prices]) => ({ start, price: prices.reduce((a, b) => a + b, 0) / prices.length }));
+}
+
+/**
+ * Forbruk per time fra historikken til «akkumulert forbruk» (kWh siden midnatt, nullstilles hver natt).
+ * Økningen mellom to målinger legges på timen den siste ble gjort i. Faller verdien til under halvparten (ny dag),
+ * regnes den nye verdien; mindre fall er støy og hoppes over.
+ */
+export function hourlyUse(points: { state: string; last_changed: string }[], zone = "Europe/Oslo"): Map<string, number> {
+  const use = new Map<string, number>();
+  let prev: number | null = null;
+  for (const p of points) {
+    const v = Number(p.state);
+    if (!Number.isFinite(v)) continue;
+    if (prev !== null) {
+      // Nullstilling ved midnatt gir et stort fall. Små fall er støy: hopp over målingen og behold forrige verdi.
+      if (v < prev && v >= prev * 0.5) continue;
+      const delta = v >= prev ? v - prev : v;
+      const hour = DateTime.fromISO(p.last_changed).setZone(zone).startOf("hour").toISO()!;
+      use.set(hour, (use.get(hour) ?? 0) + delta);
+    }
+    prev = v;
+  }
+  return use;
+}
+
+/** Legger forbruket på timeprisene (timer uten historikk får `null`). */
+export function withUse(hours: PricePoint[], use: Map<string, number>, zone = "Europe/Oslo"): PricePoint[] {
+  const byHour = new Map([...use].map(([k, v]) => [DateTime.fromISO(k).setZone(zone).toMillis(), v]));
+  return hours.map((h) => {
+    const kwh = byHour.get(DateTime.fromISO(h.start).toMillis());
+    return { ...h, kwh: kwh === undefined ? null : Math.round(kwh * 100) / 100 };
+  });
 }
 
 /** De `length` sammenhengende timene med lavest snittpris fra og med timen vi er i. */

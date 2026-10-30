@@ -31,7 +31,13 @@ export interface RoomConfig {
   air?: string;
   /** Miele-maskinene i rommet: starten på entity-id-ene (sensor.<id>, sensor.<id>_program osv.). */
   appliances?: string[];
+  /** Vanningsventilene i rommet (valve.*). */
+  valves?: string[];
+  /** Takluka (bare visning, styres aldri fra appen). */
+  hatch?: HatchConfig;
 }
+
+import type { HatchConfig } from "./hatch";
 
 const l = (id: string, name: string): RoomLight => ({ id: `light.${id}`, name });
 const c = (id: string, name: string): RoomLight => ({ id: `cover.${id}`, name });
@@ -191,21 +197,31 @@ export const ROOMS: RoomConfig[] = [
   { id: "vaskerom", floor: 1, smoke: "laundry_room_intelligent_smoke_alarm", appliances: ["vaskemaskin", "torketrommel"], name: "Vaskerom", lights: [l("vaskerom_kap", "Lys")], climate: "climate.varme_vaskerom", humidity: "sensor.vaskerom_fukt", covers: [c("persienne_vaskerom", "Vaskerom")] },
   { id: "teknisk", floor: 1, smoke: "teknisk_rom_intelligent_smoke_alarm", name: "Teknisk rom", lights: [l("teknisk_lux", "Lys")] },
   {
-    // Den store terrassen ved stua og kjøkkenet, over kontoret og vaskerommet i 1. etasje.
-    id: "takterrasse",
-    name: "Takterrasse",
+    // Taket over huset (egen «etasje» på kartet): Hue-lyslistene, høyttaleren og vanningen der oppe.
+    id: "taket",
+    name: "Taket",
     outdoor: true,
-    lights: [l("tak_terrasse_utelys", "Utelys"), l("taket_taket", "Taket (Hue)")],
+    lights: [l("taket_taket", "Taket (Hue)")],
     speakers: sp("taket"),
+    valves: ["valve.taket"],
+    // KNX 5/1/9 og 5/1/10 som binary_sensor i knx.yaml («Takluke åpne»/«Takluke lukke»).
+    hatch: { open: "binary_sensor.takluke_apne", close: "binary_sensor.takluke_lukke", contact: "binary_sensor.takluke_kontakt" },
   },
   {
-    // Ved spisestua (på plantegningen: balkong).
+    // Den store terrassen ved stua og kjøkkenet, over kontoret og vaskerommet i 1. etasje.
     id: "terrasse",
     name: "Terrasse",
     outdoor: true,
-    lights: [l("terrasse_utelys", "Utelys"), l("terrasse_terrasse", "Terrasse (Hue)")],
+    lights: [l("terrasse_utelys", "Utelys"), l("tak_terrasse_utelys", "Utelys 2"), l("terrasse_terrasse", "Terrasse (Hue)")],
     covers: [c("persienne_felles_terrasse", "Alle på terrassen")],
     speakers: sp("terrassen"),
+  },
+  {
+    // Den lille balkongen ved spisestua.
+    id: "balkong",
+    name: "Balkong",
+    outdoor: true,
+    lights: [l("utelys_flauta", "Flauta")],
   },
   {
     id: "ute",
@@ -215,7 +231,6 @@ export const ROOMS: RoomConfig[] = [
     lights: [
       l("utelys_inngang_sor", "Inngang sør"),
       l("utelys_inngang_nord", "Inngang nord"),
-      l("utelys_flauta", "Flauta"),
       l("utelys_bakside_v_lekerom", "Baksiden ved lekerommet"),
       l("snuplassen_snuplassen", "Snuplassen (Hue)"),
       l("skog_sor_skog_sor", "Skog sør (Hue)"),
@@ -233,7 +248,7 @@ export const SHARED_COVERS: RoomLight[] = [c("persienne_felles_alle_stue_kjok_sp
 
 /** Scener fra disse Hue-gruppene ute hører til rommene over. */
 export const OUTDOOR_SCENE_PREFIXES: Record<string, string[]> = {
-  takterrasse: ["taket_taket"],
+  taket: ["taket_taket"],
   terrasse: ["terrasse_terrasse"],
   ute: ["snuplassen_snuplassen", "skog_sor_skog_sor", "bedd_vest_bedd_vest", "ute_vv11b_ute_vv11b"],
 };

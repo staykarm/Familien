@@ -142,6 +142,8 @@ export function describeHome(
     lines.push("", "LUFTSENSORER (Homely, bare til info):");
     for (const a of home.air) lines.push(`- ${a.name}: ${airText(a)}`);
   }
+  const hatch = home.rooms.find((r) => r.hatch)?.hatch;
+  if (hatch) lines.push("", `TAKLUKE (bare til info – kan aldri åpnes eller lukkes herfra): ${hatch.text.toLowerCase()}${hatch.fromContact ? "" : " (anslått ut fra siste åpne/lukke)"}`);
   if (home.appliances?.length) {
     lines.push("", "MASKINER (Miele, bare til info – kan ikke startes eller stoppes herfra):");
     for (const a of home.appliances) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cheapestWindow, hourlyPrices, kr, levelOf, toEnergy, toPricePoints, watt, windowLabel } from "./energy";
+import { cheapestWindow, hourlyPrices, hourlyUse, kr, levelOf, toEnergy, toPricePoints, watt, windowLabel, withUse } from "./energy";
 
 const st = (entity_id: string, state: string, attributes: Record<string, unknown> = {}) => ({ entity_id, state, attributes: { friendly_name: `Tibber Pulse Hjem ${entity_id}`, ...attributes } });
 
@@ -67,5 +67,33 @@ describe("priser", () => {
 
   it("formaterer kroner og effekt", () => {
     expect([kr(2.097), watt(5633), watt(850), toPricePoints(null).length]).toEqual(["2,10 kr", "5,6 kW", "850 W", 0]);
+  });
+});
+
+describe("forbruk per time", () => {
+  it("regner kWh per time fra «akkumulert forbruk», også over midnatt", () => {
+    const use = hourlyUse([
+      { state: "unavailable", last_changed: "2026-10-29T21:50:00Z" },
+      { state: "70.0", last_changed: "2026-10-29T21:55:00Z" },
+      { state: "71.5", last_changed: "2026-10-29T22:30:00Z" },
+      { state: "72.0", last_changed: "2026-10-29T22:59:00Z" },
+      { state: "71.98", last_changed: "2026-10-29T22:59:30Z" },
+      { state: "72.0", last_changed: "2026-10-29T22:59:40Z" },
+      { state: "0.4", last_changed: "2026-10-29T23:10:00Z" },
+      { state: "2.4", last_changed: "2026-10-29T23:50:00Z" },
+    ]);
+    expect([...use].map(([h, kwh]) => [h.slice(0, 16), Math.round(kwh * 10) / 10])).toEqual([
+      ["2026-10-29T23:00", 2],
+      ["2026-10-30T00:00", 2.4],
+    ]);
+    const hours = withUse(
+      [
+        { start: "2026-10-29T23:00:00.000+01:00", price: 2 },
+        { start: "2026-10-30T00:00:00.000+01:00", price: 1.9 },
+        { start: "2026-10-30T01:00:00.000+01:00", price: 1.8 },
+      ],
+      use
+    );
+    expect(hours.map((h) => h.kwh)).toEqual([2, 2.4, null]);
   });
 });

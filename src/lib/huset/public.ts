@@ -4,6 +4,7 @@ import { toHome } from "./home";
 import { toRobots } from "./robots";
 import { toGroups, toSpeakers } from "./sonos";
 import { summarizeHouse, type HouseSummary } from "./summary";
+import { toEnergy } from "./energy";
 import { toSafety } from "./safety";
 import { toWatering } from "./watering";
 
@@ -20,7 +21,7 @@ export async function loadHouseSummary(): Promise<HouseSummary | null> {
   if (!haConfigured()) return null;
   try {
     const states = await getStates(SUMMARY_TIMEOUT_MS);
-    return summarizeHouse(toHome(states), toGroups(toSpeakers(states)), toRobots(states), toWatering(states), toSafety(states));
+    return summarizeHouse(toHome(states), toGroups(toSpeakers(states)), toRobots(states), toWatering(states), toSafety(states), toEnergy(states));
   } catch {
     return null;
   }

@@ -1,6 +1,8 @@
 // Lys, varme og persienner fra Home Assistant, samlet per rom etter romkartet (rooms.ts).
 // Rene funksjoner uten nettverk, slik at de kan testes.
 
+import { toAir, type AirSensor } from "./air";
+import { toAppliances, type Appliance } from "./appliances";
 import { OUTDOOR_SCENE_PREFIXES, OUTDOOR_TEMP, ROOMS, SHARED_COVERS, type RoomConfig } from "./rooms";
 
 interface StateLike {
@@ -61,10 +63,18 @@ export interface Room {
   speakers: string[];
   /** Røykvarsleren i rommet har gått (Homely). */
   fire?: boolean;
+  /** Luftsensoren i rommet (Homely). */
+  air?: AirSensor;
+  /** Miele-maskinene i rommet. */
+  appliances?: Appliance[];
 }
 
 export interface HomeState {
   rooms: Room[];
+  /** Alle luftsensorene (Homely), også de som ikke er plassert i et rom. */
+  air?: AirSensor[];
+  /** Alle Miele-maskinene. */
+  appliances?: Appliance[];
   sharedCovers: Cover[];
   outdoorTemp: number | null;
 }
@@ -142,6 +152,8 @@ export function toHome(states: StateLike[], rooms: RoomConfig[] = ROOMS): HomeSt
     })
   );
 
+  const air = toAir(states, rooms);
+  const appliances = toAppliances(states, rooms);
   const result: Room[] = rooms.map((r) => {
     const climate = r.climate ? byId.get(r.climate) : undefined;
     return {
@@ -174,6 +186,8 @@ export function toHome(states: StateLike[], rooms: RoomConfig[] = ROOMS): HomeSt
       }),
       speakers: (r.speakers ?? []).filter((id) => byId.has(id)),
       ...(r.smoke && byId.get(`binary_sensor.${r.smoke}_brann`)?.state === "on" ? { fire: true } : {}),
+      ...(r.air && air.some((a) => a.id === r.air) ? { air: air.find((a) => a.id === r.air) } : {}),
+      ...(appliances.some((a) => a.roomId === r.id) ? { appliances: appliances.filter((a) => a.roomId === r.id) } : {}),
     };
   });
 
@@ -181,6 +195,8 @@ export function toHome(states: StateLike[], rooms: RoomConfig[] = ROOMS): HomeSt
     .filter((s) => {
       if (!s.entity_id.startsWith("light.") || listed.has(s.entity_id) || s.state === "unavailable") return false;
       if (s.attributes.is_hue_group === true) return false;
+      // Lyset inni ovnene (Miele) hører til maskinene, ikke til «Andre lys».
+      if (appliances.some((a) => s.entity_id.startsWith(`light.${a.id}_`))) return false;
       return !inListedGroup.has(String(s.attributes.friendly_name ?? ""));
     })
     .map((s) => toLight(s, String(s.attributes.friendly_name ?? s.entity_id).trim()))
@@ -194,6 +210,8 @@ export function toHome(states: StateLike[], rooms: RoomConfig[] = ROOMS): HomeSt
       return s ? [toCover(s, x.name)] : [];
     }),
     outdoorTemp: numState(byId.get(OUTDOOR_TEMP)),
+    ...(air.length ? { air } : {}),
+    ...(appliances.length ? { appliances } : {}),
   };
 }
 

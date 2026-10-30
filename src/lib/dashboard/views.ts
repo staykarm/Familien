@@ -12,6 +12,7 @@ export const VIEW_TITLES = {
   roboter: "Roboter",
   vanning: "Vanning",
   musikk: "Musikk",
+  maskiner: "Maskiner",
   strom: "Strøm",
   sikkerhet: "Sikkerhet",
 } as const;

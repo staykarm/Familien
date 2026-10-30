@@ -4,6 +4,9 @@
 import { roomBrightness, type HomeState } from "./home";
 import type { Robot } from "./robots";
 import { groupName, type SpeakerGroup } from "./sonos";
+import { airAlerts } from "./air";
+import { houseStatus, playingNow, type PlayingNow, type StatusRow } from "./dashboard";
+import type { Energy } from "./energy";
 import type { Safety } from "./safety";
 import type { Watering } from "./watering";
 
@@ -15,6 +18,10 @@ export interface SummaryLine {
 }
 
 export interface HouseSummary {
+  /** Én linje per område, som «Huset nå» på dashboardet (`houseStatus`). */
+  rows: StatusRow[];
+  /** Det som spiller nå. */
+  playing: PlayingNow[];
   lines: SummaryLine[];
   /** Feil som må fikses, f.eks. «Støve 2: Lokket … står åpent». */
   alerts: string[];
@@ -26,7 +33,8 @@ export function summarizeHouse(
   groups: SpeakerGroup[],
   robots: Robot[],
   watering: Watering = { valves: [], sensors: [] },
-  safety?: Safety
+  safety?: Safety,
+  energy?: Energy
 ): HouseSummary {
   const lines: SummaryLine[] = [];
   const line = (name: string) => {
@@ -60,8 +68,10 @@ export function summarizeHouse(
   const alerts = [
     // Brann, utløst alarm og røykvarslere som ikke virker kommer først.
     ...(safety?.problems ?? []),
+    ...airAlerts(home.air ?? []),
+    ...(home.appliances ?? []).flatMap((a) => a.alerts),
     ...robots.flatMap((r) => r.problems.map((p) => `${r.name}: ${p}`)),
     ...watering.valves.filter((v) => v.available && v.problem).map((v) => `Vanning ${v.name}: ${v.problem}`),
   ];
-  return { lines, alerts };
+  return { rows: houseStatus(home, robots, watering, energy, safety), playing: playingNow(groups), lines, alerts };
 }

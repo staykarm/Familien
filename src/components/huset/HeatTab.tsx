@@ -1,6 +1,7 @@
 "use client";
 
-import { Droplets, Flame, Minus, Plus } from "lucide-react";
+import { Droplets, Flame, Minus, Plus, Wind } from "lucide-react";
+import { airText, CO2_HIGH, WEAK_SIGNAL, type AirSensor } from "@/lib/huset/air";
 import { stepTarget, type Climate, type HomeState } from "@/lib/huset/home";
 import type { HomeCommand } from "@/lib/validation/huset";
 import { IconButton } from "./parts";
@@ -56,6 +57,24 @@ function ClimateRow({ climate, pending, run }: { climate: Climate; pending: Retu
   );
 }
 
+/** Én luftsensor: navn, målinger og varsel om dårlig luft eller svakt signal. */
+export function AirLine({ air, showName = false }: { air: AirSensor; showName?: boolean }) {
+  const high = air.online && air.co2 !== null && air.co2 > CO2_HIGH;
+  return (
+    <div className={`flex items-center gap-2 border-b border-line py-1 last:border-0 ${air.online ? "" : "opacity-50"}`}>
+      <Wind size={14} className={high ? "shrink-0 text-danger" : "shrink-0 text-ink-light"} aria-hidden />
+      <div className="min-w-0 flex-1">
+        {showName && <p className="text-sm font-semibold wrap-break-word">{air.name}</p>}
+        <p className={`text-xs ${high ? "font-semibold text-danger" : "text-ink-light"}`}>
+          {airText(air)}
+          {high && " – luft ut"}
+        </p>
+      </div>
+      {air.online && air.signal !== null && air.signal < WEAK_SIGNAL && <span className="shrink-0 text-xs text-ink-light">svakt signal ({Math.round(air.signal)} %)</span>}
+    </div>
+  );
+}
+
 /** Varmen i ett rom (brukes i arket fra kartet). */
 export function ClimateLine({ climate, run }: { climate: Climate; run: Props["run"] }) {
   const pending = usePending<Climate>();
@@ -70,11 +89,24 @@ export function ClimateLine({ climate, run }: { climate: Climate; run: Props["ru
 export function HeatTab({ home, run }: Props) {
   const pending = usePending<Climate>();
   const climates = home.rooms.flatMap((r) => (r.climate ? [r.climate] : []));
+  const air = home.air ?? [];
   return (
-    <ul className="grid gap-x-4 rounded-2xl bg-card px-3 py-1 shadow-[0_2px_12px_rgba(120,90,60,0.08)] md:grid-cols-2 xl:grid-cols-3">
-      {climates.map((c) => (
-        <ClimateRow key={c.id} climate={c} pending={pending} run={run} />
-      ))}
-    </ul>
+    <div className="flex flex-col gap-2">
+      <ul className="grid gap-x-4 rounded-2xl bg-card px-3 py-1 shadow-[0_2px_12px_rgba(120,90,60,0.08)] md:grid-cols-2 xl:grid-cols-3">
+        {climates.map((c) => (
+          <ClimateRow key={c.id} climate={c} pending={pending} run={run} />
+        ))}
+      </ul>
+      {air.length > 0 && (
+        <section className="rounded-2xl bg-card px-3 py-2 shadow-[0_2px_12px_rgba(120,90,60,0.08)]" aria-label="Luftsensorer">
+          <h3 className="text-xs font-bold uppercase tracking-wide text-ink-light">Luftsensorer (Homely)</h3>
+          <div className="grid gap-x-4 md:grid-cols-2 xl:grid-cols-3">
+            {air.map((a) => (
+              <AirLine key={a.id} air={a} showName />
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
   );
 }

@@ -69,6 +69,7 @@ export function summarizeHouse(
     // Brann, utløst alarm og røykvarslere som ikke virker kommer først.
     ...(safety?.problems ?? []),
     ...airAlerts(home.air ?? []),
+    ...(home.appliances ?? []).flatMap((a) => a.alerts),
     ...robots.flatMap((r) => r.problems.map((p) => `${r.name}: ${p}`)),
     ...watering.valves.filter((v) => v.available && v.problem).map((v) => `Vanning ${v.name}: ${v.problem}`),
   ];

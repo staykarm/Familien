@@ -4,6 +4,7 @@
 // Rom-id-ene er de i romkartet (rooms.ts).
 
 import { CO2_HIGH } from "./air";
+import { APPLIANCE_ICON } from "./appliances";
 import { roomBrightness, type Room } from "./home";
 
 export type Pt = [number, number];
@@ -196,7 +197,7 @@ export function labelLines(text: string, width: number, font = FONT): string[] {
 export interface RoomLook {
   /** 0 = av, ellers 0,25–0,85: hvor sterk den gule fargen er. */
   glow: number;
-  /** Små merker på kartet: «🚨» (røykvarsleren har gått), «22°», «CO₂» (dårlig luft), «🎵», «🔥», «▾» (persienne nede). */
+  /** Små merker på kartet: «🚨» (røykvarsleren har gått), «22°», «CO₂» (dårlig luft), «🎵», «🔥», maskiner som går (🧺 🌀 🍽️ ♨️), «▾» (persienne nede). */
   badges: string[];
   /** Røykvarsleren i rommet har gått: rommet blir rødt. */
   alert?: boolean;
@@ -213,6 +214,8 @@ export function roomLook(room: Room | undefined, playing: Set<string>): RoomLook
   if (temp !== null) badges.push(`${Math.round(temp)}°`);
   if (room.air?.online && room.air.co2 !== null && room.air.co2 > CO2_HIGH) badges.push("CO₂");
   if (room.climate?.heating) badges.push("🔥");
+  // Miele-maskiner som går eller er ferdige.
+  for (const a of room.appliances ?? []) if (a.running || a.done) badges.push(APPLIANCE_ICON[a.kind]);
   if (room.speakers.some((id) => playing.has(id))) badges.push("🎵");
   if (room.covers.some((c) => c.position !== null && c.position < 50)) badges.push("▾");
   return room.fire ? { glow, badges, alert: true } : { glow, badges };

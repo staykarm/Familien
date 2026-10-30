@@ -2,6 +2,7 @@
 // Rene funksjoner uten nettverk, slik at de kan testes.
 
 import { CO2_HIGH } from "./air";
+import { applianceShort } from "./appliances";
 import { undoLight, type UndoItem } from "./agentTargets";
 import type { HomeState, Light } from "./home";
 import type { Robot } from "./robots";
@@ -32,7 +33,7 @@ export function outdoorOff(home: HomeState): LightsOff {
   return off(home.rooms.filter((r) => r.outdoor).flatMap((r) => lit(r.lights)));
 }
 
-export type StatusArea = "lys" | "varme" | "persienner" | "roboter" | "vanning" | "strom" | "sikkerhet";
+export type StatusArea = "lys" | "varme" | "persienner" | "roboter" | "vanning" | "strom" | "sikkerhet" | "maskiner";
 
 export interface StatusRow {
   area: StatusArea;
@@ -91,6 +92,13 @@ export function houseStatus(home: HomeState, robots: Robot[], watering: Watering
         ? `${air.length} sensorer · ${Math.round(Math.min(...temps)) === Math.round(Math.max(...temps)) ? deg(temps[0]) : `${Math.round(Math.min(...temps))}–${deg(Math.max(...temps))}`}`
         : `${air.length} sensorer`;
     rows.push({ area: "varme", label: "Luft", value, alert: co2.length > 0 && co2[0].co2! > CO2_HIGH, active: false });
+  }
+
+  const appliances = home.appliances ?? [];
+  if (appliances.length) {
+    const busy = appliances.filter((a) => a.failure || a.running || a.done || a.waiting);
+    const value = busy.length ? busy.map(applianceShort).join(" · ") : "Alle av";
+    rows.push({ area: "maskiner", label: "Maskiner", value, alert: appliances.some((a) => a.failure), active: appliances.some((a) => a.running) });
   }
 
   const covers = [...home.rooms.flatMap((r) => r.covers), ...home.sharedCovers].filter((c) => c.available && c.position !== null);

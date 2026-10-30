@@ -29,6 +29,8 @@ export interface RoomConfig {
   smoke?: string;
   /** Luftsensoren fra Homely i rommet: starten på entity-id-ene (sensor.<air>_temperatur osv.). */
   air?: string;
+  /** Miele-maskinene i rommet: starten på entity-id-ene (sensor.<id>, sensor.<id>_program osv.). */
+  appliances?: string[];
 }
 
 const l = (id: string, name: string): RoomLight => ({ id: `light.${id}`, name });
@@ -57,6 +59,7 @@ export const ROOMS: RoomConfig[] = [
   },
   {
     id: "kjokken", floor: 2,
+    appliances: ["oppvaskmaskin", "oven_microwave", "steam_oven_combi"],
     speakers: sp("kjokken"),
     name: "Kjøkken",
     lights: [l("kjokken_benkelys", "Benkelys"), l("kjokken_ut_oy", "Lys over øya"), l("kjokken_kap", "Lys"), l("kjokken_kap_peis", "Lys ved peisen")],
@@ -185,7 +188,7 @@ export const ROOMS: RoomConfig[] = [
     humidity: "sensor.toalett_fukt",
     floorTemp: "sensor.toalett_gulv",
   },
-  { id: "vaskerom", floor: 1, smoke: "laundry_room_intelligent_smoke_alarm", name: "Vaskerom", lights: [l("vaskerom_kap", "Lys")], climate: "climate.varme_vaskerom", humidity: "sensor.vaskerom_fukt", covers: [c("persienne_vaskerom", "Vaskerom")] },
+  { id: "vaskerom", floor: 1, smoke: "laundry_room_intelligent_smoke_alarm", appliances: ["vaskemaskin", "torketrommel"], name: "Vaskerom", lights: [l("vaskerom_kap", "Lys")], climate: "climate.varme_vaskerom", humidity: "sensor.vaskerom_fukt", covers: [c("persienne_vaskerom", "Vaskerom")] },
   { id: "teknisk", floor: 1, smoke: "teknisk_rom_intelligent_smoke_alarm", name: "Teknisk rom", lights: [l("teknisk_lux", "Lys")] },
   {
     // Den store terrassen ved stua og kjøkkenet, over kontoret og vaskerommet i 1. etasje.

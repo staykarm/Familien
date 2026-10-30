@@ -19,6 +19,7 @@ import { card } from "@/components/ui/styles";
 import { useUndo } from "@/components/ui/UndoToast";
 import { groupName, isMoved, moveSpeaker, type Speaker, type SpeakerGroup } from "@/lib/huset/sonos";
 import type { HomeCommand, SpeakerCommand } from "@/lib/validation/huset";
+import { AppliancesTab } from "./AppliancesTab";
 import { CoversTab } from "./CoversTab";
 import { EnergyTab } from "./EnergyTab";
 import { HouseChips } from "./HouseStatus";
@@ -65,7 +66,7 @@ function applyOverrides(groups: SpeakerGroup[], overrides: Overrides): SpeakerGr
   return groups.map((g) => ({ leader: fix(g.leader), speakers: g.speakers.map(fix) }));
 }
 
-type Tab = "musikk" | "kart" | "lys" | "varme" | "persienner" | "roboter" | "vanning" | "strom" | "sikkerhet";
+type Tab = "musikk" | "kart" | "lys" | "varme" | "persienner" | "roboter" | "vanning" | "maskiner" | "strom" | "sikkerhet";
 export type HouseTab = Tab;
 const TABS: { id: Tab; label: string }[] = [
   { id: "musikk", label: "🎵 Musikk" },
@@ -75,6 +76,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "persienner", label: "🪟 Persienner" },
   { id: "roboter", label: "🤖 Roboter" },
   { id: "vanning", label: "💧 Vanning" },
+  { id: "maskiner", label: "🧺 Maskiner" },
   { id: "strom", label: "⚡ Strøm" },
   { id: "sikkerhet", label: "🛡️ Sikkerhet" },
 ];
@@ -372,6 +374,7 @@ export function HousePage({
       {data.ok && tab === "varme" && <HeatTab home={data.home} run={runHome} />}
       {data.ok && tab === "persienner" && <CoversTab home={data.home} run={runHome} />}
       {data.ok && tab === "roboter" && <RobotsTab robots={data.robots} run={runHome} />}
+      {data.ok && tab === "maskiner" && <AppliancesTab appliances={data.home.appliances ?? []} />}
       {data.ok && tab === "strom" && <EnergyTab energy={data.energy} />}
       {data.ok && tab === "sikkerhet" && <SafetyTab safety={data.safety} />}
       {data.ok && tab === "vanning" && <WateringTab watering={data.watering} outdoorTemp={data.home.outdoorTemp} run={runHome} />}

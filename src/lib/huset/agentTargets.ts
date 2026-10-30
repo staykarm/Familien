@@ -4,6 +4,7 @@
 import type { Climate, Cover, HomeState, Light, Room } from "./home";
 import type { Robot } from "./robots";
 import { airText } from "./air";
+import { applianceText } from "./appliances";
 import { cheapestWindow, kr, watt, windowLabel, type Energy, type PricePoint } from "./energy";
 import type { Safety } from "./safety";
 import type { Watering } from "./watering";
@@ -140,6 +141,13 @@ export function describeHome(
   if (home.air?.length) {
     lines.push("", "LUFTSENSORER (Homely, bare til info):");
     for (const a of home.air) lines.push(`- ${a.name}: ${airText(a)}`);
+  }
+  if (home.appliances?.length) {
+    lines.push("", "MASKINER (Miele, bare til info – kan ikke startes eller stoppes herfra):");
+    for (const a of home.appliances) {
+      const levels = a.levels.length ? ` (${a.levels.map((l) => `${l.name} ${l.percent} %`).join(", ")})` : "";
+      lines.push(`- ${a.name}: ${applianceText(a)}${a.doorOpen ? ", døra er åpen" : ""}${levels}`);
+    }
   }
   const { energy, safety, prices = [], now = new Date() } = more;
   if (energy && energy.price !== null) {

@@ -5,6 +5,7 @@ import { BatteryMedium, ChevronDown, Droplets, Play, Square, Thermometer, Triang
 import { DEFAULT_MINUTES, QUICK_MINUTES, wateringAdvice, type Valve, type Watering, type ZoneKind } from "@/lib/huset/watering";
 import type { HomeCommand } from "@/lib/validation/huset";
 import { usePending } from "./usePending";
+import { AppLink } from "./parts";
 
 interface Props {
   watering: Watering;
@@ -174,6 +175,10 @@ export function WateringTab({ watering, outdoorTemp, run }: Props) {
           ))}
         </section>
       )}
+
+      <div className="flex justify-end">
+        <AppLink app="gardena" />
+      </div>
 
       {offline > 0 && (
         <p className="text-xs text-ink-light">

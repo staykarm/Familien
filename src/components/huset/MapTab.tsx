@@ -35,8 +35,10 @@ type View = "1" | "2" | "tak" | "ute";
 const GLOW = "#ffc94d";
 
 /** Ett felt på kartet: hvit (eller grønn ute) bunn og gul farge etter lysstyrken. Navnet tegnes for seg (`RoomLabel`). */
-function RoomShape({ shape, room, label, selected, playing, onOpen, dim = false }: {
+function RoomShape({ shape, room, label, selected, playing, onOpen, dim = false, heated = false }: {
   dim?: boolean;
+  /** Varmekablene i feltet er på. */
+  heated?: boolean;
   shape: Shape;
   room: Room | undefined;
   label: string;
@@ -63,6 +65,7 @@ function RoomShape({ shape, room, label, selected, playing, onOpen, dim = false 
         strokeLinejoin="round"
       />
       {look.glow > 0 && <polygon points={points} fill={GLOW} fillOpacity={dim ? look.glow * 0.35 : look.glow} pointerEvents="none" />}
+      {heated && <polygon points={points} fill="#f7b267" fillOpacity={0.45} stroke="#e8781f" strokeWidth={0.05} pointerEvents="none" />}
       {look.alert && <polygon points={points} fill="var(--color-danger)" fillOpacity={0.55} pointerEvents="none" className="animate-pulse" />}
     </g>
   );
@@ -263,7 +266,7 @@ export function FloorMap({ floor, rooms, selected, playing, onOpen, svgClassName
           <rect key={i} x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="var(--color-ink-faint)" />
         ))}
         {floor.shapes.map((s, i) => (
-          <RoomShape key={`${s.room}-${i}`} shape={s} room={rooms.get(s.room)} label={labelOf(s)} selected={selected === s.room} playing={playing} onOpen={() => onOpen(s.room)} dim={withFixtures.has(s.room)} />
+          <RoomShape key={`${s.room}-${i}`} shape={s} room={rooms.get(s.room)} label={labelOf(s)} selected={selected === s.room} playing={playing} onOpen={() => onOpen(s.room)} dim={withFixtures.has(s.room)} heated={!!s.heat && switchesOn.has(s.heat)} />
         ))}
         <g pointerEvents="none">
           {furniture.map((f, i) => (

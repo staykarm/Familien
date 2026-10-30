@@ -36,7 +36,8 @@ describe("møbler og trapper", () => {
   });
 
   it("har utetrappa med varmekabler, og hager og innganger i 1. etasje", () => {
-    expect(FLOORS[0].stairs!.filter((s) => s.heat === STAIR_HEAT)).toHaveLength(2);
+    expect(FLOORS[0].stairs!.filter((s) => s.heat === STAIR_HEAT)).toHaveLength(3);
+    expect(FLOORS[0].shapes.find((s) => s.label === "Inngang nord")?.heat).toBe(STAIR_HEAT);
     expect(FLOORS[0].shapes.filter((s) => s.room === "ute").map((s) => s.label ?? "hoved")).toEqual(["Inngang nord", "Inngang sør", "hoved"]);
   });
 });

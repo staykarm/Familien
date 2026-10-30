@@ -19,6 +19,8 @@ export interface Shape {
   main?: boolean;
   /** Hvor navnet står, når midten av feltet ikke ligger inne i rommet (L-formede rom). */
   at?: Pt;
+  /** Varmekabler (switch.*) i feltet: det blir oransje når de er på. */
+  heat?: string;
 }
 
 /**
@@ -67,7 +69,7 @@ export interface Floor {
 /** Trinnene i innetrappa (U-trapp mellom 1. og 2. etasje, A22-105/106). */
 const STEPS = [3.52, 3.84, 4.16, 4.49, 4.81, 5.13];
 
-/** Varmekablene i utetrappa ved inngangen i nord. */
+/** Varmekablene ved inngangen i nord (trappene og reposet). */
 export const STAIR_HEAT = "switch.varmekabler_trapp_ute";
 
 /** Rektangel fra hjørne til hjørne. */
@@ -111,6 +113,7 @@ export const FLOORS: Floor[] = [
         label: "Inngang nord",
         pts: [[-1.32, 0], [-0.25, 0], [-0.25, 3.88], [-2.5, 3.88], [-2.5, 2.55], [-4.15, 2.55], [-4.15, 1.4], [-1.32, 1.4]],
         at: [-1.35, 1.95],
+        heat: STAIR_HEAT,
       },
       { room: "ute", label: "Inngang sør", pts: rect(-2.5, 7.77, -0.25, 8.38) },
       { room: "ute", main: true, pts: rect(-0.25, 15.08, 6.86, 16.45) },
@@ -138,7 +141,7 @@ export const FLOORS: Floor[] = [
       // Utetrappa i nord: løpet langs kontoret, trinnene opp til døra og trappa mot nord.
       { box: [-4.15, 1.4, -2.4, 2.5], axis: "x", lines: [-3.84, -3.53, -3.25, -2.96, -2.65], heat: STAIR_HEAT },
       { box: [-2.4, 2.55, -0.25, 3.35], axis: "y", lines: [2.75, 2.95, 3.15], heat: STAIR_HEAT },
-      { box: [-1.32, 0, -0.25, 1.4], axis: "x", lines: [-1, -0.65] },
+      { box: [-1.32, 0, -0.25, 1.4], axis: "x", lines: [-1, -0.65], heat: STAIR_HEAT },
     ],
   },
   {

@@ -9,7 +9,7 @@ import type { HomeState, Room } from "@/lib/huset/home";
 import type { Speaker, SpeakerGroup } from "@/lib/huset/sonos";
 import type { HomeCommand } from "@/lib/validation/huset";
 import { CoverLine } from "./CoversTab";
-import { ClimateLine } from "./HeatTab";
+import { AirLine, ClimateLine } from "./HeatTab";
 import { RoomLightsPanel } from "./LightsTab";
 import { nowPlaying, PlayButton, VolumeSlider } from "./parts";
 
@@ -141,7 +141,7 @@ export function FloorMap({ floor, rooms, selected, playing, onOpen, svgClassName
 /** Alt som kan styres i ett rom: lys og scener, varme, persienner og musikk. */
 function RoomSheet({ room, groups, onClose, ...p }: Omit<Props, "home" | "initialRoom" | "svgClassName"> & { room: Room; onClose: () => void }) {
   const speakers = groups.flatMap((g) => g.speakers.map((s) => ({ speaker: s, leader: g.leader }))).filter((x) => room.speakers.includes(x.speaker.id));
-  const empty = !room.lights.length && !room.climate && !room.covers.length && !speakers.length;
+  const empty = !room.lights.length && !room.climate && !room.air && !room.covers.length && !speakers.length;
   return (
     <Sheet
       title={room.name}
@@ -159,6 +159,12 @@ function RoomSheet({ room, groups, onClose, ...p }: Omit<Props, "home" | "initia
         <section>
           <h3 className="text-xs font-bold uppercase tracking-wide text-ink-light">Varme</h3>
           <ClimateLine climate={room.climate} run={p.run} />
+        </section>
+      )}
+      {room.air && (
+        <section>
+          <h3 className="text-xs font-bold uppercase tracking-wide text-ink-light">Luft</h3>
+          <AirLine air={room.air} />
         </section>
       )}
       {room.covers.length > 0 && (
@@ -273,7 +279,7 @@ export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initial
             <FloorMap key={f.id} floor={f} rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} />
           ))}
         </div>
-        <p className="px-1 pt-1 text-xs text-ink-light">Gult = lys på · 🎵 musikk · 🔥 varmer · ▾ persienne nede · 🚨 røykvarsler har gått. Trykk på et rom for å styre det.</p>
+        <p className="px-1 pt-1 text-xs text-ink-light">Gult = lys på · 🎵 musikk · 🔥 varmer · ▾ persienne nede · CO₂ dårlig luft · 🚨 røykvarsler har gått. Trykk på et rom for å styre det.</p>
       </div>
 
       <div className={view === "ute" ? "hidden lg:block" : ""}>{outdoorList}</div>

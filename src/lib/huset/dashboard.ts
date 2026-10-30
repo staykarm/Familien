@@ -1,6 +1,7 @@
 // Huset på dashboardet: «God natt», «Utelys av» og én statuslinje per område (varme, roboter, vanning …).
 // Rene funksjoner uten nettverk, slik at de kan testes.
 
+import { CO2_HIGH } from "./air";
 import { undoLight, type UndoItem } from "./agentTargets";
 import type { HomeState, Light } from "./home";
 import type { Robot } from "./robots";
@@ -64,9 +65,11 @@ export function houseStatus(home: HomeState, robots: Robot[], watering: Watering
   const litRooms = home.rooms.filter((r) => lit(r.lights).length);
   const lights = home.rooms.flatMap((r) => r.lights);
   if (lights.length) {
-    const inside = litRooms.filter((r) => !r.outdoor).length;
-    const outside = litRooms.length - inside;
-    const value = !litRooms.length ? "Alt av" : [inside ? `${inside} rom inne` : "", outside ? `${outside} ute` : ""].filter(Boolean).join(" · ");
+    // Hvilke rom, ikke hvor mange (inntil fire navn, så antallet).
+    const names = (list: typeof litRooms) => (list.length > 4 ? `${list.length} rom` : list.map((r) => r.name).join(", "));
+    const inside = litRooms.filter((r) => !r.outdoor);
+    const outside = litRooms.filter((r) => r.outdoor);
+    const value = !litRooms.length ? "Alt av" : [inside.length ? names(inside) : "", outside.length ? `ute: ${names(outside)}` : ""].filter(Boolean).join(" · ");
     rows.push({ area: "lys", label: "Lys", value, alert: false, active: litRooms.length > 0 });
   }
 
@@ -76,6 +79,18 @@ export function houseStatus(home: HomeState, robots: Robot[], watering: Watering
     const heating = climates.filter((c) => c.heating).length;
     const range = temps.length ? (Math.round(Math.min(...temps)) === Math.round(Math.max(...temps)) ? deg(temps[0]) : `${Math.round(Math.min(...temps))}–${deg(Math.max(...temps))}`) : "–";
     rows.push({ area: "varme", label: "Varme", value: heating ? `${range} · varmer i ${heating} rom` : range, alert: false, active: heating > 0 });
+  }
+
+  const air = (home.air ?? []).filter((a) => a.online);
+  if (air.length) {
+    const co2 = air.filter((a) => a.co2 !== null).sort((a, b) => b.co2! - a.co2!);
+    const temps = air.map((a) => a.temperature).filter((t): t is number => t !== null);
+    const value = co2.length
+      ? `CO₂ ${Math.round(co2[0].co2!)} ppm i ${co2[0].name}`
+      : temps.length
+        ? `${air.length} sensorer · ${Math.round(Math.min(...temps)) === Math.round(Math.max(...temps)) ? deg(temps[0]) : `${Math.round(Math.min(...temps))}–${deg(Math.max(...temps))}`}`
+        : `${air.length} sensorer`;
+    rows.push({ area: "varme", label: "Luft", value, alert: co2.length > 0 && co2[0].co2! > CO2_HIGH, active: false });
   }
 
   const covers = [...home.rooms.flatMap((r) => r.covers), ...home.sharedCovers].filter((c) => c.available && c.position !== null);

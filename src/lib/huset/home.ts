@@ -1,6 +1,7 @@
 // Lys, varme og persienner fra Home Assistant, samlet per rom etter romkartet (rooms.ts).
 // Rene funksjoner uten nettverk, slik at de kan testes.
 
+import { toAir, type AirSensor } from "./air";
 import { OUTDOOR_SCENE_PREFIXES, OUTDOOR_TEMP, ROOMS, SHARED_COVERS, type RoomConfig } from "./rooms";
 
 interface StateLike {
@@ -61,10 +62,14 @@ export interface Room {
   speakers: string[];
   /** Røykvarsleren i rommet har gått (Homely). */
   fire?: boolean;
+  /** Luftsensoren i rommet (Homely). */
+  air?: AirSensor;
 }
 
 export interface HomeState {
   rooms: Room[];
+  /** Alle luftsensorene (Homely), også de som ikke er plassert i et rom. */
+  air?: AirSensor[];
   sharedCovers: Cover[];
   outdoorTemp: number | null;
 }
@@ -142,6 +147,7 @@ export function toHome(states: StateLike[], rooms: RoomConfig[] = ROOMS): HomeSt
     })
   );
 
+  const air = toAir(states, rooms);
   const result: Room[] = rooms.map((r) => {
     const climate = r.climate ? byId.get(r.climate) : undefined;
     return {
@@ -174,6 +180,7 @@ export function toHome(states: StateLike[], rooms: RoomConfig[] = ROOMS): HomeSt
       }),
       speakers: (r.speakers ?? []).filter((id) => byId.has(id)),
       ...(r.smoke && byId.get(`binary_sensor.${r.smoke}_brann`)?.state === "on" ? { fire: true } : {}),
+      ...(r.air && air.some((a) => a.id === r.air) ? { air: air.find((a) => a.id === r.air) } : {}),
     };
   });
 
@@ -194,6 +201,7 @@ export function toHome(states: StateLike[], rooms: RoomConfig[] = ROOMS): HomeSt
       return s ? [toCover(s, x.name)] : [];
     }),
     outdoorTemp: numState(byId.get(OUTDOOR_TEMP)),
+    ...(air.length ? { air } : {}),
   };
 }
 

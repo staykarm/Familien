@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { LightbulbOff, Moon, Pause, Play, Undo2 } from "lucide-react";
+import { LightbulbOff, Moon, Undo2 } from "lucide-react";
 import { controlHome, controlSpeaker, undoHouse, type HouseData } from "@/actions/huset";
-import { goodNight, houseStatus, outdoorOff, playingNow, type LightsOff, type StatusArea } from "@/lib/huset/dashboard";
+import { goodNight, houseStatus, outdoorOff, playingNow, type LightsOff } from "@/lib/huset/dashboard";
 import type { UndoItem } from "@/lib/huset/agentTargets";
-import { Cover } from "./parts";
+import { HouseStatusRows } from "./HouseStatus";
 
 // Huset på dashboardet: felles tilstand, «God natt», status per område og det som spiller. Kartet er
 // Kart-fanen fra Huset (`HousePage fixedTab="kart"`), så det virker likt begge steder.
@@ -123,60 +123,9 @@ export function HouseQuickLights({ live }: { live: HouseLive }) {
   );
 }
 
-/** Én linje per område (lys, varme, persienner, roboter, vanning). Trykk åpner området. */
-export function HouseStatusList({ live, onArea }: { live: HouseLive; onArea: (area: StatusArea) => void }) {
+/** «Huset nå» på dashboardet: samme linjer som på «I dag» (`HouseStatusRows`), med lenker til undersidene. */
+export function HouseStatusList({ live, base }: { live: HouseLive; base: string }) {
   const { data } = live;
   if (!data.ok) return <p className="text-xs text-ink-light">{data.message}</p>;
-  const rows = houseStatus(data.home, data.robots, data.watering, data.energy, data.safety);
-  return (
-    <ul className="flex flex-col">
-      {rows.map((r) => (
-        <li key={r.area}>
-          <button type="button" onClick={() => onArea(r.area)} className="flex min-h-8 w-full items-center gap-2 border-b border-line py-1 text-left last:border-0 hover:bg-card-soft">
-            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${r.alert ? "bg-danger" : r.active ? "bg-primary" : "bg-line"}`} aria-hidden />
-            <span className="w-20 shrink-0 text-xs text-ink-light">{r.label}</span>
-            <span className={`min-w-0 flex-1 text-xs wrap-break-word ${r.alert ? "font-semibold text-danger" : "text-ink"}`}>{r.value}</span>
-          </button>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/** Det som spiller nå, med spill/pause. */
-export function HouseNowPlaying({ live, hideEmpty = false }: { live: HouseLive; hideEmpty?: boolean }) {
-  const { groups, ok } = live.data;
-  const list = playingNow(groups);
-  const [pending, setPending] = useState<string | null>(null);
-  if (!ok) return null;
-  if (!list.length) return hideEmpty ? null : <p className="text-xs text-ink-light">Ingenting spiller.</p>;
-  return (
-    <ul className="flex flex-col gap-1.5">
-      {list.map((p) => {
-        const leader = groups.find((g) => g.leader.id === p.leader)!.leader;
-        return (
-          <li key={p.leader} className="flex items-center gap-2">
-            <Cover speaker={leader} size="h-9 w-9" />
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold wrap-break-word">{p.rooms}</p>
-              <p className="text-xs text-ink-light wrap-break-word">{p.title}</p>
-            </div>
-            <button
-              type="button"
-              disabled={pending === p.leader}
-              aria-label={`Pause ${p.rooms}`}
-              onClick={async () => {
-                setPending(p.leader);
-                await live.toggle(p.leader);
-                setPending(null);
-              }}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line transition hover:border-ink-faint disabled:opacity-40"
-            >
-              {leader.status === "playing" ? <Pause size={14} aria-hidden /> : <Play size={14} aria-hidden />}
-            </button>
-          </li>
-        );
-      })}
-    </ul>
-  );
+  return <HouseStatusRows rows={houseStatus(data.home, data.robots, data.watering, data.energy, data.safety)} playing={playingNow(data.groups)} base={base} />;
 }

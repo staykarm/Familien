@@ -71,6 +71,11 @@ describe("summarizeHouse", () => {
   it("samler feil fra robotene, og er tomt når alt er av", () => {
     const off: HomeState = { ...home, rooms: [room("Stue", [light(false)])] };
     const res = summarizeHouse(off, [], [robot({ problems: ["Lokket står åpent"] })]);
-    expect(res).toEqual({ lines: [], alerts: ["Støve 2: Lokket står åpent"] });
+    expect(res).toMatchObject({ lines: [], alerts: ["Støve 2: Lokket står åpent"], playing: [] });
+    // Samme linjer som «Huset nå» på dashboardet.
+    expect(res.rows.map((r) => [r.label, r.value, r.alert])).toEqual([
+      ["Lys", "Alt av", false],
+      ["Roboter", "Støve 2: Lokket står åpent", true],
+    ]);
   });
 });

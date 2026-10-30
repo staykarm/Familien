@@ -27,6 +27,8 @@ export interface RoomConfig {
   speakers?: string[];
   /** Røykvarsleren fra Homely i rommet: starten på entity-id-ene (binary_sensor.<smoke>_brann osv.). */
   smoke?: string;
+  /** Luftsensoren fra Homely i rommet: starten på entity-id-ene (sensor.<air>_temperatur osv.). */
+  air?: string;
 }
 
 const l = (id: string, name: string): RoomLight => ({ id: `light.${id}`, name });
@@ -65,6 +67,7 @@ export const ROOMS: RoomConfig[] = [
   {
     id: "spisestue", floor: 2,
     smoke: "spisestue_intelligent_smoke_alarm",
+    air: "spisestue_luftkvalitet",
     speakers: sp("spisestue"),
     name: "Spisestue",
     lights: [
@@ -110,7 +113,7 @@ export const ROOMS: RoomConfig[] = [
     climate: "climate.varme_gang",
     humidity: "sensor.gang_fukt",
   },
-  { id: "entre", floor: 1, smoke: "entrance_intelligent_smoke_alarm", name: "Entré", climate: "climate.varme_entre_hall", humidity: "sensor.entre_hall_fukt" },
+  { id: "entre", floor: 1, smoke: "entrance_intelligent_smoke_alarm", air: "entrance_luftsensor", name: "Entré", climate: "climate.varme_entre_hall", humidity: "sensor.entre_hall_fukt" },
   {
     id: "kontor-1", floor: 1,
     smoke: "kontoret_nede_intelligent_smoke_alarm",

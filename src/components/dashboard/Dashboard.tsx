@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { askDashboard } from "@/actions/dashboard";
 import { CareLine } from "@/components/care/CareLine";
-import { HouseAgent, HouseNowPlaying, HousePage, HouseQuickLights, HouseStatusList, kr, LEVEL_COLOR, LEVEL_TEXT, PriceChart, SafetyBanner, usePrices, useHouseLive, watt } from "@/components/huset/public";
+import { HouseAgent, HouseChips, HousePage, HouseQuickLights, HouseStatusList, kr, PriceChart, SafetyBanner, usePrices, useHouseLive } from "@/components/huset/public";
 import { formatTemp, WeatherIcon } from "@/components/weather/WeatherBadge";
 import type { CalendarCategory, CalendarMember } from "@/lib/calendar/types";
 import type { CareData } from "@/lib/care/plan";
@@ -55,7 +55,6 @@ export interface DashboardProps {
  * status til høyre, og «Spør» nederst. Hvert kort åpner en underside med mer (`?vis=…`).
  */
 export function Dashboard(p: DashboardProps) {
-  const router = useRouter();
   const live = useHouseLive(p.house);
   useAutoRefresh();
   const prices = usePrices();
@@ -74,21 +73,7 @@ export function Dashboard(p: DashboardProps) {
             {outdoor !== null && <span className="text-xs text-ink-light">Ute ved huset {outdoor.toLocaleString("nb-NO", { maximumFractionDigits: 1 })}°</span>}
           </Link>
         )}
-        {energy.price !== null && (
-          <Link href={viewHref("strom")} className="flex items-baseline gap-1.5 rounded-lg px-1 hover:bg-card">
-            <span className="text-lg font-semibold tabular-nums" style={{ color: energy.level ? LEVEL_COLOR[energy.level] : undefined }}>
-              ⚡ {kr(energy.price)}
-            </span>
-            <span className="text-xs text-ink-light">
-              {energy.level ? LEVEL_TEXT[energy.level] : "per kWh"} · {watt(energy.powerW)}
-            </span>
-          </Link>
-        )}
-        {safety.alarm && (
-          <Link href={viewHref("sikkerhet")} className={`rounded-lg px-1 text-xs hover:bg-card ${safety.alarm.triggered ? "font-bold text-danger" : "text-ink-light"}`}>
-            🛡️ Alarm {safety.alarm.label.toLowerCase()}
-          </Link>
-        )}
+        <HouseChips energy={energy} safety={safety} base="/dashboard?vis=" />
         <Link href="/i-dag" className="ml-auto text-xs font-medium text-ink-light hover:text-ink">
           Til Familien
         </Link>
@@ -133,8 +118,7 @@ export function Dashboard(p: DashboardProps) {
           </Card>
           {live.data.ok && (
             <Card title="Huset nå" className="shrink-0">
-              <HouseStatusList live={live} onArea={(area) => router.push(viewHref(area))} />
-              <HouseNowPlaying live={live} hideEmpty />
+              <HouseStatusList live={live} base="/dashboard?vis=" />
             </Card>
           )}
         </div>

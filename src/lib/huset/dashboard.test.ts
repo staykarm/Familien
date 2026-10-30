@@ -37,7 +37,7 @@ describe("houseStatus", () => {
   it("gir én kort linje per område", () => {
     const rows = houseStatus(home, [robot], { valves: [valve({ available: false })], sensors: [] });
     expect(rows.map((r) => [r.area, r.value, r.active])).toEqual([
-      ["lys", "1 rom inne · 1 ute", true],
+      ["lys", "stue · ute: hage", true],
       ["varme", "21–22° · varmer i 1 rom", true],
       ["roboter", "Støve støvsuger i Kjøkken", true],
       ["vanning", "Tatt inn for sesongen", false],
@@ -48,5 +48,16 @@ describe("houseStatus", () => {
     const rows = houseStatus(home, [{ ...robot, active: false, problems: ["Børsten sitter fast"] }], { valves: [valve({ problem: "Lavt batteri" })], sensors: [] });
     expect(rows.find((r) => r.area === "roboter")).toMatchObject({ value: "Støve: Børsten sitter fast", alert: true });
     expect(rows.find((r) => r.area === "vanning")).toMatchObject({ value: "Plen: Lavt batteri", alert: true });
+  });
+});
+
+describe("houseStatus med luft", () => {
+  const air = (name: string, co2: number | null, temperature = 21) => ({ id: name, name, roomId: null, temperature, humidity: null, co2, voc: null, vocUnit: null, online: true, signal: 50 });
+
+  it("viser temperatur når sensorene bare måler det, og CO₂ med varsel når det finnes", () => {
+    const only = houseStatus({ ...home, air: [air("Entré", null, 20.6), air("Spisestue", null, 21.4)] }, [], { valves: [], sensors: [] });
+    expect(only.find((r) => r.label === "Luft")).toMatchObject({ value: "2 sensorer · 21°", alert: false });
+    const bad = houseStatus({ ...home, air: [air("Entré", 600), air("Spisestue", 1250)] }, [], { valves: [], sensors: [] });
+    expect(bad.find((r) => r.label === "Luft")).toMatchObject({ value: "CO₂ 1250 ppm i Spisestue", alert: true });
   });
 });

@@ -3,6 +3,7 @@
 
 import type { Climate, Cover, HomeState, Light, Room } from "./home";
 import type { Robot } from "./robots";
+import { airText } from "./air";
 import { cheapestWindow, kr, watt, windowLabel, type Energy, type PricePoint } from "./energy";
 import type { Safety } from "./safety";
 import type { Watering } from "./watering";
@@ -135,6 +136,10 @@ export function describeHome(
       lines.push(`- ${v.name} [${v.id}] ${v.kind}: ${state}${v.minutes ? `, vanningstid ${v.minutes} min` : ""}${v.problem ? `, ${v.problem}` : ""}`);
     }
     for (const s of watering.sensors) lines.push(`  jord ${s.name}: fukt ${s.humidity ?? "?"} %, ${s.temperature ?? "?"} °C`);
+  }
+  if (home.air?.length) {
+    lines.push("", "LUFTSENSORER (Homely, bare til info):");
+    for (const a of home.air) lines.push(`- ${a.name}: ${airText(a)}`);
   }
   const { energy, safety, prices = [], now = new Date() } = more;
   if (energy && energy.price !== null) {

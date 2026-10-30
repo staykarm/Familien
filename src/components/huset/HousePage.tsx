@@ -17,11 +17,11 @@ import {
 } from "@/actions/huset";
 import { card } from "@/components/ui/styles";
 import { useUndo } from "@/components/ui/UndoToast";
-import { kr } from "@/lib/huset/energy";
 import { groupName, isMoved, moveSpeaker, type Speaker, type SpeakerGroup } from "@/lib/huset/sonos";
 import type { HomeCommand, SpeakerCommand } from "@/lib/validation/huset";
 import { CoversTab } from "./CoversTab";
-import { EnergyTab, LEVEL_COLOR } from "./EnergyTab";
+import { EnergyTab } from "./EnergyTab";
+import { HouseChips } from "./HouseStatus";
 import { HeatTab } from "./HeatTab";
 import { HouseAgent } from "./HouseAgent";
 import { LightsTab } from "./LightsTab";
@@ -92,6 +92,7 @@ export function HousePage({
   mapClassName,
   onData,
   refreshKey = 0,
+  initialTab,
 }: {
   initial: HouseData;
   setup: HouseSetup;
@@ -106,6 +107,8 @@ export function HousePage({
   onData?: (data: HouseData) => void;
   /** Hent ny tilstand med en gang når denne endres (etter en handling et annet sted på siden). */
   refreshKey?: number;
+  /** Fanen som åpnes (`/huset?fane=strom`), f.eks. fra «Huset nå» på «I dag». Går foran fanen som er husket. */
+  initialTab?: string | null;
 }) {
   const [data, setData] = useState(initial);
   const [chosenTab, setTab] = useState<Tab>("musikk");
@@ -177,16 +180,16 @@ export function HousePage({
   // Husk fanen på denne enheten.
   useEffect(() => {
     if (fixedTab) return;
-    let saved: string | null = null;
+    let saved: string | null = initialTab ?? null;
     try {
-      saved = localStorage.getItem(TAB_KEY);
+      saved ??= localStorage.getItem(TAB_KEY);
     } catch {
       // Lagring er av (privat modus).
     }
     if (!saved || !TABS.some((t) => t.id === saved)) return;
     const frame = requestAnimationFrame(() => setTab(saved as Tab));
     return () => cancelAnimationFrame(frame);
-  }, [fixedTab]);
+  }, [fixedTab, initialTab]);
 
   function chooseTab(next: Tab) {
     setTab(next);
@@ -308,11 +311,7 @@ export function HousePage({
           <div className="flex items-center justify-between gap-3">
             <h1 className="font-display text-xl font-bold sm:text-2xl lg:text-3xl">🏠 Huset</h1>
             <span className="flex flex-wrap items-center justify-end gap-x-3 text-sm text-ink-light">
-              {data.energy.price !== null && (
-                <button type="button" onClick={() => chooseTab("strom")} className="hover:text-ink">
-                  ⚡ <span className="font-bold" style={{ color: data.energy.level ? LEVEL_COLOR[data.energy.level] : undefined }}>{kr(data.energy.price)}</span>/kWh
-                </button>
-              )}
+              <HouseChips energy={data.energy} safety={data.safety} onOpen={(area) => TABS.some((t) => t.id === area) && chooseTab(area as Tab)} />
               {data.home.outdoorTemp !== null && (
                 <span>
                   Ute <span className="font-bold text-ink">{data.home.outdoorTemp.toLocaleString("nb-NO", { maximumFractionDigits: 1 })}°</span>

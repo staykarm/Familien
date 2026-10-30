@@ -75,11 +75,13 @@ export function houseStatus(home: HomeState, robots: Robot[], watering: Watering
   }
 
   const climates = indoor.flatMap((r) => (r.climate?.available ? [r.climate] : []));
+  const cables = home.rooms.flatMap((r) => r.switches ?? []).filter((s) => s.available && s.on);
   if (climates.length) {
     const temps = climates.map((c) => c.current).filter((t): t is number => t !== null);
     const heating = climates.filter((c) => c.heating).length;
     const range = temps.length ? (Math.round(Math.min(...temps)) === Math.round(Math.max(...temps)) ? deg(temps[0]) : `${Math.round(Math.min(...temps))}–${deg(Math.max(...temps))}`) : "–";
-    rows.push({ area: "varme", label: "Varme", value: heating ? `${range} · varmer i ${heating} rom` : range, alert: false, active: heating > 0 });
+    const parts = [range, heating ? `varmer i ${heating} rom` : "", cables.length ? `${cables.map((s) => s.name.toLowerCase()).join(", ")} på` : ""];
+    rows.push({ area: "varme", label: "Varme", value: parts.filter(Boolean).join(" · "), alert: false, active: heating > 0 || cables.length > 0 });
   }
 
   const air = (home.air ?? []).filter((a) => a.online);

@@ -35,6 +35,8 @@ export interface RoomConfig {
   valves?: string[];
   /** Takluka (bare visning, styres aldri fra appen). */
   hatch?: HatchConfig;
+  /** Brytere (switch.*) som kan slås av og på fra appen, f.eks. varmekabler. Bare disse kan styres. */
+  switches?: RoomLight[];
 }
 
 import type { HatchConfig } from "./hatch";
@@ -228,6 +230,7 @@ export const ROOMS: RoomConfig[] = [
     speakers: sp("garasjen"),
     name: "Hage og inngang",
     outdoor: true,
+    switches: [{ id: "switch.varmekabler_trapp_ute", name: "Varmekabler i trappa" }],
     lights: [
       l("utelys_inngang_sor", "Inngang sør"),
       l("utelys_inngang_nord", "Inngang nord"),
@@ -242,6 +245,9 @@ export const ROOMS: RoomConfig[] = [
     ],
   },
 ];
+
+/** Bryterne appen har lov til å styre (alt annet, som `switch.*_effekt` på Miele, røres aldri). */
+export const CONTROLLABLE_SWITCHES = new Set(ROOMS.flatMap((r) => (r.switches ?? []).map((s) => s.id)));
 
 /** Persienner som styrer flere vinduer samtidig. Vises øverst. */
 export const SHARED_COVERS: RoomLight[] = [c("persienne_felles_alle_stue_kjok_spis", "Stue, kjøkken og spisestue")];

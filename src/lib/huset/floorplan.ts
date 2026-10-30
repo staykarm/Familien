@@ -37,6 +37,19 @@ export interface Door {
   slide?: boolean;
 }
 
+/**
+ * Trapp: et felt [x0, y0, x1, y1] med trinn som streker på tvers. `axis` er retningen trappa går, og `lines` er
+ * der trinnene møtes. `ned` er åpningen ned til etasjen under (mørk), `over` er trappa over snittet (stiplet).
+ */
+export interface Stair {
+  box: [number, number, number, number];
+  axis: "x" | "y";
+  lines: number[];
+  kind?: "ned" | "over";
+  /** Varmekablene i trappa (switch.*): trinnene blir oransje når de er på. */
+  heat?: string;
+}
+
 export interface Floor {
   id: "1" | "2" | "tak";
   name: string;
@@ -48,10 +61,17 @@ export interface Floor {
   viewBox?: { x: number; y: number; w: number; h: number };
   /** Faste ting oppå et rom (trappeoppgang, pipe), tegnet som vegg: [x0, y0, x1, y1, navn]. */
   obstacles?: [number, number, number, number, string?][];
+  stairs?: Stair[];
 }
 
+/** Trinnene i innetrappa (U-trapp mellom 1. og 2. etasje, A22-105/106). */
+const STEPS = [3.52, 3.84, 4.16, 4.49, 4.81, 5.13];
+
+/** Varmekablene i utetrappa ved inngangen i nord. */
+export const STAIR_HEAT = "switch.varmekabler_trapp_ute";
+
 /** Rektangel fra hjørne til hjørne. */
-const rect = (x0: number, y0: number, x1: number, y1: number): Pt[] => [
+export const rect = (x0: number, y0: number, x1: number, y1: number): Pt[] => [
   [x0, y0],
   [x1, y0],
   [x1, y1],
@@ -59,7 +79,7 @@ const rect = (x0: number, y0: number, x1: number, y1: number): Pt[] => [
 ];
 
 /** Samme utsnitt for begge etasjene, så de har samme målestokk. */
-export const VIEWBOX = { x: -5.85, y: -0.45, w: 13.6, h: 15.75 };
+export const VIEWBOX = { x: -5.85, y: -0.45, w: 13.6, h: 17.05 };
 
 export const FLOORS: Floor[] = [
   {
@@ -85,6 +105,15 @@ export const FLOORS: Floor[] = [
       { room: "sov-venstre", pts: rect(3.35, 7.03, 6.5, 9.31) },
       { room: "sov-hoyre", pts: rect(3.35, 9.41, 6.5, 11.69) },
       { room: "lekerom", pts: rect(2, 11.79, 6.5, 14.83) },
+      // Ute (A22-105): trappa og reposet ved inngangen i nord, inngangen i sør og terrassen utenfor kjellerstua.
+      {
+        room: "ute",
+        label: "Inngang nord",
+        pts: [[-1.32, 0], [-0.25, 0], [-0.25, 3.88], [-2.5, 3.88], [-2.5, 2.55], [-4.15, 2.55], [-4.15, 1.4], [-1.32, 1.4]],
+        at: [-1.35, 1.95],
+      },
+      { room: "ute", label: "Inngang sør", pts: rect(-2.5, 7.77, -0.25, 8.38) },
+      { room: "ute", main: true, pts: rect(-0.25, 15.08, 6.86, 16.45) },
     ],
     doors: [
       { wall: "v", at: 1.95, from: 2.6, to: 3.42, t: 0.12, hinge: "from", side: 1 }, // Hovedbad – hovedsoverom
@@ -100,6 +129,16 @@ export const FLOORS: Floor[] = [
       { wall: "h", at: 4.225, from: 2, to: 3.2, t: 0.13, slide: true }, // Gang – hovedsoverom
       { wall: "h", at: 11.735, from: 2, to: 3.2, t: 0.13, slide: true }, // Gang – kjellerstue
       { wall: "h", at: 14.955, from: 2.03, to: 3.15, t: 0.27, hinge: "from", side: 1 }, // Utgang sør
+    ],
+    // Veggen mellom de to løpene i innetrappa.
+    obstacles: [[3.2, 5.85, 5.45, 5.93]],
+    stairs: [
+      { box: [3.2, 5.93, 5.45, 6.93], axis: "x", lines: STEPS },
+      { box: [3.2, 4.93, 5.45, 5.85], axis: "x", lines: STEPS, kind: "over" },
+      // Utetrappa i nord: løpet langs kontoret, trinnene opp til døra og trappa mot nord.
+      { box: [-4.15, 1.4, -2.4, 2.5], axis: "x", lines: [-3.84, -3.53, -3.25, -2.96, -2.65], heat: STAIR_HEAT },
+      { box: [-2.4, 2.55, -0.25, 3.35], axis: "y", lines: [2.75, 2.95, 3.15], heat: STAIR_HEAT },
+      { box: [-1.32, 0, -0.25, 1.4], axis: "x", lines: [-1, -0.65] },
     ],
   },
   {
@@ -135,6 +174,12 @@ export const FLOORS: Floor[] = [
       { wall: "h", at: 11.28, from: 5.48, to: 6.5, t: 0.13, slide: true }, // Kontor – spisestue
       { wall: "v", at: 5.43, from: 9.47, to: 10.31, t: 0.12, slide: true }, // Bod
     ],
+    obstacles: [[3.3, 5.85, 5.45, 5.93]],
+    stairs: [
+      // Åpningen ned til 1. etasje, og løpet videre opp til taket.
+      { box: [3.3, 4.93, 5.45, 5.85], axis: "x", lines: STEPS, kind: "ned" },
+      { box: [3.3, 5.93, 5.45, 6.93], axis: "x", lines: STEPS },
+    ],
   },
   {
     // Taket (A22-107): takterrassen innenfor brystningen (6 672 × 15 022 mm, 100,2 m²), med trappeoppgangen
@@ -148,7 +193,7 @@ export const FLOORS: Floor[] = [
       [3.53, 4.85, 6.63, 7.12, "Trapp"],
       [0.55, 4.17, 1.35, 4.88],
     ],
-    viewBox: { x: -0.6, y: -0.45, w: 7.7, h: 15.75 },
+    viewBox: { x: -0.6, y: -0.45, w: 7.7, h: 17.05 },
   },
 ];
 
@@ -231,7 +276,7 @@ export function roomLook(room: Room | undefined, playing: Set<string>): RoomLook
   const temp = room.climate?.current ?? (room.air?.online ? room.air.temperature : null) ?? null;
   if (temp !== null) badges.push(`${Math.round(temp)}°`);
   if (room.air?.online && room.air.co2 !== null && room.air.co2 > CO2_HIGH) badges.push("CO₂");
-  if (room.climate?.heating) badges.push("🔥");
+  if (room.climate?.heating || room.switches?.some((s) => s.on)) badges.push("🔥");
   // Miele-maskiner som går eller er ferdige.
   for (const a of room.appliances ?? []) if (a.running || a.done) badges.push(APPLIANCE_ICON[a.kind]);
   if (room.valves?.some((v) => v.open)) badges.push("💧");

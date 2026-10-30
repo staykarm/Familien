@@ -4,7 +4,8 @@ import { useState, type KeyboardEvent } from "react";
 import { ListMusic } from "lucide-react";
 import { Sheet } from "@/components/ui/Sheet";
 import { buttonPrimary, buttonSecondary } from "@/components/ui/styles";
-import { bounds, doorGap, doorSwing, FLOORS, FONT, labelLines, roomLook, VIEWBOX, type Door, type Floor, type Shape } from "@/lib/huset/floorplan";
+import { bounds, doorGap, doorSwing, FLOORS, FONT, labelLines, roomLook, VIEWBOX, type Door, type Floor, type Shape, type Stair } from "@/lib/huset/floorplan";
+import { FURNITURE, type Furniture } from "@/lib/huset/furniture";
 import { FIXTURES, fixtureIndex, fixtureLook, labelDirection, type Fixture, type FixtureLook } from "@/lib/huset/fixtures";
 import type { HomeState, Light, Room } from "@/lib/huset/home";
 import type { Speaker, SpeakerGroup } from "@/lib/huset/sonos";
@@ -12,7 +13,7 @@ import type { HomeCommand } from "@/lib/validation/huset";
 import { CoverLine } from "./CoversTab";
 import { ApplianceLine } from "./AppliancesTab";
 import { ValveLine } from "./WateringTab";
-import { AirLine, ClimateLine } from "./HeatTab";
+import { AirLine, ClimateLine, SwitchLine } from "./HeatTab";
 import { RoomLightsPanel } from "./LightsTab";
 import { nowPlaying, PlayButton, VolumeSlider } from "./parts";
 
@@ -110,6 +111,66 @@ function DoorMark({ door }: { door: Door }) {
   );
 }
 
+/** Fyllfarge per type møbel (svak, så lyset i rommet synes gjennom). */
+const FURNITURE_FILL: Record<string, string> = { teppe: "none", dusj: "none", strek: "none", skap: "#ddd5ca", kar: "#ffffff", vask: "#ffffff", maskin: "#ffffff" };
+
+/** Ett møbel fra lysplanen: tynn grå strek. */
+function FurnitureMark({ item }: { item: Furniture }) {
+  const style = item.style;
+  const props = {
+    fill: FURNITURE_FILL[style ?? ""] ?? "#f4efe8",
+    fillOpacity: 0.75,
+    stroke: "var(--color-ink-faint)",
+    strokeWidth: style === "teppe" ? 0.025 : 0.035,
+    strokeDasharray: style === "teppe" || style === "dusj" ? "0.1 0.07" : undefined,
+    strokeLinejoin: "round" as const,
+  };
+  if (item.ellipse) {
+    const [cx, cy, rx, ry] = item.ellipse;
+    return <ellipse cx={cx} cy={cy} rx={rx} ry={ry} {...props} />;
+  }
+  const pts = item.pts ?? [];
+  const points = pts.map((p) => p.join(",")).join(" ");
+  if (style === "strek") return <polyline points={points} {...props} fill="none" />;
+  const { x, y, w, h } = bounds(pts);
+  return (
+    <g>
+      <polygon points={points} {...props} />
+      {style === "kar" && <rect x={x + 0.08} y={y + 0.08} width={w - 0.16} height={h - 0.16} rx={Math.min(w, h) / 2 - 0.08} {...props} />}
+      {style === "maskin" && <circle cx={x + w / 2} cy={y + h / 2} r={Math.min(w, h) * 0.32} {...props} />}
+      {style === "seng" && <line x1={x} y1={y + 0.04} x2={x + w} y2={y + 0.04} {...props} />}
+    </g>
+  );
+}
+
+/** Trapp: trinn som streker på tvers. Åpningen ned er mørk, trappa over snittet stiplet, og trinnene blir oransje når varmekablene er på. */
+function StairMark({ stair, heated }: { stair: Stair; heated: boolean }) {
+  const [x0, y0, x1, y1] = stair.box;
+  const color = heated ? "#e8781f" : "var(--color-ink-faint)";
+  return (
+    <g pointerEvents="none">
+      <rect
+        x={x0}
+        y={y0}
+        width={x1 - x0}
+        height={y1 - y0}
+        fill={stair.kind === "ned" ? "var(--color-ink-faint)" : heated ? "#f7b267" : "#ffffff"}
+        fillOpacity={stair.kind === "ned" ? 0.3 : heated ? 0.45 : 0.5}
+        stroke={color}
+        strokeWidth={0.035}
+        strokeDasharray={stair.kind === "over" ? "0.1 0.07" : undefined}
+      />
+      {stair.lines.map((v) =>
+        stair.axis === "x" ? (
+          <line key={v} x1={v} y1={y0} x2={v} y2={y1} stroke={color} strokeWidth={heated ? 0.05 : 0.03} strokeDasharray={stair.kind === "over" ? "0.1 0.07" : undefined} />
+        ) : (
+          <line key={v} x1={x0} y1={v} x2={x1} y2={v} stroke={color} strokeWidth={heated ? 0.05 : 0.03} strokeDasharray={stair.kind === "over" ? "0.1 0.07" : undefined} />
+        )
+      )}
+    </g>
+  );
+}
+
 /** Farger i koblingsvisningen, én per lys. */
 const LIGHT_COLORS = ["#2563eb", "#d92d20", "#2e9d57", "#9333ea", "#d89b00", "#0891b2", "#db2777", "#65a30d", "#ea580c", "#4f46e5"];
 
@@ -181,6 +242,8 @@ export function FloorMap({ floor, rooms, selected, playing, onOpen, svgClassName
 }) {
   const lights = new Map([...rooms.values()].flatMap((r) => r.lights.map((l): [string, Light] => [l.id, l])));
   const fixtures = FIXTURES.filter((f) => f.floor === floor.id);
+  const furniture = FURNITURE.filter((f) => f.floor === floor.id);
+  const switchesOn = new Set([...rooms.values()].flatMap((r) => (r.switches ?? []).filter((x) => x.on).map((x) => x.id)));
   // Rom med lyspunkter viser lyset i punktene; selve rommet får bare en svak gultone.
   const withFixtures = new Set([...rooms.values()].filter((r) => r.lights.some((l) => fixtures.some((f) => f.light === l.id))).map((r) => r.id));
   const count = (id: string) => floor.shapes.filter((s) => s.room === id).length;
@@ -201,6 +264,14 @@ export function FloorMap({ floor, rooms, selected, playing, onOpen, svgClassName
         ))}
         {floor.shapes.map((s, i) => (
           <RoomShape key={`${s.room}-${i}`} shape={s} room={rooms.get(s.room)} label={labelOf(s)} selected={selected === s.room} playing={playing} onOpen={() => onOpen(s.room)} dim={withFixtures.has(s.room)} />
+        ))}
+        <g pointerEvents="none">
+          {furniture.map((f, i) => (
+            <FurnitureMark key={i} item={f} />
+          ))}
+        </g>
+        {floor.stairs?.map((st, i) => (
+          <StairMark key={i} stair={st} heated={!!st.heat && switchesOn.has(st.heat)} />
         ))}
         {fixtures.map((f) => (
           <FixtureMark key={f.n} fixture={f} look={fixtureLook(f, lights)} showNumber={showNumbers} away={labelDirection(f, fixtures)} />
@@ -229,7 +300,7 @@ export function FloorMap({ floor, rooms, selected, playing, onOpen, svgClassName
 /** Alt som kan styres i ett rom: lys og scener, varme, persienner og musikk. */
 function RoomSheet({ room, groups, onClose, ...p }: Omit<Props, "home" | "initialRoom" | "svgClassName"> & { room: Room; onClose: () => void }) {
   const speakers = groups.flatMap((g) => g.speakers.map((s) => ({ speaker: s, leader: g.leader }))).filter((x) => room.speakers.includes(x.speaker.id));
-  const empty = !room.lights.length && !room.climate && !room.air && !room.appliances?.length && !room.valves?.length && !room.hatch && !room.covers.length && !speakers.length;
+  const empty = !room.lights.length && !room.climate && !room.air && !room.appliances?.length && !room.valves?.length && !room.hatch && !room.switches?.length && !room.covers.length && !speakers.length;
   return (
     <Sheet
       title={room.name}
@@ -247,6 +318,14 @@ function RoomSheet({ room, groups, onClose, ...p }: Omit<Props, "home" | "initia
         <section>
           <h3 className="text-xs font-bold uppercase tracking-wide text-ink-light">Varme</h3>
           <ClimateLine climate={room.climate} run={p.run} />
+        </section>
+      )}
+      {room.switches && room.switches.length > 0 && (
+        <section>
+          <h3 className="text-xs font-bold uppercase tracking-wide text-ink-light">Varmekabler</h3>
+          {room.switches.map((s) => (
+            <SwitchLine key={s.id} item={s} run={p.run} />
+          ))}
         </section>
       )}
       {room.air && (
@@ -348,9 +427,9 @@ export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initial
     { id: "ute", label: "Ute" },
   ];
 
-  const outdoorList = (
+  const outdoorList = (list: Room[]) => (
     <section aria-label="Ute" className="flex flex-wrap gap-2">
-      {outside.map((r) => {
+      {list.map((r) => {
         const on = r.lights.filter((l) => l.available && l.on).length;
         return (
           <button
@@ -390,7 +469,7 @@ export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initial
           {view === "ute" ? (
             <div className="flex flex-col gap-3 p-1">
               <FloorMap floor={FLOORS[1]} rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} showNumbers={numbers} />
-              {outdoorList}
+              {outdoorList(home.rooms.filter((r) => r.outdoor))}
             </div>
           ) : (
             <FloorMap floor={FLOORS.find((f) => f.id === view)!} rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} showNumbers={numbers} />
@@ -401,14 +480,14 @@ export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initial
             <FloorMap key={f.id} floor={f} rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} showNumbers={numbers} />
           ))}
         </div>
-        <p className="px-1 pt-1 text-xs text-ink-light">Gult = lys på · 🎵 musikk · 🔥 varmer · 💧 vanner · 🧺 🍽️ ♨️ maskin går · ▾ persienne nede · CO₂ dårlig luft · 🚨 røykvarsler har gått. Trykk på et rom for å styre det.</p>
+        <p className="px-1 pt-1 text-xs text-ink-light">Gult = lys på · 🎵 musikk · 🔥 varmer · 💧 vanner · 🧺 🍽️ ♨️ maskin går · ▾ persienne nede · CO₂ dårlig luft · 🚨 røykvarsler har gått · oransje trapp = varmekabler på. Trykk på et rom for å styre det.</p>
         <button type="button" onClick={() => setNumbers((v) => !v)} aria-pressed={numbers} className="px-1 pt-1 text-xs font-semibold text-primary-dark underline">
           {numbers ? "Skjul nummer på lyspunktene" : "Vis lyspunktene med nummer"}
         </button>
         {numbers && <FixtureLegend rooms={home.rooms} />}
       </div>
 
-      <div className={view === "ute" ? "hidden lg:block" : ""}>{outdoorList}</div>
+      {outside.length > 0 && <div className={view === "ute" ? "hidden lg:block" : ""}>{outdoorList(outside)}</div>}
 
       {room && (
         <RoomSheet room={room} groups={groups} run={run} onToggle={onToggle} onVolume={onVolume} onMusic={(leader) => (setSelected(null), onMusic(leader))} onClose={() => setSelected(null)} />

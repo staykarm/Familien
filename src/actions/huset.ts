@@ -7,6 +7,7 @@ import { callService, getStates, haConfigured, HaError } from "@/lib/huset/ha";
 import { voiceTarget } from "@/lib/huset/intentAi";
 import { toHome, type HomeState } from "@/lib/huset/home";
 import { robotService } from "@/lib/huset/robotControl";
+import { CONTROLLABLE_SWITCHES } from "@/lib/huset/rooms";
 import { toRobots, type Robot } from "@/lib/huset/robots";
 import { toWatering, type Watering } from "@/lib/huset/watering";
 import { NO_ENERGY, toEnergy, type Energy, type PricePoint } from "@/lib/huset/energy";
@@ -192,6 +193,11 @@ export async function controlHome(input: HomeCommand): Promise<HouseResult> {
         await callService("valve", "open_valve", { entity_id });
         break;
       }
+      case "switch":
+        // Bare brytere fra romkartet: appen skal aldri slå av f.eks. strømmen til Miele-maskinene.
+        if (!CONTROLLABLE_SWITCHES.has(entity_id)) return { ok: false, message: "Den bryteren kan ikke styres fra appen" };
+        await callService("switch", cmd.on ? "turn_on" : "turn_off", { entity_id });
+        break;
       case "robot": {
         const service = robotService(entity_id, cmd.command);
         if (!service) return { ok: false, message: "Det kan ikke den roboten" };

@@ -2,7 +2,7 @@
 
 import { Droplets, Flame, Minus, Plus, Wind } from "lucide-react";
 import { airText, CO2_HIGH, WEAK_SIGNAL, type AirSensor } from "@/lib/huset/air";
-import { stepTarget, type Climate, type HomeState } from "@/lib/huset/home";
+import { stepTarget, type Climate, type HomeState, type Switch } from "@/lib/huset/home";
 import type { HomeCommand } from "@/lib/validation/huset";
 import { IconButton } from "./parts";
 import { usePending } from "./usePending";
@@ -75,6 +75,30 @@ export function AirLine({ air, showName = false }: { air: AirSensor; showName?: 
   );
 }
 
+/** En bryter (varmekabler o.l.) på én linje: navn, status og Slå på / Slå av. */
+export function SwitchLine({ item, run }: { item: Switch; run: Props["run"] }) {
+  const pending = usePending<Switch>();
+  const s = pending.show(item.id, item);
+  return (
+    <div className={`flex items-center gap-2 border-b border-line py-1 last:border-0 ${s.available ? "" : "opacity-50"}`}>
+      <Flame size={14} className={s.on ? "shrink-0 text-primary-dark" : "shrink-0 text-ink-light"} aria-hidden />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold wrap-break-word">{s.name}</p>
+        <p className="text-xs text-ink-light">{!s.available ? "Svarer ikke" : s.on ? "På" : "Av"}</p>
+      </div>
+      <button
+        type="button"
+        disabled={!s.available}
+        aria-pressed={s.on}
+        onClick={() => void pending.send(s.id, { on: !s.on }, () => run({ action: "switch", id: s.id, on: !s.on }))}
+        className={`min-h-10 shrink-0 rounded-full border-2 px-3 text-sm font-semibold transition disabled:opacity-50 ${s.on ? "border-primary bg-primary-soft text-primary-dark" : "border-line bg-card"}`}
+      >
+        {s.on ? "Slå av" : "Slå på"}
+      </button>
+    </div>
+  );
+}
+
 /** Varmen i ett rom (brukes i arket fra kartet). */
 export function ClimateLine({ climate, run }: { climate: Climate; run: Props["run"] }) {
   const pending = usePending<Climate>();
@@ -90,6 +114,7 @@ export function HeatTab({ home, run }: Props) {
   const pending = usePending<Climate>();
   const climates = home.rooms.flatMap((r) => (r.climate ? [r.climate] : []));
   const air = home.air ?? [];
+  const switches = home.rooms.flatMap((r) => r.switches ?? []);
   return (
     <div className="flex flex-col gap-2">
       <ul className="grid gap-x-4 rounded-2xl bg-card px-3 py-1 shadow-[0_2px_12px_rgba(120,90,60,0.08)] md:grid-cols-2 xl:grid-cols-3">
@@ -97,6 +122,16 @@ export function HeatTab({ home, run }: Props) {
           <ClimateRow key={c.id} climate={c} pending={pending} run={run} />
         ))}
       </ul>
+      {switches.length > 0 && (
+        <section className="rounded-2xl bg-card px-3 py-2 shadow-[0_2px_12px_rgba(120,90,60,0.08)]" aria-label="Ute">
+          <h3 className="text-xs font-bold uppercase tracking-wide text-ink-light">Ute</h3>
+          <div className="grid gap-x-4 md:grid-cols-2 xl:grid-cols-3">
+            {switches.map((s) => (
+              <SwitchLine key={s.id} item={s} run={run} />
+            ))}
+          </div>
+        </section>
+      )}
       {air.length > 0 && (
         <section className="rounded-2xl bg-card px-3 py-2 shadow-[0_2px_12px_rgba(120,90,60,0.08)]" aria-label="Luftsensorer">
           <h3 className="text-xs font-bold uppercase tracking-wide text-ink-light">Luftsensorer (Homely)</h3>

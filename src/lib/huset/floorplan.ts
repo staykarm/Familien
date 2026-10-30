@@ -46,6 +46,8 @@ export interface Floor {
   doors: Door[];
   /** Eget utsnitt (samme høyde, så samme målestokk). Uten: `VIEWBOX`. */
   viewBox?: { x: number; y: number; w: number; h: number };
+  /** Faste ting oppå et rom (trappeoppgang, pipe), tegnet som vegg: [x0, y0, x1, y1, navn]. */
+  obstacles?: [number, number, number, number, string?][];
 }
 
 /** Rektangel fra hjørne til hjørne. */
@@ -135,12 +137,17 @@ export const FLOORS: Floor[] = [
     ],
   },
   {
-    // Taket: ingen tegning ennå, så hele taket vises som ett felt med husets omriss.
+    // Taket (A22-107): takterrassen innenfor brystningen (6 672 × 15 022 mm, 100,2 m²), med trappeoppgangen
+    // og pipa. Den nedre takflaten mot vest er terrassen i 2. etasje og står der.
     id: "tak",
     name: "Taket",
-    footprint: [],
-    shapes: [{ room: "taket", pts: rect(-0.37, -0.38, 6.86, 15.08) }],
+    footprint: [[-0.34, -0.34, 6.87, 15.25]],
+    shapes: [{ room: "taket", pts: rect(-0.04, -0.03, 6.63, 14.99), at: [3.3, 10.5] }],
     doors: [],
+    obstacles: [
+      [3.53, 4.85, 6.63, 7.12, "Trapp"],
+      [0.55, 4.17, 1.35, 4.88],
+    ],
     viewBox: { x: -0.6, y: -0.45, w: 7.7, h: 15.75 },
   },
 ];

@@ -33,10 +33,10 @@ describe("kartet", () => {
   });
 
   it("har samme areal som på plantegningene (innenfor 8 %)", () => {
-    // m² fra A22-105 og A22-106. Hovedsoverommet er Sov 01 + Garderobe.
+    // m² fra A22-105, A22-106 og A22-107. Hovedsoverommet er Sov 01 + Garderobe.
     const drawing: Record<string, number> = {
       "bad-stort": 7.8, master: 13.4 + 7.4, "kontor-1": 7.3, vaskerom: 5.4, toalett: 2.0, "bad-lite": 4.5, teknisk: 7.7,
-      "sov-venstre": 7.2, "sov-hoyre": 7.2, lekerom: 13.5, gang: 8.7, stue: 31.0, spisestue: 22.5, kjokken: 23.3, "kontor-2": 9.6, "bod-2": 2.7,
+      "sov-venstre": 7.2, "sov-hoyre": 7.2, lekerom: 13.5, gang: 8.7, stue: 31.0, spisestue: 22.5, kjokken: 23.3, "kontor-2": 9.6, "bod-2": 2.7, taket: 100.2,
     };
     for (const [room, m2] of Object.entries(drawing)) {
       const total = FLOORS.flatMap((f) => f.shapes.filter((s) => s.room === room)).reduce((sum, s) => sum + area(s.pts), 0);

@@ -129,6 +129,16 @@ export function FloorMap({ floor, rooms, selected, playing, onOpen, svgClassName
         {floor.shapes.map((s, i) => (
           <RoomShape key={`${s.room}-${i}`} shape={s} room={rooms.get(s.room)} label={labelOf(s)} selected={selected === s.room} playing={playing} onOpen={() => onOpen(s.room)} />
         ))}
+        {floor.obstacles?.map(([x0, y0, x1, y1, name], i) => (
+          <g key={i} pointerEvents="none">
+            <rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="var(--color-ink-faint)" />
+            {name && (
+              <text x={(x0 + x1) / 2} y={(y0 + y1) / 2 + FONT * 0.3} fontSize={FONT * 0.8} textAnchor="middle" fill="#ffffff" fontWeight={600}>
+                {name}
+              </text>
+            )}
+          </g>
+        ))}
         {floor.doors.map((d, i) => (
           <DoorMark key={i} door={d} />
         ))}

@@ -38,12 +38,14 @@ export interface Door {
 }
 
 export interface Floor {
-  id: "1" | "2";
+  id: "1" | "2" | "tak";
   name: string;
   /** Ytterkanten av huset (rektangler [x0, y0, x1, y1]). Det som ikke er rom, er vegg. */
   footprint: [number, number, number, number][];
   shapes: Shape[];
   doors: Door[];
+  /** Eget utsnitt (samme høyde, så samme målestokk). Uten: `VIEWBOX`. */
+  viewBox?: { x: number; y: number; w: number; h: number };
 }
 
 /** Rektangel fra hjørne til hjørne. */
@@ -108,7 +110,7 @@ export const FLOORS: Floor[] = [
     ],
     shapes: [
       { room: "stue", pts: rect(0, 0, 6.5, 4.83) },
-      { room: "takterrasse", pts: rect(-5.55, 2.6, -0.34, 8.35) },
+      { room: "terrasse", pts: rect(-5.55, 2.6, -0.34, 8.35) },
       {
         room: "kjokken",
         pts: [[0, 4.83], [3.2, 4.83], [3.2, 7.03], [3.86, 7.03], [3.86, 11.23], [0, 11.23], [0, 11.09], [-0.71, 11.09], [-0.71, 9.48], [0, 9.48]],
@@ -122,15 +124,24 @@ export const FLOORS: Floor[] = [
       },
       { room: "bod-2", pts: rect(3.96, 9.3, 5.38, 11.22) },
       { room: "spisestue", pts: [[0, 11.23], [3.22, 11.23], [3.22, 11.33], [6.5, 11.33], [6.5, 14.83], [0, 14.83]], at: [3.25, 13.1] },
-      { room: "terrasse", pts: rect(6.86, 11.34, 7.6, 13.3) },
+      { room: "balkong", pts: rect(6.86, 11.34, 7.6, 13.3) },
     ],
     doors: [
-      { wall: "v", at: -0.165, from: 2.81, to: 3.64, t: 0.36, hinge: "from", side: -1 }, // Takterrasse nord
-      { wall: "v", at: -0.165, from: 5.97, to: 7.6, t: 0.36, hinge: "both", side: -1 }, // Takterrasse, dobbel dør
+      { wall: "v", at: -0.165, from: 2.81, to: 3.64, t: 0.36, hinge: "from", side: -1 }, // Terrasse nord
+      { wall: "v", at: -0.165, from: 5.97, to: 7.6, t: 0.36, hinge: "both", side: -1 }, // Terrasse, dobbel dør
       { wall: "v", at: 6.68, from: 11.4, to: 13.27, t: 0.38, slide: true }, // Terrasse
       { wall: "h", at: 11.28, from: 5.48, to: 6.5, t: 0.13, slide: true }, // Kontor – spisestue
       { wall: "v", at: 5.43, from: 9.47, to: 10.31, t: 0.12, slide: true }, // Bod
     ],
+  },
+  {
+    // Taket: ingen tegning ennå, så hele taket vises som ett felt med husets omriss.
+    id: "tak",
+    name: "Taket",
+    footprint: [],
+    shapes: [{ room: "taket", pts: rect(-0.37, -0.38, 6.86, 15.08) }],
+    doors: [],
+    viewBox: { x: -0.6, y: -0.45, w: 7.7, h: 15.75 },
   },
 ];
 
@@ -216,6 +227,7 @@ export function roomLook(room: Room | undefined, playing: Set<string>): RoomLook
   if (room.climate?.heating) badges.push("🔥");
   // Miele-maskiner som går eller er ferdige.
   for (const a of room.appliances ?? []) if (a.running || a.done) badges.push(APPLIANCE_ICON[a.kind]);
+  if (room.valves?.some((v) => v.open)) badges.push("💧");
   if (room.speakers.some((id) => playing.has(id))) badges.push("🎵");
   if (room.covers.some((c) => c.position !== null && c.position < 50)) badges.push("▾");
   return room.fire ? { glow, badges, alert: true } : { glow, badges };

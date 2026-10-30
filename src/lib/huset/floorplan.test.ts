@@ -104,3 +104,16 @@ describe("roomLook med røykvarsler", () => {
     expect(look).toEqual({ glow: 0, badges: ["🚨"], alert: true });
   });
 });
+
+describe("Taket, Terrasse og Balkong", () => {
+  it("har lys, høyttalere og vanning i riktig rom, og Taket som egen etasje", () => {
+    const byId = new Map(ROOMS.map((r) => [r.id, r]));
+    expect(byId.get("taket")).toMatchObject({ lights: [{ id: "light.taket_taket" }], speakers: ["media_player.taket_taket"], valves: ["valve.taket"] });
+    expect(byId.get("terrasse")?.lights?.map((l) => l.id)).toEqual(["light.terrasse_utelys", "light.tak_terrasse_utelys", "light.terrasse_terrasse"]);
+    expect(byId.get("terrasse")?.speakers).toEqual(["media_player.terrassen_terrassen"]);
+    expect(byId.get("balkong")?.lights?.map((l) => l.id)).toEqual(["light.utelys_flauta"]);
+    expect(byId.get("ute")?.lights?.some((l) => l.id === "light.utelys_flauta")).toBe(false);
+    expect(byId.has("takterrasse")).toBe(false);
+    expect(FLOORS.map((f) => f.name)).toEqual(["1. etasje", "2. etasje", "Taket"]);
+  });
+});

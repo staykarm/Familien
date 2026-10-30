@@ -3,6 +3,7 @@
 
 import { toAir, type AirSensor } from "./air";
 import { toAppliances, type Appliance } from "./appliances";
+import { toWatering, type Valve } from "./watering";
 import { OUTDOOR_SCENE_PREFIXES, OUTDOOR_TEMP, ROOMS, SHARED_COVERS, type RoomConfig } from "./rooms";
 
 interface StateLike {
@@ -67,6 +68,8 @@ export interface Room {
   air?: AirSensor;
   /** Miele-maskinene i rommet. */
   appliances?: Appliance[];
+  /** Vanningsventilene i rommet (Gardena). */
+  valves?: Valve[];
 }
 
 export interface HomeState {
@@ -154,6 +157,7 @@ export function toHome(states: StateLike[], rooms: RoomConfig[] = ROOMS): HomeSt
 
   const air = toAir(states, rooms);
   const appliances = toAppliances(states, rooms);
+  const valves = toWatering(states).valves;
   const result: Room[] = rooms.map((r) => {
     const climate = r.climate ? byId.get(r.climate) : undefined;
     return {
@@ -188,6 +192,7 @@ export function toHome(states: StateLike[], rooms: RoomConfig[] = ROOMS): HomeSt
       ...(r.smoke && byId.get(`binary_sensor.${r.smoke}_brann`)?.state === "on" ? { fire: true } : {}),
       ...(r.air && air.some((a) => a.id === r.air) ? { air: air.find((a) => a.id === r.air) } : {}),
       ...(appliances.some((a) => a.roomId === r.id) ? { appliances: appliances.filter((a) => a.roomId === r.id) } : {}),
+      ...(r.valves?.some((id) => valves.some((v) => v.id === id)) ? { valves: valves.filter((v) => r.valves!.includes(v.id)) } : {}),
     };
   });
 

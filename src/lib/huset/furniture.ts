@@ -23,9 +23,6 @@ export interface Furniture {
 }
 
 export const FURNITURE: Furniture[] = [
-  { floor: "1", name: "Teppe", ellipse: [4.75, 13.72, 0.59, 0.58], style: "teppe" },
-  { floor: "1", name: "Bord", ellipse: [4.77, 13.69, 0.29, 0.5] },
-  { floor: "1", name: "Sofa", pts: [[3.18, 12.92], [3.18, 11.94], [6.3, 11.94], [6.3, 14.79], [5.49, 14.79], [5.49, 12.92]] },
   // Barnerommene: senga langs ytterveggen i øst, pulten langs veggen i sør.
   { floor: "1", name: "Seng", pts: rect(5.55, 9.5, 6.45, 11.5), style: "seng" },
   { floor: "1", name: "Pult", pts: rect(4, 11.04, 5.4, 11.64) },

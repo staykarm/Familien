@@ -5,7 +5,8 @@ import { ListMusic } from "lucide-react";
 import { Sheet } from "@/components/ui/Sheet";
 import { buttonPrimary, buttonSecondary } from "@/components/ui/styles";
 import { bounds, doorGap, doorSwing, FLOORS, FONT, labelLines, roomLook, VIEWBOX, type Door, type Floor, type Shape } from "@/lib/huset/floorplan";
-import type { HomeState, Room } from "@/lib/huset/home";
+import { FIXTURES, fixtureIndex, fixtureLook, labelDirection, type Fixture, type FixtureLook } from "@/lib/huset/fixtures";
+import type { HomeState, Light, Room } from "@/lib/huset/home";
 import type { Speaker, SpeakerGroup } from "@/lib/huset/sonos";
 import type { HomeCommand } from "@/lib/validation/huset";
 import { CoverLine } from "./CoversTab";
@@ -33,7 +34,8 @@ type View = "1" | "2" | "tak" | "ute";
 const GLOW = "#ffc94d";
 
 /** Ett felt på kartet: hvit (eller grønn ute) bunn og gul farge etter lysstyrken. Navnet tegnes for seg (`RoomLabel`). */
-function RoomShape({ shape, room, label, selected, playing, onOpen }: {
+function RoomShape({ shape, room, label, selected, playing, onOpen, dim = false }: {
+  dim?: boolean;
   shape: Shape;
   room: Room | undefined;
   label: string;
@@ -59,7 +61,7 @@ function RoomShape({ shape, room, label, selected, playing, onOpen }: {
         strokeDasharray={room?.outdoor && !selected ? "0.15 0.1" : undefined}
         strokeLinejoin="round"
       />
-      {look.glow > 0 && <polygon points={points} fill={GLOW} fillOpacity={look.glow} pointerEvents="none" />}
+      {look.glow > 0 && <polygon points={points} fill={GLOW} fillOpacity={dim ? look.glow * 0.35 : look.glow} pointerEvents="none" />}
       {look.alert && <polygon points={points} fill="var(--color-danger)" fillOpacity={0.55} pointerEvents="none" className="animate-pulse" />}
     </g>
   );
@@ -108,26 +110,100 @@ function DoorMark({ door }: { door: Door }) {
   );
 }
 
-export function FloorMap({ floor, rooms, selected, playing, onOpen, svgClassName = "max-h-[72dvh]" }: {
+/** Farger i koblingsvisningen, én per lys. */
+const LIGHT_COLORS = ["#2563eb", "#d92d20", "#2e9d57", "#9333ea", "#d89b00", "#0891b2", "#db2777", "#65a30d", "#ea580c", "#4f46e5"];
+
+/** Ett lyspunkt: grå prikk når det er av, gul glorie når det lyser (sterkere og større jo høyere lysstyrke). */
+function FixtureMark({ fixture: f, look, showNumber, away }: { fixture: Fixture; look: FixtureLook; showNumber: boolean; away: [number, number] }) {
+  const core = f.kind === "pendel" ? 0.24 : f.kind === "lampe" ? 0.18 : 0.09;
+  const color = showNumber ? (f.light ? lightColor(f.light) : "#6b7280") : null;
+  return (
+    <g pointerEvents="none">
+      {look.on && <circle cx={f.x} cy={f.y} r={core + 0.25 + 0.55 * look.level} fill="url(#fixture-glow)" opacity={0.35 + 0.65 * look.level} />}
+      <circle
+        cx={f.x}
+        cy={f.y}
+        r={core}
+        fill={look.on ? "#f2b100" : "#ffffff"}
+        fillOpacity={look.on ? 0.55 + 0.45 * look.level : 1}
+        stroke={color ?? (look.on ? "#b07d00" : "var(--color-ink-faint)")}
+        strokeWidth={color ? 0.06 : 0.035}
+        strokeDasharray={!f.light && !color ? "0.05 0.04" : undefined}
+      />
+      {showNumber && (
+        <text x={f.x + away[0] * (core + 0.2)} y={f.y + away[1] * (core + 0.2)} fontSize={0.26} fontWeight={700} textAnchor="middle" dominantBaseline="central" fill={color ?? "var(--color-ink)"} stroke="#fff" strokeWidth={0.06} paintOrder="stroke">
+          {f.n}
+        </text>
+      )}
+    </g>
+  );
+}
+
+/** Koblingslisten under kartet: hvilke punkter hvert lys styrer, og hvilke som ikke er koblet. */
+function FixtureLegend({ rooms }: { rooms: Room[] }) {
+  const { byLight, unassigned } = fixtureIndex(FIXTURES);
+  const names = new Map(rooms.flatMap((r) => r.lights.map((l) => [l.id, `${r.name}: ${l.name}`] as const)));
+  return (
+    <ul className="grid gap-x-4 gap-y-0.5 px-1 pt-1 text-xs sm:grid-cols-2 lg:grid-cols-3">
+      {[...byLight].map(([id, ns]) => (
+        <li key={id} className="flex items-baseline gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: lightColor(id) }} />
+          <span className="wrap-break-word">
+            <b>{ns.join(", ")}</b> {names.get(id) ?? id}
+          </span>
+        </li>
+      ))}
+      {unassigned.length > 0 && (
+        <li className="flex items-baseline gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border border-dashed border-ink-light" />
+          <span>
+            <b>{unassigned.join(", ")}</b> ikke koblet
+          </span>
+        </li>
+      )}
+    </ul>
+  );
+}
+
+// Fargene deles ut i rekkefølgen i koblingslisten, så lys i samme rom får ulike farger.
+const COLOR_OF = new Map([...fixtureIndex(FIXTURES).byLight.keys()].map((id, i) => [id, LIGHT_COLORS[i % LIGHT_COLORS.length]]));
+const lightColor = (id: string) => COLOR_OF.get(id) ?? "#6b7280";
+
+export function FloorMap({ floor, rooms, selected, playing, onOpen, svgClassName = "max-h-[72dvh]", showNumbers = false }: {
   floor: Floor;
   rooms: Map<string, Room>;
   selected: string | null;
   playing: Set<string>;
   onOpen: (id: string) => void;
   svgClassName?: string;
+  /** Koblingsvisning: lyspunktene med nummer og farge per lys. */
+  showNumbers?: boolean;
 }) {
+  const lights = new Map([...rooms.values()].flatMap((r) => r.lights.map((l): [string, Light] => [l.id, l])));
+  const fixtures = FIXTURES.filter((f) => f.floor === floor.id);
+  // Rom med lyspunkter viser lyset i punktene; selve rommet får bare en svak gultone.
+  const withFixtures = new Set([...rooms.values()].filter((r) => r.lights.some((l) => fixtures.some((f) => f.light === l.id))).map((r) => r.id));
   const count = (id: string) => floor.shapes.filter((s) => s.room === id).length;
   const labelOf = (s: Shape) => (s.label && count(s.room) === 1 ? s.label : (rooms.get(s.room)?.name ?? s.room));
   return (
     <figure className="flex flex-col gap-1">
       <figcaption className="text-xs font-bold uppercase tracking-wide text-ink-light">{floor.name}</figcaption>
       <svg viewBox={`${(floor.viewBox ?? VIEWBOX).x} ${(floor.viewBox ?? VIEWBOX).y} ${(floor.viewBox ?? VIEWBOX).w} ${(floor.viewBox ?? VIEWBOX).h}`} className={`h-auto w-full ${svgClassName}`} role="group" aria-label={floor.name}>
+        <defs>
+          <radialGradient id="fixture-glow">
+            <stop offset="0%" stopColor="#ffd34d" stopOpacity={0.95} />
+            <stop offset="100%" stopColor="#ffd34d" stopOpacity={0} />
+          </radialGradient>
+        </defs>
         {/* Huset er vegg der det ikke er rom. */}
         {floor.footprint.map(([x0, y0, x1, y1], i) => (
           <rect key={i} x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="var(--color-ink-faint)" />
         ))}
         {floor.shapes.map((s, i) => (
-          <RoomShape key={`${s.room}-${i}`} shape={s} room={rooms.get(s.room)} label={labelOf(s)} selected={selected === s.room} playing={playing} onOpen={() => onOpen(s.room)} />
+          <RoomShape key={`${s.room}-${i}`} shape={s} room={rooms.get(s.room)} label={labelOf(s)} selected={selected === s.room} playing={playing} onOpen={() => onOpen(s.room)} dim={withFixtures.has(s.room)} />
+        ))}
+        {fixtures.map((f) => (
+          <FixtureMark key={f.n} fixture={f} look={fixtureLook(f, lights)} showNumber={showNumbers} away={labelDirection(f, fixtures)} />
         ))}
         {floor.obstacles?.map(([x0, y0, x1, y1, name], i) => (
           <g key={i} pointerEvents="none">
@@ -259,6 +335,7 @@ export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initial
   const startFloor = home.rooms.find((r) => r.id === initialRoom)?.floor;
   const [view, setView] = useState<View>(initialRoom && FLOORS[2].shapes.some((x) => x.room === initialRoom) ? "tak" : startFloor === 1 ? "1" : "2");
   const [selected, setSelected] = useState<string | null>(initialRoom);
+  const [numbers, setNumbers] = useState(false);
   const rooms = new Map(home.rooms.map((r) => [r.id, r]));
   const playing = new Set(groups.filter((g) => g.leader.status === "playing").flatMap((g) => g.speakers.map((s) => s.id)));
   const onMap = new Set(FLOORS.flatMap((f) => f.shapes.map((s) => s.room)));
@@ -312,19 +389,23 @@ export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initial
         <div className="lg:hidden">
           {view === "ute" ? (
             <div className="flex flex-col gap-3 p-1">
-              <FloorMap floor={FLOORS[1]} rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} />
+              <FloorMap floor={FLOORS[1]} rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} showNumbers={numbers} />
               {outdoorList}
             </div>
           ) : (
-            <FloorMap floor={FLOORS.find((f) => f.id === view)!} rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} />
+            <FloorMap floor={FLOORS.find((f) => f.id === view)!} rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} showNumbers={numbers} />
           )}
         </div>
         <div className="hidden gap-4 lg:grid" style={{ gridTemplateColumns: FLOORS.map((f) => `${(f.viewBox ?? VIEWBOX).w}fr`).join(" ") }}>
           {FLOORS.map((f) => (
-            <FloorMap key={f.id} floor={f} rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} />
+            <FloorMap key={f.id} floor={f} rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} showNumbers={numbers} />
           ))}
         </div>
         <p className="px-1 pt-1 text-xs text-ink-light">Gult = lys på · 🎵 musikk · 🔥 varmer · 💧 vanner · 🧺 🍽️ ♨️ maskin går · ▾ persienne nede · CO₂ dårlig luft · 🚨 røykvarsler har gått. Trykk på et rom for å styre det.</p>
+        <button type="button" onClick={() => setNumbers((v) => !v)} aria-pressed={numbers} className="px-1 pt-1 text-xs font-semibold text-primary-dark underline">
+          {numbers ? "Skjul nummer på lyspunktene" : "Vis lyspunktene med nummer"}
+        </button>
+        {numbers && <FixtureLegend rooms={home.rooms} />}
       </div>
 
       <div className={view === "ute" ? "hidden lg:block" : ""}>{outdoorList}</div>

@@ -6,6 +6,7 @@ import { Sheet } from "@/components/ui/Sheet";
 import { buttonPrimary, buttonSecondary } from "@/components/ui/styles";
 import { bounds, doorGap, doorSwing, FLOORS, FONT, labelLines, roomLook, VIEWBOX, type Door, type Floor, type Shape, type Stair } from "@/lib/huset/floorplan";
 import { FURNITURE, type Furniture } from "@/lib/huset/furniture";
+import { inside, SITE, SITE_VIEWBOX } from "@/lib/huset/site";
 import { FIXTURES, fixtureIndex, fixtureLook, labelDirection, type Fixture, type FixtureLook } from "@/lib/huset/fixtures";
 import type { HomeState, Light, Room } from "@/lib/huset/home";
 import type { Speaker, SpeakerGroup } from "@/lib/huset/sonos";
@@ -300,6 +301,148 @@ export function FloorMap({ floor, rooms, selected, playing, onOpen, svgClassName
   );
 }
 
+/**
+ * Uteområdet (A10-05): plen, belegg, trær og nabohusene, med Hus C fra plantegningen. Trykk på hagen åpner
+ * «Hage og inngang». Inngangene, terrassen og utetrappa (med varmekabler) er de samme feltene som i 1. etasje.
+ */
+export function SiteMap({ rooms, selected, playing, onOpen, svgClassName = "max-h-[72dvh]" }: {
+  rooms: Map<string, Room>;
+  selected: string | null;
+  playing: Set<string>;
+  onOpen: (id: string) => void;
+  svgClassName?: string;
+}) {
+  const floor = FLOORS[0];
+  const outside = floor.shapes.filter((s) => s.room === "ute");
+  const stairs = (floor.stairs ?? []).filter((st) => st.box[0] < -0.2);
+  const switchesOn = new Set([...rooms.values()].flatMap((r) => (r.switches ?? []).filter((x) => x.on).map((x) => x.id)));
+  const ute = rooms.get("ute");
+  const look = roomLook(ute, playing);
+  const pts = (list: [number, number][]) => list.map((p) => p.join(",")).join(" ");
+  const font = FONT * 2.2;
+  return (
+    <figure className="flex flex-col gap-1">
+      <figcaption className="text-xs font-bold uppercase tracking-wide text-ink-light">Ute</figcaption>
+      <svg viewBox={`${SITE_VIEWBOX.x} ${SITE_VIEWBOX.y} ${SITE_VIEWBOX.w} ${SITE_VIEWBOX.h}`} className={`h-auto w-full ${svgClassName}`} role="group" aria-label="Ute">
+        {SITE.roads.map((r) => (
+          <text key={r.name} x={r.at[0]} y={r.at[1]} fontSize={font} textAnchor="middle" fill="var(--color-ink-light)" transform={`rotate(${r.angle} ${r.at[0]} ${r.at[1]})`}>
+            {r.name}
+          </text>
+        ))}
+        <defs>
+          <clipPath id="site-lot">
+            <polygon points={pts(SITE.lot)} />
+          </clipPath>
+          {/* Belegningsstein (snuplassen) og bruddskifer, i meter. */}
+          <pattern id="site-pavers" width={0.6} height={0.6} patternUnits="userSpaceOnUse">
+            <rect width={0.6} height={0.6} fill="#ece7df" />
+            <path d="M 0 0 H 0.6 M 0 0 V 0.6" stroke="#d6cdbf" strokeWidth={0.03} />
+          </pattern>
+          <pattern id="site-stone" width={1.6} height={1.2} patternUnits="userSpaceOnUse">
+            <rect width={1.6} height={1.2} fill="#ebe6dc" />
+            <path d="M 0 0.4 L 0.7 0.35 L 1.6 0.45 M 0.35 0 L 0.4 0.37 M 1.1 0.4 L 1.05 1.2 M 0 0.85 L 1.07 0.8 M 0.55 0.82 L 0.6 1.2 M 1.07 0.8 L 1.6 0.9" stroke="#d3cbbd" strokeWidth={0.035} fill="none" />
+          </pattern>
+        </defs>
+        {/* Vår del av tomta er «Hage og inngang». */}
+        <polygon
+          points={pts(SITE.lot)}
+          fill="#f2f5ec"
+          stroke={selected === "ute" ? "var(--color-primary)" : "#e05a4f"}
+          strokeWidth={selected === "ute" ? 0.35 : 0.15}
+          strokeDasharray={selected === "ute" ? undefined : "1 0.6"}
+          role="button"
+          tabIndex={0}
+          aria-label={ute?.name ?? "Hage og inngang"}
+          onClick={() => onOpen("ute")}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onOpen("ute"))}
+          className="cursor-pointer outline-none"
+        />
+        <g pointerEvents="none" clipPath="url(#site-lot)">
+          {SITE.green.map((g, i) => (
+            <polygon key={`g${i}`} points={pts(g)} fill="#dcecd0" stroke="#b5d4a3" strokeWidth={0.08} strokeLinejoin="round" />
+          ))}
+          {SITE.paving.map((g, i) => (
+            <polygon key={`p${i}`} points={pts(g)} fill="#ece7df" stroke="#d6cdbf" strokeWidth={0.08} strokeLinejoin="round" />
+          ))}
+          {SITE.pavers.map((g, i) => (
+            <polygon key={`b${i}`} points={pts(g)} fill="url(#site-pavers)" stroke="#d6cdbf" strokeWidth={0.08} strokeLinejoin="round" />
+          ))}
+          {SITE.stone.map((g, i) => (
+            <polygon key={`s${i}`} points={pts(g)} fill="url(#site-stone)" stroke="#d3cbbd" strokeWidth={0.08} strokeLinejoin="round" />
+          ))}
+          {SITE.rock.map((g, i) => (
+            <polygon key={`r${i}`} points={pts(g)} fill="#dcd9d4" stroke="#c4c0ba" strokeWidth={0.08} />
+          ))}
+          <polygon points={pts(SITE.rainbed)} fill="#cfe3f1" stroke="#7fb0d6" strokeWidth={0.08} strokeLinejoin="round" />
+          {SITE.details.map((d, i) => (
+            <polyline key={`d${i}`} points={pts(d)} fill="none" stroke="#b9b1a6" strokeWidth={0.04} />
+          ))}
+          {SITE.walls.map((w, i) => (
+            <polyline key={`w${i}`} points={pts(w)} fill="none" stroke="#8d8579" strokeWidth={0.07} strokeLinejoin="round" />
+          ))}
+          {SITE.houses.map((h) => (
+            <g key={h.name}>
+              <polygon points={pts(h.pts)} fill="var(--color-ink-faint)" fillOpacity={0.45} />
+              {inside(h.at, SITE.lot) && (
+                <text x={h.at[0]} y={h.at[1] + font * 0.35} fontSize={font} textAnchor="middle" fill="var(--color-ink-light)" fontWeight={600}>
+                  {h.name}
+                </text>
+              )}
+            </g>
+          ))}
+          {floor.footprint.map(([x0, y0, x1, y1], i) => (
+            <rect key={`c${i}`} x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="var(--color-ink-faint)" />
+          ))}
+          <text x={3.25} y={8.5} fontSize={font} textAnchor="middle" fill="#ffffff" fontWeight={700}>
+            Hus C
+          </text>
+        </g>
+        {outside.map((sh, i) => (
+          <RoomShape key={i} shape={sh} room={ute} label={sh.label ?? ute?.name ?? ""} selected={selected === "ute"} playing={playing} onOpen={() => onOpen("ute")} heated={!!sh.heat && switchesOn.has(sh.heat)} />
+        ))}
+        {stairs.map((st, i) => (
+          <StairMark key={i} stair={st} heated={!!st.heat && switchesOn.has(st.heat)} />
+        ))}
+        <g pointerEvents="none" clipPath="url(#site-lot)">
+          {SITE.trees.map(([x, y, r], i) => (
+            <circle key={i} cx={x} cy={y} r={r} fill="#79a865" fillOpacity={0.3} stroke="#6a9a58" strokeOpacity={0.6} strokeWidth={0.08} />
+          ))}
+        </g>
+        {/* Kummer, lys i støttemuren og pullert. Lysene kobles til Home Assistant senere. */}
+        <g pointerEvents="none">
+          {SITE.points.map((pt, i) =>
+            pt.kind === "kum" ? (
+              <circle key={i} cx={pt.at[0]} cy={pt.at[1]} r={0.35} fill="#ffffff" stroke="#8d8579" strokeWidth={0.07}>
+                <title>{pt.name}</title>
+              </circle>
+            ) : (
+              <circle key={i} cx={pt.at[0]} cy={pt.at[1]} r={0.22} fill="#ffffff" stroke="var(--color-ink-faint)" strokeWidth={0.06}>
+                <title>{pt.name}</title>
+              </circle>
+            )
+          )}
+          {SITE.labels.map((l) => (
+            <text key={l.text} x={l.at[0]} y={l.at[1]} fontSize={font * 0.8} textAnchor="middle" fill="var(--color-ink-light)" fontStyle="italic">
+              {l.text}
+            </text>
+          ))}
+        </g>
+        {/* Navnet og merkene (lys, varmekabler …) står i hagen sørøst for Hus C. */}
+        <g pointerEvents="none">
+          <text x={2.5} y={25} fontSize={font * 1.15} textAnchor="middle" fill="var(--color-ink)" fontWeight={700}>
+            {ute?.name ?? "Hage og inngang"}
+          </text>
+          {look.badges.length > 0 && (
+            <text x={2.5} y={25 + font * 1.3} fontSize={font} textAnchor="middle" fill="var(--color-ink-light)">
+              {look.badges.join(" ")}
+            </text>
+          )}
+        </g>
+      </svg>
+    </figure>
+  );
+}
+
 /** Alt som kan styres i ett rom: lys og scener, varme, persienner og musikk. */
 function RoomSheet({ room, groups, onClose, ...p }: Omit<Props, "home" | "initialRoom" | "svgClassName"> & { room: Room; onClose: () => void }) {
   const speakers = groups.flatMap((g) => g.speakers.map((s) => ({ speaker: s, leader: g.leader }))).filter((x) => room.speakers.includes(x.speaker.id));
@@ -415,9 +558,10 @@ function RoomSheet({ room, groups, onClose, ...p }: Omit<Props, "home" | "initia
  */
 export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initialRoom = null, svgClassName }: Props) {
   const startFloor = home.rooms.find((r) => r.id === initialRoom)?.floor;
-  const [view, setView] = useState<View>(initialRoom && FLOORS[2].shapes.some((x) => x.room === initialRoom) ? "tak" : startFloor === 1 ? "1" : "2");
+  const [view, setView] = useState<View>(initialRoom === "ute" ? "ute" : initialRoom && FLOORS[2].shapes.some((x) => x.room === initialRoom) ? "tak" : startFloor === 1 ? "1" : "2");
   const [selected, setSelected] = useState<string | null>(initialRoom);
   const [numbers, setNumbers] = useState(false);
+  const [wide, setWide] = useState<"hus" | "ute">(initialRoom === "ute" ? "ute" : "hus");
   const rooms = new Map(home.rooms.map((r) => [r.id, r]));
   const playing = new Set(groups.filter((g) => g.leader.status === "playing").flatMap((g) => g.speakers.map((s) => s.id)));
   const onMap = new Set(FLOORS.flatMap((f) => f.shapes.map((s) => s.room)));
@@ -471,14 +615,38 @@ export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initial
         <div className="lg:hidden">
           {view === "ute" ? (
             <div className="flex flex-col gap-3 p-1">
-              <FloorMap floor={FLOORS[1]} rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} showNumbers={numbers} />
+              <SiteMap rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} />
               {outdoorList(home.rooms.filter((r) => r.outdoor))}
             </div>
           ) : (
             <FloorMap floor={FLOORS.find((f) => f.id === view)!} rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} showNumbers={numbers} />
           )}
         </div>
-        <div className="hidden gap-4 lg:grid" style={{ gridTemplateColumns: FLOORS.map((f) => `${(f.viewBox ?? VIEWBOX).w}fr`).join(" ") }}>
+        <div className="hidden gap-2 pb-2 lg:flex" role="tablist" aria-label="Velg kart">
+          {(
+            [
+              ["hus", "Etasjene"],
+              ["ute", "Ute"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={wide === id}
+              onClick={() => setWide(id)}
+              className={`min-h-9 rounded-full border-2 px-4 text-sm font-bold transition ${wide === id ? "border-primary bg-primary-soft text-primary-dark" : "border-line bg-card"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {wide === "ute" && (
+          <div className="hidden lg:block">
+            <SiteMap rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} />
+          </div>
+        )}
+        <div className={wide === "ute" ? "hidden" : "hidden gap-4 lg:grid"} style={{ gridTemplateColumns: FLOORS.map((f) => `${(f.viewBox ?? VIEWBOX).w}fr`).join(" ") }}>
           {FLOORS.map((f) => (
             <FloorMap key={f.id} floor={f} rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} showNumbers={numbers} />
           ))}

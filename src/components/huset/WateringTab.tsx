@@ -6,6 +6,7 @@ import { DEFAULT_MINUTES, QUICK_MINUTES, wateringAdvice, type Valve, type Wateri
 import type { HomeCommand } from "@/lib/validation/huset";
 import { usePending } from "./usePending";
 import { AppLink } from "./parts";
+import { DeviceArt } from "./DeviceArt";
 
 interface Props {
   watering: Watering;
@@ -33,7 +34,7 @@ function ValveRow({ valve, pending, run }: { valve: Valve; pending: ReturnType<t
   return (
     <li className={`flex flex-col gap-1 border-b border-line py-2 ${off ? "opacity-50" : ""}`}>
       <div className="flex items-center gap-2">
-        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${v.open ? "bg-[#3b9fd8]" : "bg-line"}`} aria-hidden />
+        <DeviceArt kind="valve" size={32} active={v.open} off={off} />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold wrap-break-word">{v.name}</p>
           <p className="flex flex-wrap gap-x-2 text-xs text-ink-light">

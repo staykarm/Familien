@@ -1,13 +1,16 @@
 "use client";
 
 import { DoorOpen, TriangleAlert } from "lucide-react";
-import { APPLIANCE_ICON, applianceText, progress, type Appliance } from "@/lib/huset/appliances";
+import { applianceText, progress, type Appliance } from "@/lib/huset/appliances";
 import { AppLink } from "./parts";
+import { DeviceArt, type DeviceKind } from "./DeviceArt";
 
 // Miele-maskinene: status, program, fase, tid igjen, nivåer og varsler. Bare visning – maskinene startes
 // og stoppes på maskinen eller i Miele-appen.
 
 const panel = "rounded-2xl bg-card px-3 py-2 shadow-[0_2px_12px_rgba(120,90,60,0.08)]";
+
+const APPLIANCE_ART: Record<Appliance["kind"], DeviceKind> = { vask: "washer", tork: "dryer", oppvask: "dishwasher", ovn: "oven" };
 
 /** Én maskin. Brukes i fanen «Maskiner» og i arket for rommet på kartet. */
 export function ApplianceLine({ appliance: a }: { appliance: Appliance }) {
@@ -16,9 +19,7 @@ export function ApplianceLine({ appliance: a }: { appliance: Appliance }) {
   return (
     <div className={`flex flex-col gap-1 border-b border-line py-2 last:border-0 ${a.status === "not_connected" ? "opacity-50" : ""}`}>
       <div className="flex items-center gap-2">
-        <span className="text-lg leading-none" aria-hidden>
-          {APPLIANCE_ICON[a.kind]}
-        </span>
+        <DeviceArt kind={APPLIANCE_ART[a.kind]} size={34} active={a.running || a.done} off={a.status === "not_connected"} />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold wrap-break-word">{a.name}</p>
           <p className={`text-xs wrap-break-word ${tone} ${a.done || a.failure ? "font-semibold" : ""}`}>{applianceText(a)}</p>

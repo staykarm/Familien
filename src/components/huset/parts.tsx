@@ -4,6 +4,7 @@ import { useRef, type ReactNode } from "react";
 import { ExternalLink, Music, Pause, Play } from "lucide-react";
 import { appLink, VENDOR_APPS, type VendorAppId } from "@/lib/huset/apps";
 import type { Speaker } from "@/lib/huset/sonos";
+import { DeviceArt } from "./DeviceArt";
 
 /** Det som spilles, kort: «Sang – Artist», kilden, eller at ingenting spilles. */
 export function nowPlaying(s: Speaker): string {
@@ -15,8 +16,8 @@ export function nowPlaying(s: Speaker): string {
 export function Cover({ speaker, size = "h-11 w-11" }: { speaker: Speaker; size?: string }) {
   if (!speaker.coverKey || !speaker.title) {
     return (
-      <span className={`flex ${size} shrink-0 items-center justify-center rounded-xl bg-card-soft text-ink-faint`} aria-hidden>
-        <Music size={20} />
+      <span className={`flex ${size} shrink-0 items-center justify-center rounded-xl bg-card-soft`} aria-hidden>
+        <DeviceArt kind="speaker" size={32} active={speaker.status === "playing"} off={speaker.status === "unavailable"} />
       </span>
     );
   }

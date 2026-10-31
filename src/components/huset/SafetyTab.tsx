@@ -1,7 +1,8 @@
 "use client";
 
-import { BatteryLow, Flame, ShieldCheck, ShieldAlert, Activity, WifiOff } from "lucide-react";
+import { BatteryLow, Flame, WifiOff } from "lucide-react";
 import type { Safety } from "@/lib/huset/safety";
+import { DeviceArt } from "./DeviceArt";
 
 // Sikkerhet (Homely): alarmen, røykvarslerne og bevegelsessensoren. Bare visning – alarmen styres i Homely-appen.
 
@@ -35,7 +36,7 @@ export function SafetyTab({ safety }: { safety: Safety }) {
       <SafetyBanner safety={safety} />
       {alarm && (
         <section className={`${panel} flex items-center gap-3 py-3`} aria-label="Alarm">
-          {alarm.armed || alarm.triggered ? <ShieldAlert size={28} className={alarm.triggered ? "text-danger" : "text-ink"} aria-hidden /> : <ShieldCheck size={28} className="text-ink-light" aria-hidden />}
+          <DeviceArt kind="alarm" size={44} active={alarm.armed || alarm.triggered} />
           <div className="flex-1">
             <p className="text-xs text-ink-light">Innbruddsalarm</p>
             <p className={`text-lg font-bold ${alarm.triggered ? "text-danger" : ""}`}>{alarm.label}</p>
@@ -49,7 +50,7 @@ export function SafetyTab({ safety }: { safety: Safety }) {
           <ul className="flex flex-col">
             {safety.smoke.map((s) => (
               <li key={s.id} className="flex items-center gap-2 border-b border-line py-1.5 last:border-0">
-                <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${s.fire ? "bg-danger" : !s.online || s.lowBattery ? "bg-[#d89b00]" : "bg-[#2e9d57]"}`} aria-hidden />
+                <DeviceArt kind="smoke" size={28} active={s.fire} off={!s.online} />
                 <span className="min-w-0 flex-1 text-sm font-semibold wrap-break-word">{s.name}</span>
                 {s.temperature !== null && <span className="text-xs tabular-nums text-ink-light">{s.temperature.toLocaleString("nb-NO", { maximumFractionDigits: 1 })}°</span>}
                 <span className={`inline-flex items-center gap-1 text-xs ${s.fire ? "font-bold text-danger" : "text-ink-light"}`}>
@@ -80,7 +81,7 @@ export function SafetyTab({ safety }: { safety: Safety }) {
           <ul className="flex flex-col">
             {safety.motion.map((m) => (
               <li key={m.id} className="flex items-center gap-2 py-1.5">
-                <Activity size={14} className={m.motion ? "text-primary" : "text-ink-faint"} aria-hidden />
+                <DeviceArt kind="motion" size={26} active={m.motion} off={!m.online} />
                 <span className="flex-1 text-sm font-semibold">{m.name}</span>
                 <span className="text-xs text-ink-light">{!m.online ? "Svarer ikke" : m.motion ? "Bevegelse nå" : "Rolig"}</span>
               </li>

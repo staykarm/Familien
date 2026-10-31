@@ -17,6 +17,7 @@ describe("toRobots", () => {
     s("sensor.dustin_1_status", "segment_cleaning"),
     s("sensor.dustin_1_current_room", "Kitchen"),
     s("binary_sensor.dustin_1_water_shortage", "on"),
+    s("image.dustin_1_map_0", "2026-10-31T10:00:00+00:00", { entity_picture: "/api/image_proxy/image.dustin_1_map_0?token=x" }),
     s("lawn_mower.klippe_ost", "mowing", { friendly_name: "Klippe Øst", battery: 63 }),
     s("lawn_mower.klippe_vest", "error", { friendly_name: "Klippe Vest", battery: 12 }),
   ]);
@@ -32,6 +33,11 @@ describe("toRobots", () => {
       problems: ["Lokket på skittentvannstanken i dokken står åpent"],
       maintenance: ["Filter"],
     });
+  });
+
+  it("finner kartet fra Roborock når det finnes", () => {
+    expect(robots.find((r) => r.id === "vacuum.dustin_1")?.map).toEqual({ id: "image.dustin_1_map_0", version: "2026-10-31T10:00:00+00:00" });
+    expect(robots.find((r) => r.id === "vacuum.stove_2")?.map).toBeUndefined();
   });
 
   it("viser rommet bare mens støvsugeren er i gang", () => {

@@ -6,7 +6,7 @@ import { Sheet } from "@/components/ui/Sheet";
 import { buttonPrimary, buttonSecondary } from "@/components/ui/styles";
 import { bounds, doorGap, doorSwing, FLOORS, FONT, labelLines, roomLook, VIEWBOX, type Door, type Floor, type Shape, type Stair } from "@/lib/huset/floorplan";
 import { FURNITURE, type Furniture } from "@/lib/huset/furniture";
-import { SITE, SITE_VIEWBOX } from "@/lib/huset/site";
+import { inside, SITE, SITE_VIEWBOX } from "@/lib/huset/site";
 import { FIXTURES, fixtureIndex, fixtureLook, labelDirection, type Fixture, type FixtureLook } from "@/lib/huset/fixtures";
 import type { HomeState, Light, Room } from "@/lib/huset/home";
 import type { Speaker, SpeakerGroup } from "@/lib/huset/sonos";
@@ -329,9 +329,14 @@ export function SiteMap({ rooms, selected, playing, onOpen, svgClassName = "max-
             {r.name}
           </text>
         ))}
-        {/* Hele tomta er «Hage og inngang». */}
+        <defs>
+          <clipPath id="site-lot">
+            <polygon points={pts(SITE.lot)} />
+          </clipPath>
+        </defs>
+        {/* Vår del av tomta er «Hage og inngang». */}
         <polygon
-          points={pts(SITE.boundary)}
+          points={pts(SITE.lot)}
           fill="#f2f5ec"
           stroke={selected === "ute" ? "var(--color-primary)" : "#e05a4f"}
           strokeWidth={selected === "ute" ? 0.35 : 0.15}
@@ -343,7 +348,7 @@ export function SiteMap({ rooms, selected, playing, onOpen, svgClassName = "max-
           onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onOpen("ute"))}
           className="cursor-pointer outline-none"
         />
-        <g pointerEvents="none">
+        <g pointerEvents="none" clipPath="url(#site-lot)">
           {SITE.green.map((g, i) => (
             <polygon key={`g${i}`} points={pts(g)} fill="#dcecd0" stroke="#b5d4a3" strokeWidth={0.08} strokeLinejoin="round" />
           ))}
@@ -356,9 +361,11 @@ export function SiteMap({ rooms, selected, playing, onOpen, svgClassName = "max-
           {SITE.houses.map((h) => (
             <g key={h.name}>
               <polygon points={pts(h.pts)} fill="var(--color-ink-faint)" fillOpacity={0.45} />
-              <text x={h.at[0]} y={h.at[1] + font * 0.35} fontSize={font} textAnchor="middle" fill="var(--color-ink-light)" fontWeight={600}>
-                {h.name}
-              </text>
+              {inside(h.at, SITE.lot) && (
+                <text x={h.at[0]} y={h.at[1] + font * 0.35} fontSize={font} textAnchor="middle" fill="var(--color-ink-light)" fontWeight={600}>
+                  {h.name}
+                </text>
+              )}
             </g>
           ))}
           {floor.footprint.map(([x0, y0, x1, y1], i) => (
@@ -374,7 +381,7 @@ export function SiteMap({ rooms, selected, playing, onOpen, svgClassName = "max-
         {stairs.map((st, i) => (
           <StairMark key={i} stair={st} heated={!!st.heat && switchesOn.has(st.heat)} />
         ))}
-        <g pointerEvents="none">
+        <g pointerEvents="none" clipPath="url(#site-lot)">
           {SITE.trees.map(([x, y, r], i) => (
             <circle key={i} cx={x} cy={y} r={r} fill="#79a865" fillOpacity={0.3} stroke="#6a9a58" strokeOpacity={0.6} strokeWidth={0.08} />
           ))}

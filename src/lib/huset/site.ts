@@ -6,8 +6,10 @@
 import type { Pt } from "./floorplan";
 
 export interface Site {
-  /** Eiendomsgrensen. */
+  /** Eiendomsgrensen for hele tomta (alle tre husene). */
   boundary: Pt[];
+  /** Vår del av tomta: øst for skillet mot Hus A og Hus B. Kartet viser bare dette. */
+  lot: Pt[];
   /** Plen og beplantning. */
   green: Pt[][];
   /** Belegg: gårdsplass, innkjørsel og snuplass. */
@@ -24,6 +26,11 @@ export interface Site {
 
 export const SITE: Site = {
   boundary: [[-43.64, 29.13], [-43.57, 3.34], [3.45, -12.82], [10.98, -14.74], [10.75, 31.22], [-43.64, 31.35]],
+  // Skillet er tegnet inn av Marius: fra Vardeveien i nord, vest for de store furuene, langs Hus B og ned mot Jonsokveien 2.
+  lot: [
+    [-18.93, -5.1], [3.45, -12.82], [10.98, -14.74], [10.75, 31.22], [-1.4, 31.25],
+    [-1.64, 17.4], [-2.88, 11.92], [-4.88, 10.42], [-11.35, 7.93], [-14.34, 4.94], [-17.83, -1.04],
+  ],
   green: [
     [[-39.3, 10.33], [-38.55, 8.4], [-37.32, 7.51], [-31.17, 6.67], [-27.57, 5.77], [-25.11, 4.97], [-21.71, 3.38], [-21.07, 4.85], [-21.3, 5.74], [-29.04, 9.44], [-27.8, 12.1], [-29.44, 12.1], [-29.44, 12.86], [-33.09, 14.57], [-33.09, 18.68], [-22.57, 18.68], [-22.57, 23.17], [-22.72, 23.17], [-22.72, 18.83], [-32.21, 18.83], [-32.21, 22.63], [-24.21, 22.63], [-24.39, 24.15], [-26.1, 29.21], [-26.11, 31.31], [-39.25, 31.31]],
     [[-1.53, 21.23], [-0.38, 20.33], [0.12, 20.36], [0.12, 16.97], [-0.38, 16.97], [-0.38, 16.72], [0.42, 16.72], [0.42, 18.76], [1.96, 19.73], [4.26, 19.3], [5.4, 19.96], [6.81, 20.17], [6.81, 1.51], [6.27, 1.51], [6.27, 0.08], [10.18, 0.08], [10.18, -6.37], [7.08, -6.37], [6.48, -7.37], [5.99, -9], [10.96, -10], [10.79, 23.8], [9.91, 24.53], [8.66, 24.64], [7.44, 25.04], [6.19, 25.07], [2.89, 23.5], [2.51, 23.16], [1.41, 21.18], [0.12, 20.97]],
@@ -70,12 +77,22 @@ export const SITE: Site = {
     [-26.11, 22.98, 1.96],
   ],
   roads: [
-    { name: "Vardeveien", at: [-21, -7.6], angle: -19 },
-    { name: "Jonsokveien", at: [-45.2, 18], angle: -90 },
-    { name: "Jonsokveien 2", at: [-16, 33.2], angle: 0 },
+    { name: "Vardeveien", at: [-8.3, -10.9], angle: -19 },
+    { name: "Jonsokveien 2", at: [4.7, 33.2], angle: 0 },
     { name: "Vardeveien 13", at: [12.4, 9], angle: 90 },
   ],
 };
 
-/** Utsnittet for kartet: tomta med litt luft rundt (til veinavnene). */
-export const SITE_VIEWBOX = { x: -46.5, y: -15.6, w: 60, h: 49.8 };
+/** Utsnittet for kartet: vår del av tomta med litt luft rundt (til veinavnene). */
+export const SITE_VIEWBOX = { x: -20, y: -15.6, w: 33.6, h: 49.8 };
+
+/** Om et punkt ligger inne i et felt (strålemetoden). */
+export function inside([x, y]: Pt, pts: Pt[]): boolean {
+  let hit = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [xi, yi] = pts[i];
+    const [xj, yj] = pts[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) hit = !hit;
+  }
+  return hit;
+}

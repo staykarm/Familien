@@ -333,6 +333,15 @@ export function SiteMap({ rooms, selected, playing, onOpen, svgClassName = "max-
           <clipPath id="site-lot">
             <polygon points={pts(SITE.lot)} />
           </clipPath>
+          {/* Belegningsstein (snuplassen) og bruddskifer, i meter. */}
+          <pattern id="site-pavers" width={0.6} height={0.6} patternUnits="userSpaceOnUse">
+            <rect width={0.6} height={0.6} fill="#ece7df" />
+            <path d="M 0 0 H 0.6 M 0 0 V 0.6" stroke="#d6cdbf" strokeWidth={0.03} />
+          </pattern>
+          <pattern id="site-stone" width={1.6} height={1.2} patternUnits="userSpaceOnUse">
+            <rect width={1.6} height={1.2} fill="#ebe6dc" />
+            <path d="M 0 0.4 L 0.7 0.35 L 1.6 0.45 M 0.35 0 L 0.4 0.37 M 1.1 0.4 L 1.05 1.2 M 0 0.85 L 1.07 0.8 M 0.55 0.82 L 0.6 1.2 M 1.07 0.8 L 1.6 0.9" stroke="#d3cbbd" strokeWidth={0.035} fill="none" />
+          </pattern>
         </defs>
         {/* Vår del av tomta er «Hage og inngang». */}
         <polygon
@@ -355,8 +364,21 @@ export function SiteMap({ rooms, selected, playing, onOpen, svgClassName = "max-
           {SITE.paving.map((g, i) => (
             <polygon key={`p${i}`} points={pts(g)} fill="#ece7df" stroke="#d6cdbf" strokeWidth={0.08} strokeLinejoin="round" />
           ))}
+          {SITE.pavers.map((g, i) => (
+            <polygon key={`b${i}`} points={pts(g)} fill="url(#site-pavers)" stroke="#d6cdbf" strokeWidth={0.08} strokeLinejoin="round" />
+          ))}
+          {SITE.stone.map((g, i) => (
+            <polygon key={`s${i}`} points={pts(g)} fill="url(#site-stone)" stroke="#d3cbbd" strokeWidth={0.08} strokeLinejoin="round" />
+          ))}
           {SITE.rock.map((g, i) => (
             <polygon key={`r${i}`} points={pts(g)} fill="#dcd9d4" stroke="#c4c0ba" strokeWidth={0.08} />
+          ))}
+          <polygon points={pts(SITE.rainbed)} fill="#cfe3f1" stroke="#7fb0d6" strokeWidth={0.08} strokeLinejoin="round" />
+          {SITE.details.map((d, i) => (
+            <polyline key={`d${i}`} points={pts(d)} fill="none" stroke="#b9b1a6" strokeWidth={0.04} />
+          ))}
+          {SITE.walls.map((w, i) => (
+            <polyline key={`w${i}`} points={pts(w)} fill="none" stroke="#8d8579" strokeWidth={0.07} strokeLinejoin="round" />
           ))}
           {SITE.houses.map((h) => (
             <g key={h.name}>
@@ -386,13 +408,32 @@ export function SiteMap({ rooms, selected, playing, onOpen, svgClassName = "max-
             <circle key={i} cx={x} cy={y} r={r} fill="#79a865" fillOpacity={0.3} stroke="#6a9a58" strokeOpacity={0.6} strokeWidth={0.08} />
           ))}
         </g>
+        {/* Kummer, lys i støttemuren og pullert. Lysene kobles til Home Assistant senere. */}
+        <g pointerEvents="none">
+          {SITE.points.map((pt, i) =>
+            pt.kind === "kum" ? (
+              <circle key={i} cx={pt.at[0]} cy={pt.at[1]} r={0.35} fill="#ffffff" stroke="#8d8579" strokeWidth={0.07}>
+                <title>{pt.name}</title>
+              </circle>
+            ) : (
+              <circle key={i} cx={pt.at[0]} cy={pt.at[1]} r={0.22} fill="#ffffff" stroke="var(--color-ink-faint)" strokeWidth={0.06}>
+                <title>{pt.name}</title>
+              </circle>
+            )
+          )}
+          {SITE.labels.map((l) => (
+            <text key={l.text} x={l.at[0]} y={l.at[1]} fontSize={font * 0.8} textAnchor="middle" fill="var(--color-ink-light)" fontStyle="italic">
+              {l.text}
+            </text>
+          ))}
+        </g>
         {/* Navnet og merkene (lys, varmekabler …) står i hagen sørøst for Hus C. */}
         <g pointerEvents="none">
-          <text x={1.5} y={21.5} fontSize={font * 1.15} textAnchor="middle" fill="var(--color-ink)" fontWeight={700}>
+          <text x={2.5} y={25} fontSize={font * 1.15} textAnchor="middle" fill="var(--color-ink)" fontWeight={700}>
             {ute?.name ?? "Hage og inngang"}
           </text>
           {look.badges.length > 0 && (
-            <text x={1.5} y={21.5 + font * 1.3} fontSize={font} textAnchor="middle" fill="var(--color-ink-light)">
+            <text x={2.5} y={25 + font * 1.3} fontSize={font} textAnchor="middle" fill="var(--color-ink-light)">
               {look.badges.join(" ")}
             </text>
           )}

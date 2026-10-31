@@ -17,6 +17,7 @@ import {
 } from "@/actions/huset";
 import { card } from "@/components/ui/styles";
 import { useUndo } from "@/components/ui/UndoToast";
+import { planGroup } from "@/lib/huset/musicMap";
 import { groupName, isMoved, moveSpeaker, type Speaker, type SpeakerGroup } from "@/lib/huset/sonos";
 import type { HomeCommand, SpeakerCommand } from "@/lib/validation/huset";
 import { AppliancesTab } from "./AppliancesTab";
@@ -32,6 +33,7 @@ import { WateringTab } from "./WateringTab";
 import { MusicSheet } from "./MusicSheet";
 import { PresetSheet, type PresetDraft } from "./PresetSheet";
 import { RoomList } from "./RoomList";
+import { MusicMap } from "./MusicMap";
 import { SafetyBanner, SafetyTab } from "./SafetyTab";
 
 const POLL_MS = 4_000;
@@ -125,6 +127,7 @@ export function HousePage({
   const [moves, setMoves] = useState<{ seq: number; speaker: string; to: string | null }[]>([]);
   const [music, setMusic] = useState<SpeakerGroup | null>(null);
   const [editing, setEditing] = useState(false);
+  const [musicView, setMusicView] = useState<"kart" | "liste">("kart");
   const [preset, setPreset] = useState<PresetDraft | null>(null);
   const [, start] = useTransition();
   /** En handling (fast gruppe, lagring) pågår. Ikke det samme som at siden henter ny tilstand. */
@@ -430,10 +433,49 @@ export function HousePage({
           </div>
 
           <section className="flex flex-col gap-2" aria-labelledby="rom">
-            <h2 id="rom" className="font-display text-lg font-bold sm:text-xl">
-              🎵 Rom
-            </h2>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 id="rom" className="font-display text-lg font-bold sm:text-xl">
+                🎵 Rom
+              </h2>
+              <div className="flex gap-1" role="tablist" aria-label="Vis rommene">
+                {(
+                  [
+                    ["kart", "Kart"],
+                    ["liste", "Liste"],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="tab"
+                    aria-selected={musicView === id}
+                    onClick={() => setMusicView(id)}
+                    className={`min-h-10 rounded-full border-2 px-4 text-sm font-bold transition ${musicView === id ? "border-primary bg-primary-soft text-primary-dark" : "border-line bg-card"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
             {active.length === 0 && <p className="text-ink-light">Fant ingen høyttalere i Home Assistant.</p>}
+            {musicView === "kart" && active.length > 0 && (
+              <MusicMap
+                home={data.home}
+                groups={groups}
+                onGroup={(ids) => {
+                  const plan = planGroup(groups, ids);
+                  if (plan) void regroup(plan.changes, { action: "group", id: plan.leader, members: plan.members });
+                }}
+                onSolo={(ids) => {
+                  const [first, ...rest] = ids;
+                  if (first) void regroup(ids.map((speaker) => ({ speaker, to: null })), { action: "unjoin", id: first, also: rest });
+                }}
+                onToggle={(s) => void run({ action: "toggle", id: s.id }, { playing: s.status !== "playing" })}
+                onMusic={(s) => setMusic(groups.find((g) => g.leader.id === s.id) ?? { leader: s, speakers: [s] })}
+              />
+            )}
+            {musicView === "liste" && (
+            <>
             <p className="text-sm text-ink-light">
               Trykk på lenken ved et rom for å spille det samme i flere rom.
               <span className="hidden md:inline"> Du kan også dra et rom i håndtaket og slippe det på et annet.</span>
@@ -453,6 +495,8 @@ export function HousePage({
               onMusic={(s) => setMusic(groups.find((g) => g.leader.id === s.id) ?? { leader: s, speakers: [s] })}
               onUngroup={ungroup}
             />
+            </>
+            )}
             {missing.length > 0 && <p className="text-sm text-ink-light">Svarer ikke nå: {missing.map((g) => g.leader.name).join(", ")}</p>}
           </section>
         </>

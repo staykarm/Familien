@@ -3,7 +3,8 @@
 import { BatteryMedium, Home, MapPin, Pause, Play, TriangleAlert, Wrench } from "lucide-react";
 import type { Robot } from "@/lib/huset/robots";
 import type { HomeCommand } from "@/lib/validation/huset";
-import { IconButton } from "./parts";
+import type { VendorAppId } from "@/lib/huset/apps";
+import { AppLink, IconButton } from "./parts";
 import { usePending } from "./usePending";
 
 interface Props {
@@ -83,10 +84,13 @@ export function RobotsTab({ robots, run }: Props) {
   if (!robots.length) return <p className="text-sm text-ink-light">Fant ingen støvsugere eller gressklippere i Home Assistant.</p>;
   const vacuums = robots.filter((r) => r.kind === "vacuum");
   const mowers = robots.filter((r) => r.kind === "mower");
-  const list = (items: Robot[], title: string) =>
+  const list = (items: Robot[], title: string, app: VendorAppId) =>
     items.length > 0 && (
       <section aria-label={title} className="rounded-2xl bg-card px-3 py-1 shadow-[0_2px_12px_rgba(120,90,60,0.08)]">
-        <h3 className="pt-1 text-xs font-bold uppercase tracking-wide text-ink-light">{title}</h3>
+        <div className="flex items-center justify-between gap-2 pt-1">
+          <h3 className="text-xs font-bold uppercase tracking-wide text-ink-light">{title}</h3>
+          <AppLink app={app} />
+        </div>
         <ul className="flex flex-col">
           {items.map((r) => (
             <RobotRow key={r.id} robot={r} pending={pending} run={run} />
@@ -96,8 +100,8 @@ export function RobotsTab({ robots, run }: Props) {
     );
   return (
     <div className="grid items-start gap-2 lg:grid-cols-2">
-      {list(vacuums, "Støvsugere")}
-      {list(mowers, "Gressklippere")}
+      {list(vacuums, "Støvsugere", "roborock")}
+      {list(mowers, "Gressklippere", "navimow")}
     </div>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, type ReactNode } from "react";
-import { Music, Pause, Play } from "lucide-react";
+import { ExternalLink, Music, Pause, Play } from "lucide-react";
+import { appLink, VENDOR_APPS, type VendorAppId } from "@/lib/huset/apps";
 import type { Speaker } from "@/lib/huset/sonos";
 
 /** Det som spilles, kort: «Sang – Artist», kilden, eller at ingenting spilles. */
@@ -173,5 +174,20 @@ export function IconButton({ onClick, label, children, disabled }: { onClick: ()
     >
       {children}
     </button>
+  );
+}
+
+/** «Åpne i Roborock ↗»: lenke videre til produsentens app (via App Store, der «Åpne» starter appen). */
+export function AppLink({ app }: { app: VendorAppId }) {
+  return (
+    <a
+      href={appLink(app)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-full border-2 border-line bg-card px-3 text-xs font-semibold text-ink transition hover:border-primary"
+    >
+      Åpne i {VENDOR_APPS[app].name}
+      <ExternalLink size={12} aria-hidden />
+    </a>
   );
 }

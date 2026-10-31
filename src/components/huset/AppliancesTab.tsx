@@ -2,6 +2,7 @@
 
 import { DoorOpen, TriangleAlert } from "lucide-react";
 import { APPLIANCE_ICON, applianceText, progress, type Appliance } from "@/lib/huset/appliances";
+import { AppLink } from "./parts";
 
 // Miele-maskinene: status, program, fase, tid igjen, nivåer og varsler. Bare visning – maskinene startes
 // og stoppes på maskinen eller i Miele-appen.
@@ -73,7 +74,10 @@ export function AppliancesTab({ appliances }: { appliances: Appliance[] }) {
           </section>
         ))}
       </div>
-      <p className="text-xs text-ink-light">Maskinene startes og stoppes på maskinen eller i Miele-appen.</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-ink-light">Maskinene startes og stoppes på maskinen eller i Miele-appen.</p>
+        <AppLink app="miele" />
+      </div>
     </div>
   );
 }

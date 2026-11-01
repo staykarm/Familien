@@ -55,6 +55,6 @@ describe("lyspunktene", () => {
   it("lager koblingslisten", () => {
     const { byLight, unassigned } = fixtureIndex(FIXTURES);
     expect(byLight.get("light.bod_2etg_kap")).toEqual([38, 39]);
-    expect(unassigned).toEqual([13, 46]);
+    expect(unassigned).toEqual([]);
   });
 });

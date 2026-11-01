@@ -6,6 +6,7 @@ import type { HomeCommand } from "@/lib/validation/huset";
 import type { VendorAppId } from "@/lib/huset/apps";
 import { AppLink, IconButton } from "./parts";
 import { usePending } from "./usePending";
+import { DeviceArt } from "./DeviceArt";
 
 interface Props {
   robots: Robot[];
@@ -24,13 +25,10 @@ function RobotRow({ robot, pending, run }: { robot: Robot; pending: ReturnType<t
   const off = !r.available;
   const command = (command: "start" | "pause" | "home" | "locate") =>
     void pending.send(r.id, STATUS_AFTER[command] ?? {}, () => run({ action: "robot", id: r.id, command }));
-  const icon = r.kind === "vacuum" ? "🧹" : "🌱";
   return (
     <li className={`flex flex-col gap-1 border-b border-line py-2 ${off ? "opacity-50" : ""}`}>
       <div className="flex items-center gap-2">
-        <span className="text-lg" aria-hidden>
-          {icon}
-        </span>
+        <DeviceArt kind={r.kind === "vacuum" ? "vacuum" : "mower"} size={40} active={r.active} off={off} />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold wrap-break-word">{r.name}</p>
           <p className="flex flex-wrap gap-x-2 text-xs text-ink-light">
@@ -63,16 +61,24 @@ function RobotRow({ robot, pending, run }: { robot: Robot; pending: ReturnType<t
         )}
       </div>
       {r.problems.map((p) => (
-        <p key={p} className="flex items-center gap-1.5 pl-7 text-xs font-semibold text-danger">
+        <p key={p} className="flex items-center gap-1.5 pl-12 text-xs font-semibold text-danger">
           <TriangleAlert size={12} className="shrink-0" aria-hidden />
           {p}
         </p>
       ))}
       {r.maintenance.length > 0 && (
-        <p className="flex items-start gap-1.5 pl-7 text-xs text-ink-light">
+        <p className="flex items-start gap-1.5 pl-12 text-xs text-ink-light">
           <Wrench size={12} className="mt-0.5 shrink-0" aria-hidden />
           <span>Bytt eller rengjør nå: {r.maintenance.join(", ")}</span>
         </p>
+      )}
+      {r.map && (
+        <details className="pl-12">
+          <summary className="cursor-pointer text-xs font-semibold text-primary-dark">Vis kartet</summary>
+          {/* Kartet fra Roborock (bilde i Home Assistant), via vår egen server. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`/api/huset/robotmap/${r.map.id}?v=${encodeURIComponent(r.map.version)}`} alt={`Kart fra ${r.name}`} className="mt-1 max-h-72 w-auto rounded-xl bg-card-soft" loading="lazy" />
+        </details>
       )}
     </li>
   );

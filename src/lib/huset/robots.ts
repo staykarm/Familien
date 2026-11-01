@@ -27,6 +27,8 @@ export interface Robot {
   problems: string[];
   /** Deler som er på overtid og skal byttes eller rengjøres. */
   maintenance: string[];
+  /** Kartet fra Roborock (image.<navn>_map_0) og når det sist ble oppdatert, hvis det finnes. */
+  map?: { id: string; version: string };
 }
 
 const VACUUM_STATUS: Record<string, string> = {
@@ -164,6 +166,7 @@ export function toRobots(states: StateLike[]): Robot[] {
     if (flag("water_shortage")) problems.push("Rentvannstanken er tom");
     const active = s.state === "cleaning" || s.state === "returning";
     const room = known(sensor("current_room"));
+    const mapImage = byId.get(`image.${base}_map_0`);
     robots.push({
       id: s.entity_id,
       kind: "vacuum",
@@ -179,6 +182,7 @@ export function toRobots(states: StateLike[]): Robot[] {
         const left = num(sensor(`${suffix}_time_left`));
         return left !== null && left <= 0 ? [label] : [];
       }),
+      ...(mapImage && mapImage.state !== "unavailable" ? { map: { id: mapImage.entity_id, version: mapImage.state } } : {}),
     });
   }
   return robots.sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name, "nb") : a.kind === "vacuum" ? -1 : 1));

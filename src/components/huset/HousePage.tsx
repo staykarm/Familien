@@ -94,6 +94,7 @@ export function HousePage({
   fixedTab,
   room,
   mapClassName,
+  mapFloors,
   onData,
   refreshKey = 0,
   initialTab,
@@ -107,6 +108,8 @@ export function HousePage({
   room?: string | null;
   /** Høyden på kartet (dashboardet har mindre plass). */
   mapClassName?: string;
+  /** Etasjene kartet viser (dashboardet: 1. og 2. etasje). */
+  mapFloors?: ("1" | "2" | "tak")[];
   /** Får hver nye tilstand, så resten av dashboardet viser det samme som kartet. */
   onData?: (data: HouseData) => void;
   /** Hent ny tilstand med en gang når denne endres (etter en handling et annet sted på siden). */
@@ -371,6 +374,7 @@ export function HousePage({
           onMusic={(s) => setMusic(groups.find((g) => g.leader.id === s.id) ?? { leader: s, speakers: [s] })}
           initialRoom={room}
           svgClassName={mapClassName}
+          floors={mapFloors}
         />
       )}
       {data.ok && tab === "lys" && <LightsTab home={data.home} run={runHome} />}

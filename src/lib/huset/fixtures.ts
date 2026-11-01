@@ -36,7 +36,6 @@ const floor2: Row[] = [
   [10, 5.96, 4.11, "spot", "light.stue_ut"],
   [11, 2.57, 0.85, "spot", "light.stue_ut_hjorne"],
   [12, 2.76, 0.85, "spot", "light.stue_ut_hjorne"],
-  [13, 4.16, 2.07, "pendel", null],
   // Kjøkken
   [14, 0.47, 5.94, "spot", "light.kjokken_kap_peis"],
   [15, 0.47, 6.13, "spot", "light.kjokken_kap_peis"],
@@ -73,7 +72,6 @@ const floor2: Row[] = [
   [43, 4.83, 8.77, "spot", "light.kontor_2etg_kap"],
   [44, 5.95, 9.22, "spot", "light.kontor_2etg_kap"],
   [45, 5.95, 10.79, "spot", "light.kontor_2etg_kap"],
-  [46, 5.95, 7.4, "lampe", null],
 ];
 
 export const FIXTURES: Fixture[] = floor2.map(([n, x, y, kind, light]) => ({ n, floor: "2", x, y, kind, light }));

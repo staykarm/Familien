@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { DateTime } from "luxon";
-import { BatteryCharging, Car, Plug, Zap } from "lucide-react";
+import { BatteryCharging, Plug, Zap } from "lucide-react";
 import { loadPrices } from "@/actions/huset";
 import { cheapestWindow, kr, levelOf, watt, windowLabel, type Energy, type PriceLevel, type PricePoint } from "@/lib/huset/energy";
+import { DeviceArt } from "./DeviceArt";
 
 // Strøm (Tibber): pris nå, effekt, forbruk og kostnad, timepriser for i dag og i morgen, og elbilene.
 
@@ -135,7 +136,7 @@ export function CarList({ energy }: { energy: Energy }) {
     <ul className="flex flex-col">
       {energy.cars.map((c) => (
         <li key={c.id} className={`flex items-center gap-3 border-b border-line py-2 last:border-0 ${c.online ? "" : "opacity-50"}`}>
-          <Car size={18} className="shrink-0 text-ink-light" aria-hidden />
+          <DeviceArt kind="car" size={40} active={!!c.charging} off={!c.online} />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold wrap-break-word">{c.name}</p>
             <p className="text-xs text-ink-light">
@@ -164,7 +165,9 @@ export function EnergyTab({ energy }: { energy: Energy }) {
   if (energy.price === null && !energy.cars.length) return <p className="text-sm text-ink-light">Fant ikke Tibber i Home Assistant.</p>;
   return (
     <div className="flex flex-col gap-2">
-      <section className={`${panel} grid grid-cols-2 gap-3 py-3 sm:grid-cols-4`} aria-label="Strøm nå">
+      <section className={`${panel} flex items-center gap-3 py-3`} aria-label="Strøm nå">
+        <DeviceArt kind="meter" size={44} active={energy.powerW !== null} />
+        <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat
           label="Pris nå"
           value={energy.price === null ? "–" : `${kr(energy.price)}`}
@@ -173,6 +176,7 @@ export function EnergyTab({ energy }: { energy: Energy }) {
         <Stat label="Effekt nå" value={watt(energy.powerW)} sub={energy.hourKwh !== null ? `denne timen ca. ${energy.hourKwh.toLocaleString("nb-NO", { maximumFractionDigits: 1 })} kWh` : undefined} />
         <Stat label="I dag" value={kr(energy.todayCost, 0)} sub={energy.todayKwh !== null ? `${energy.todayKwh.toLocaleString("nb-NO", { maximumFractionDigits: 1 })} kWh` : undefined} />
         <Stat label="Denne måneden" value={kr(energy.monthCost, 0)} sub={energy.monthKwh !== null ? `${Math.round(energy.monthKwh).toLocaleString("nb-NO")} kWh` : undefined} />
+        </div>
       </section>
       <section className={panel} aria-label="Strømpris time for time">
         <h3 className="flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-ink-light">

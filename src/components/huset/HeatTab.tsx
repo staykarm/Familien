@@ -1,11 +1,12 @@
 "use client";
 
-import { Droplets, Flame, Minus, Plus, Wind } from "lucide-react";
+import { Droplets, Flame, Minus, Plus } from "lucide-react";
 import { airText, CO2_HIGH, WEAK_SIGNAL, type AirSensor } from "@/lib/huset/air";
 import { stepTarget, type Climate, type HomeState, type Switch } from "@/lib/huset/home";
 import type { HomeCommand } from "@/lib/validation/huset";
 import { IconButton } from "./parts";
 import { usePending } from "./usePending";
+import { DeviceArt } from "./DeviceArt";
 
 interface Props {
   home: HomeState;
@@ -62,7 +63,7 @@ export function AirLine({ air, showName = false }: { air: AirSensor; showName?: 
   const high = air.online && air.co2 !== null && air.co2 > CO2_HIGH;
   return (
     <div className={`flex items-center gap-2 border-b border-line py-1 last:border-0 ${air.online ? "" : "opacity-50"}`}>
-      <Wind size={14} className={high ? "shrink-0 text-danger" : "shrink-0 text-ink-light"} aria-hidden />
+      <DeviceArt kind="air" size={26} active={high} off={!air.online} />
       <div className="min-w-0 flex-1">
         {showName && <p className="text-sm font-semibold wrap-break-word">{air.name}</p>}
         <p className={`text-xs ${high ? "font-semibold text-danger" : "text-ink-light"}`}>

@@ -51,8 +51,9 @@ export interface DashboardProps {
 }
 
 /**
- * Totaloversikten for iPad (liggende): familien til venstre, huset og været i midten, handlelisten og
- * status til høyre, og «Spør» nederst. Hvert kort åpner en underside med mer (`?vis=…`).
+ * Totaloversikten for iPad (liggende): været over hele bredden øverst, familien til venstre (avtaler, oppgaver og
+ * handlelisten), kartet over 1. og 2. etasje i midten, og status fra enhetene til høyre (Huset nå og strømmen).
+ * «Spør» nederst. Hvert kort åpner en underside med mer (`?vis=…`).
  */
 export function Dashboard(p: DashboardProps) {
   const live = useHouseLive(p.house);
@@ -66,13 +67,6 @@ export function Dashboard(p: DashboardProps) {
     <div className="flex min-h-dvh flex-col gap-3 p-3 lg:h-dvh lg:overflow-hidden">
       <header className="flex flex-wrap items-center gap-x-6 gap-y-1 px-1">
         <Clock />
-        {now && (
-          <Link href={viewHref("vaer")} className="flex items-center gap-1.5 rounded-lg px-1 hover:bg-card">
-            <WeatherIcon code={now.symbolCode} size={26} />
-            <span className="text-lg font-semibold tabular-nums">{formatTemp(now.temp)}</span>
-            {outdoor !== null && <span className="text-xs text-ink-light">Ute ved huset {outdoor.toLocaleString("nb-NO", { maximumFractionDigits: 1 })}°</span>}
-          </Link>
-        )}
         <HouseChips energy={energy} safety={safety} base="/dashboard?vis=" />
         <Link href="/i-dag" className="ml-auto text-xs font-medium text-ink-light hover:text-ink">
           Til Familien
@@ -81,44 +75,61 @@ export function Dashboard(p: DashboardProps) {
 
       <SafetyBanner safety={safety} />
 
-      <main className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[18rem_minmax(0,1fr)_18rem]">
+      {/* Været over hele bredden: nå, time for time og de neste dagene. */}
+      <Link href={viewHref("vaer")} className="flex shrink-0 items-center gap-4 rounded-2xl bg-card px-3 py-2 shadow-[0_2px_12px_rgba(0,0,0,0.05)] hover:ring-2 hover:ring-line" aria-label="Været">
+        {now && (
+          <div className="flex shrink-0 items-center gap-2">
+            <WeatherIcon code={now.symbolCode} size={48} />
+            <div className="flex flex-col leading-tight">
+              <span className="text-3xl font-bold tabular-nums">{formatTemp(now.temp)}</span>
+              <span className="text-xs text-ink-light">
+                {outdoor !== null ? `Ved huset ${outdoor.toLocaleString("nb-NO", { maximumFractionDigits: 1 })}°` : "Nå"}
+              </span>
+            </div>
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <HoursStrip hours={p.hours.slice(1, 11)} />
+        </div>
+        <div className="hidden w-[32rem] shrink-0 lg:block">
+          <DaysRow days={p.days.slice(0, 5)} />
+        </div>
+      </Link>
+
+      <main className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[17rem_minmax(0,1fr)_17rem]">
+        {/* Familien til venstre. */}
         <div className="flex min-h-0 flex-col gap-3">
           <Card title="I dag" href={viewHref("dag")} className="overflow-hidden lg:flex-auto">
             <CareLine care={p.care} date={p.today} members={p.members} className="text-xs" />
-            <AgendaList items={p.agendaToday} members={p.members} categories={p.categories} max={7} />
+            <AgendaList items={p.agendaToday} members={p.members} categories={p.categories} max={6} />
           </Card>
           <Card title="I morgen" href={viewHref("dag")} className="overflow-hidden lg:flex-auto">
             <CareLine care={p.care} date={p.tomorrow} members={p.members} className="text-xs" />
-            <AgendaList items={p.agendaTomorrow} members={p.members} categories={p.categories} max={4} />
+            <AgendaList items={p.agendaTomorrow} members={p.members} categories={p.categories} max={3} />
           </Card>
           <Card title="Oppgaver" href={viewHref("oppgaver")} className="overflow-hidden lg:flex-auto">
-            <TaskChecklist tasks={p.tasks} members={p.members} today={p.today} max={5} />
+            <TaskChecklist tasks={p.tasks} members={p.members} today={p.today} max={4} />
+          </Card>
+          <Card title="Handleliste" href={viewHref("handleliste")} className="overflow-hidden lg:flex-auto">
+            <ShoppingChecklist items={p.shopping} max={6} />
           </Card>
         </div>
 
-        <div className="flex min-h-0 flex-col gap-3">
-          <Card title="Huset" href={viewHref("kart")} className="lg:flex-1" aside={live.data.ok ? <HouseQuickLights live={live} /> : undefined}>
-            {/* Samme kart som i Huset: trykk på et rom åpner det med lys, varme, persienner og musikk. */}
-            <HousePage initial={p.house} setup={p.houseSetup} notice={null} fixedTab="kart" mapClassName="max-h-[44dvh]" onData={live.push} refreshKey={live.version} />
-          </Card>
-          <Card title="Været" href={viewHref("vaer")} className="shrink-0">
-            <HoursStrip hours={p.hours} />
-            <DaysRow days={p.days} />
-          </Card>
-        </div>
+        {/* Kartet over 1. og 2. etasje i midten: trykk på et rom åpner det med lys, varme, persienner og musikk. */}
+        <Card title="Huset" href={viewHref("kart")} className="min-h-0 lg:flex-1" aside={live.data.ok ? <HouseQuickLights live={live} /> : undefined}>
+          <HousePage initial={p.house} setup={p.houseSetup} notice={null} fixedTab="kart" mapFloors={["1", "2"]} mapClassName="max-h-[58dvh]" onData={live.push} refreshKey={live.version} />
+        </Card>
 
+        {/* Status fra enhetene til høyre. */}
         <div className="flex min-h-0 flex-col gap-3">
+          {live.data.ok && (
+            <Card title="Huset nå" className="overflow-hidden lg:flex-1">
+              <HouseStatusList live={live} base="/dashboard?vis=" />
+            </Card>
+          )}
           {energy.price !== null && (
             <Card title="Strøm" href={viewHref("strom")} className="shrink-0" aside={<span className="text-xs tabular-nums text-ink-light">i dag {kr(energy.todayCost, 0)}</span>}>
               <PriceChart hours={prices.hours} now={prices.now} compact />
-            </Card>
-          )}
-          <Card title="Handleliste" href={viewHref("handleliste")} className="overflow-hidden lg:flex-1">
-            <ShoppingChecklist items={p.shopping} max={8} />
-          </Card>
-          {live.data.ok && (
-            <Card title="Huset nå" className="shrink-0">
-              <HouseStatusList live={live} base="/dashboard?vis=" />
             </Card>
           )}
         </div>

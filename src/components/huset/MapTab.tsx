@@ -29,6 +29,8 @@ interface Props {
   initialRoom?: string | null;
   /** Høyden på kartet. */
   svgClassName?: string;
+  /** Etasjene som vises (dashboardet viser 1. og 2. etasje). Uten: alle. */
+  floors?: Floor["id"][];
 }
 
 type View = "1" | "2" | "tak" | "ute";
@@ -556,7 +558,8 @@ function RoomSheet({ room, groups, onClose, ...p }: Omit<Props, "home" | "initia
  * Kart over etasjene: trykk på et rom for å styre alt der. Rommet blir gult når lyset er på (sterkere jo høyere
  * lysstyrke), med merker for temperatur, varme, musikk og persienne nede. På PC står begge etasjene side om side.
  */
-export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initialRoom = null, svgClassName }: Props) {
+export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initialRoom = null, svgClassName, floors: only }: Props) {
+  const floors = only ? FLOORS.filter((f) => only.includes(f.id)) : FLOORS;
   const startFloor = home.rooms.find((r) => r.id === initialRoom)?.floor;
   const [view, setView] = useState<View>(initialRoom === "ute" ? "ute" : initialRoom && FLOORS[2].shapes.some((x) => x.room === initialRoom) ? "tak" : startFloor === 1 ? "1" : "2");
   const [selected, setSelected] = useState<string | null>(initialRoom);
@@ -572,7 +575,7 @@ export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initial
     { id: "2", label: "2. etasje" },
     { id: "tak", label: "Taket" },
     { id: "ute", label: "Ute" },
-  ];
+  ].filter((v) => v.id === "ute" || floors.some((f) => f.id === v.id)) as { id: View; label: string }[];
 
   const outdoorList = (list: Room[]) => (
     <section aria-label="Ute" className="flex flex-wrap gap-2">
@@ -646,8 +649,8 @@ export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initial
             <SiteMap rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} />
           </div>
         )}
-        <div className={wide === "ute" ? "hidden" : "hidden gap-4 lg:grid"} style={{ gridTemplateColumns: FLOORS.map((f) => `${(f.viewBox ?? VIEWBOX).w}fr`).join(" ") }}>
-          {FLOORS.map((f) => (
+        <div className={wide === "ute" ? "hidden" : "hidden gap-4 lg:grid"} style={{ gridTemplateColumns: floors.map((f) => `${(f.viewBox ?? VIEWBOX).w}fr`).join(" ") }}>
+          {floors.map((f) => (
             <FloorMap key={f.id} floor={f} rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} showNumbers={numbers} />
           ))}
         </div>

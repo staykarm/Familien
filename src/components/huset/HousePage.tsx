@@ -293,6 +293,19 @@ export function HousePage({
   const allSpeakers = groups.flatMap((g) => g.speakers).sort((a, b) => a.name.localeCompare(b.name, "nb"));
   const nameOf = (id: string) => allSpeakers.find((s) => s.id === id)?.name ?? id.replace(/^media_player\./, "");
 
+  /**
+   * Lederen for de valgte høyttalerne på musikk-kartet. Spiller de ikke allerede sammen, kobles de (musikken som
+   * startes på lederen, følger med til de andre).
+   */
+  function leaderFor(ids: string[]): string {
+    const own = groups.find((g) => ids.every((id) => g.speakers.some((s) => s.id === id)));
+    if (own) return own.leader.id;
+    const plan = planGroup(groups, ids);
+    if (!plan) return ids[0];
+    void regroup(plan.changes, { action: "group", id: plan.leader, members: plan.members });
+    return plan.leader;
+  }
+
   async function savePreset(draft: PresetDraft) {
     setActing(true);
     const res = await saveHouseGroup(draft);
@@ -476,6 +489,14 @@ export function HousePage({
                 }}
                 onToggle={(s) => void run({ action: "toggle", id: s.id }, { playing: s.status !== "playing" })}
                 onMusic={(s) => setMusic(groups.find((g) => g.leader.id === s.id) ?? { leader: s, speakers: [s] })}
+                onSkip={(s, action) => void run({ action, id: s.id })}
+                onVolume={(id, volume, send) => (send ? void run({ action: "volume", id, volume }, { volume }) : preview(id, volume))}
+                onSource={(ids, source) => void run({ action: "source", id: leaderFor(ids), source }, { playing: true })}
+                onPick={(ids) => {
+                  const id = leaderFor(ids);
+                  const leader = allSpeakers.find((s) => s.id === id);
+                  if (leader) setMusic(groups.find((g) => g.leader.id === id) ?? { leader, speakers: [leader] });
+                }}
               />
             )}
             {musicView === "liste" && (

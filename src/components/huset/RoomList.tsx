@@ -32,8 +32,8 @@ interface Props extends RoomActions {
 
 const DRAG_TYPE = "application/x-huset-rom";
 
-/** Det man får når man trykker på et rom: forrige/neste, «Velg musikk» og favorittene. */
-function Details({ leader, actions }: { leader: Speaker; actions: RoomActions }) {
+/** Det man får når man trykker på et rom: forrige/neste, «Velg musikk» og favorittene. Brukes også på musikk-kartet. */
+export function Details({ leader, actions }: { leader: Speaker; actions: Pick<RoomActions, "onSkip" | "onMusic" | "onSource"> }) {
   return (
     <div className="flex flex-wrap items-center gap-2 pt-1">
       <button type="button" className={`${buttonSecondary} w-12 px-0`} onClick={() => actions.onSkip(leader, "previous")} aria-label="Forrige">

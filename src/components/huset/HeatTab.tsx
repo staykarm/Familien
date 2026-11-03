@@ -1,7 +1,7 @@
 "use client";
 
 import { Droplets, Flame, Minus, Plus } from "lucide-react";
-import { airText, CO2_HIGH, WEAK_SIGNAL, type AirSensor } from "@/lib/huset/air";
+import { airText, CO2_HIGH, VOC_HELP, WEAK_SIGNAL, type AirSensor } from "@/lib/huset/air";
 import { stepTarget, type Climate, type HomeState, type Switch } from "@/lib/huset/home";
 import type { HomeCommand } from "@/lib/validation/huset";
 import { IconButton } from "./parts";
@@ -76,6 +76,12 @@ export function AirLine({ air, showName = false }: { air: AirSensor; showName?: 
   );
 }
 
+/** Forklaringen på VOC og luftkvaliteten, når sensorene måler det. */
+export function AirHelp({ air }: { air: AirSensor[] }) {
+  if (!air.some((a) => a.voc !== null || a.quality !== null)) return null;
+  return <p className="pt-1 text-xs text-ink-light wrap-break-word">{VOC_HELP}</p>;
+}
+
 /** En bryter (varmekabler o.l.) på én linje: navn, status og Slå på / Slå av. */
 export function SwitchLine({ item, run }: { item: Switch; run: Props["run"] }) {
   const pending = usePending<Switch>();
@@ -141,6 +147,7 @@ export function HeatTab({ home, run }: Props) {
               <AirLine key={a.id} air={a} showName />
             ))}
           </div>
+          <AirHelp air={air} />
         </section>
       )}
     </div>

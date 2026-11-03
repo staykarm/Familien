@@ -58,6 +58,16 @@ describe("houseStatus med luft", () => {
     const only = houseStatus({ ...home, air: [air("Entré", null, 20.6), air("Spisestue", null, 21.4)] }, [], { valves: [], sensors: [] });
     expect(only.find((r) => r.label === "Luft")).toMatchObject({ value: "2 sensorer · 21°", alert: false });
     const bad = houseStatus({ ...home, air: [air("Entré", 600), air("Spisestue", 1250)] }, [], { valves: [], sensors: [] });
-    expect(bad.find((r) => r.label === "Luft")).toMatchObject({ value: "CO₂ 1250 ppm i Spisestue", alert: true });
+    expect(bad.find((r) => r.label === "Luft")).toMatchObject({ value: "CO₂ 1250 ppm i Spisestue · 21°", alert: true });
+  });
+
+  it("viser luftkvalitet og fukt fra Homely, og rommet når luften er dårlig", () => {
+    const q = (name: string, quality: number, humidity: number, temperature: number) => ({ ...air(name, null, temperature), quality, humidity });
+    const fine = houseStatus({ ...home, air: [q("Entré", 5, 35.3, 20.2), q("Barnerom", 5, 36.5, 20.4), q("Spisestue", 5, 38.6, 19.9)] }, [], { valves: [], sensors: [] });
+    expect(fine.find((r) => r.label === "Luft")).toMatchObject({ value: "luftkvalitet 5 (utmerket) · 35–39 % · 20°", alert: false });
+    const mixed = houseStatus({ ...home, air: [q("Entré", 5, 35, 20), q("Spisestue", 4, 40, 22)] }, [], { valves: [], sensors: [] });
+    expect(mixed.find((r) => r.label === "Luft")).toMatchObject({ value: "luftkvalitet 4–5 (god–utmerket) · 35–40 % · 20–22°", alert: false });
+    const poor = houseStatus({ ...home, air: [q("Entré", 5, 35, 20), q("Barnerom", 2, 40, 21)] }, [], { valves: [], sensors: [] });
+    expect(poor.find((r) => r.label === "Luft")).toMatchObject({ value: "luftkvalitet 2 (dårlig) i Barnerom · 35–40 % · 20–21°", alert: true });
   });
 });

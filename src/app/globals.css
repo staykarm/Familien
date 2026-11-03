@@ -152,6 +152,123 @@ body {
   letter-spacing: -0.005em;
 }
 
+/* «I dag» på dashboardet: svak tone etter tiden på døgnet øverst (--tint/--tint-strong settes i TodayCard). */
+.dash-today {
+  background: linear-gradient(180deg, var(--tint, #fff) 0%, #ffffff 70%);
+}
+
+/* --- Dashboardet i farger («Farger» øverst, .dash-farge) ------------------------------------
+   Hvert kort får sin egen lyse farge (data-tone på kortet), tittelen en mørkere tone av samme farge,
+   og ikonene i «Huset nå» farge per område (data-hue). Fargene er lyse pasteller, så teksten leses godt. */
+:root:has(.dash-farge) body {
+  background: linear-gradient(135deg, #eef3ff 0%, #f7f1ff 45%, #fff3ea 100%) fixed;
+}
+.dash-farge {
+  --tone-lavendel: #f2efff;
+  --tone-lavendel-line: #e0d9fb;
+  --tone-lavendel-ink: #6a55d4;
+  --tone-himmel: #eaf4ff;
+  --tone-himmel-line: #d1e5fb;
+  --tone-himmel-ink: #2c6cbf;
+  --tone-mint: #e8f7ee;
+  --tone-mint-line: #cbead6;
+  --tone-mint-ink: #20824c;
+  --tone-fersken: #fff0e5;
+  --tone-fersken-line: #f9d9c2;
+  --tone-fersken-ink: #c0561a;
+  --tone-sol: #fff7d6;
+  --tone-sol-line: #f3e3a0;
+  --tone-sol-ink: #9a7000;
+  --tone-rosa: #fdedf3;
+  --tone-rosa-line: #f4d0dd;
+  --tone-rosa-ink: #c03c6c;
+  background: transparent;
+}
+.dash-farge .dash-card {
+  box-shadow: 0 2px 10px rgba(60, 50, 120, 0.06);
+}
+.dash-farge .dash-card:not([data-tone]) {
+  border-color: transparent;
+}
+.dash-farge .dash-today {
+  border-color: transparent;
+  box-shadow: 0 2px 10px rgba(60, 50, 120, 0.08);
+  background: linear-gradient(180deg, var(--tint-strong, #fff) 0%, var(--tint, #fff) 55%, #ffffff 100%);
+}
+.dash-farge .dash-today .dash-card-title,
+.dash-farge .dash-today > div > a > p:first-child {
+  color: #4b4863;
+}
+.dash-farge [data-tone="lavendel"] {
+  background: var(--tone-lavendel);
+  border-color: var(--tone-lavendel-line);
+}
+.dash-farge [data-tone="lavendel"] .dash-card-title {
+  color: var(--tone-lavendel-ink);
+}
+.dash-farge .row-icon[data-hue="lavendel"] {
+  background: var(--tone-lavendel);
+  color: var(--tone-lavendel-ink);
+}
+.dash-farge [data-tone="himmel"] {
+  background: var(--tone-himmel);
+  border-color: var(--tone-himmel-line);
+}
+.dash-farge [data-tone="himmel"] .dash-card-title {
+  color: var(--tone-himmel-ink);
+}
+.dash-farge .row-icon[data-hue="himmel"] {
+  background: var(--tone-himmel);
+  color: var(--tone-himmel-ink);
+}
+.dash-farge [data-tone="mint"] {
+  background: var(--tone-mint);
+  border-color: var(--tone-mint-line);
+}
+.dash-farge [data-tone="mint"] .dash-card-title {
+  color: var(--tone-mint-ink);
+}
+.dash-farge .row-icon[data-hue="mint"] {
+  background: var(--tone-mint);
+  color: var(--tone-mint-ink);
+}
+.dash-farge [data-tone="fersken"] {
+  background: var(--tone-fersken);
+  border-color: var(--tone-fersken-line);
+}
+.dash-farge [data-tone="fersken"] .dash-card-title {
+  color: var(--tone-fersken-ink);
+}
+.dash-farge .row-icon[data-hue="fersken"] {
+  background: var(--tone-fersken);
+  color: var(--tone-fersken-ink);
+}
+.dash-farge [data-tone="sol"] {
+  background: var(--tone-sol);
+  border-color: var(--tone-sol-line);
+}
+.dash-farge [data-tone="sol"] .dash-card-title {
+  color: var(--tone-sol-ink);
+}
+.dash-farge .row-icon[data-hue="sol"] {
+  background: var(--tone-sol);
+  color: var(--tone-sol-ink);
+}
+.dash-farge [data-tone="rosa"] {
+  background: var(--tone-rosa);
+  border-color: var(--tone-rosa-line);
+}
+.dash-farge [data-tone="rosa"] .dash-card-title {
+  color: var(--tone-rosa-ink);
+}
+.dash-farge .row-icon[data-hue="rosa"] {
+  background: var(--tone-rosa);
+  color: var(--tone-rosa-ink);
+}
+.dash-farge .row-icon[data-hue][data-active] {
+  box-shadow: inset 0 0 0 1.5px currentColor;
+}
+
 /* --- FullCalendar i familiens stil ------------------------------------------------- */
 .familien-fc {
   --fc-border-color: var(--color-line);

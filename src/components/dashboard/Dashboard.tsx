@@ -16,6 +16,7 @@ import type { Task } from "@/lib/tasks/types";
 import type { DailyWeather, HourlyWeather } from "@/lib/weather/yr";
 import { ShoppingChecklist, TaskChecklist } from "./Lists";
 import { Card, Clock, viewHref } from "./parts";
+import { ColorToggle, useDashColor } from "./colorMode";
 import { TodayCard } from "./TodayCard";
 
 /** Familiedelen (avtaler, oppgaver, handlelisten, været) hentes på nytt så ofte, og når skjermen våkner. */
@@ -64,13 +65,16 @@ export function Dashboard(p: DashboardProps) {
   const prices = usePrices();
   const { energy, safety } = live.data;
   const tomorrowWeather = p.days.find((d) => d.date === p.tomorrow);
+  const [colorful, setColorful] = useDashColor();
 
   return (
-    <div className="flex min-h-dvh flex-col gap-3 p-3 lg:h-dvh lg:overflow-hidden">
+    <div className={`flex min-h-dvh flex-col gap-3 p-3 lg:h-dvh lg:overflow-hidden ${colorful ? "dash-farge" : ""}`}>
       <header className="flex flex-wrap items-center gap-x-6 gap-y-1 px-1">
         <Clock withDate={false} />
         <HouseChips energy={energy} safety={safety} base="/dashboard?vis=" />
-        <Link href="/i-dag" className="ml-auto text-xs font-medium text-ink-light hover:text-ink">
+        <span className="ml-auto" />
+        <ColorToggle on={colorful} onChange={setColorful} />
+        <Link href="/i-dag" className="text-xs font-medium text-ink-light hover:text-ink">
           Til Familien
         </Link>
       </header>
@@ -94,6 +98,7 @@ export function Dashboard(p: DashboardProps) {
           />
           <Card
             title="📅 I morgen"
+            tone="lavendel"
             href={viewHref("dag")}
             aside={
               tomorrowWeather && (
@@ -112,14 +117,14 @@ export function Dashboard(p: DashboardProps) {
         {/* I midten kartet over 1. og 2. etasje (trykk på et rom åpner det med lys, varme, persienner og musikk),
             og oppgavene og handlelisten under. */}
         <div className="flex min-h-0 flex-col gap-3">
-          <Card title="🏠 Huset" href={viewHref("kart")} className="shrink-0" aside={live.data.ok ? <HouseQuickLights live={live} /> : undefined}>
+          <Card title="🏠 Huset" tone="himmel" href={viewHref("kart")} className="shrink-0" aside={live.data.ok ? <HouseQuickLights live={live} /> : undefined}>
             <HousePage initial={p.house} setup={p.houseSetup} notice={null} fixedTab="kart" mapFloors={["1", "2"]} mapLegend={false} mapClassName="max-h-[46dvh]" onData={live.push} refreshKey={live.version} />
           </Card>
           <div className="grid min-h-0 flex-1 gap-3 md:grid-cols-2">
-            <Card title="✅ Oppgaver" href={viewHref("oppgaver")} aside={<Count n={p.tasks.length} />}>
+            <Card title="✅ Oppgaver" tone="mint" href={viewHref("oppgaver")} aside={<Count n={p.tasks.length} />}>
               <TaskChecklist tasks={p.tasks} members={p.members} today={p.today} fit />
             </Card>
-            <Card title="🛒 Handleliste" href={viewHref("handleliste")} aside={<Count n={p.shopping.filter((i) => !i.checked).length} />}>
+            <Card title="🛒 Handleliste" tone="fersken" href={viewHref("handleliste")} aside={<Count n={p.shopping.filter((i) => !i.checked).length} />}>
               <ShoppingChecklist items={p.shopping} fit />
             </Card>
           </div>
@@ -133,7 +138,7 @@ export function Dashboard(p: DashboardProps) {
             </Card>
           )}
           {energy.price !== null && (
-            <Card title="⚡ Strøm" href={viewHref("strom")} className="shrink-0" aside={<span className="text-xs tabular-nums text-ink-light">i dag {kr(energy.todayCost, 0)}</span>}>
+            <Card title="⚡ Strøm" tone="sol" href={viewHref("strom")} className="shrink-0" aside={<span className="text-xs tabular-nums text-ink-light">i dag {kr(energy.todayCost, 0)}</span>}>
               <PriceChart hours={prices.hours} now={prices.now} compact />
             </Card>
           )}

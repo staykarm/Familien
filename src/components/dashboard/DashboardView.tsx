@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 import { VIEW_TITLES, type DashboardViewId } from "@/lib/dashboard/views";
 import { useAutoRefresh } from "./Dashboard";
+import { useDashColor } from "./colorMode";
 import { Clock, viewHref } from "./parts";
 
 /** Undersidene i den rekkefølgen de står i menyen øverst. */
@@ -13,8 +14,9 @@ const NAV: DashboardViewId[] = ["dag", "vaer", "oppgaver", "handleliste", "kart"
 /** Ramme rundt en underside: «Oversikt» tilbake, tittel, snarveier til de andre undersidene og klokka. */
 export function DashboardView({ view, children }: { view: DashboardViewId; children: ReactNode }) {
   useAutoRefresh();
+  const [colorful] = useDashColor();
   return (
-    <div className="flex min-h-dvh flex-col gap-3 p-3">
+    <div className={`flex min-h-dvh flex-col gap-3 p-3 ${colorful ? "dash-farge" : ""}`}>
       <header className="flex flex-wrap items-center gap-3 px-1">
         <Link href="/dashboard" className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-line bg-card px-3 text-sm font-semibold hover:border-ink-faint">
           <ArrowLeft size={16} aria-hidden />

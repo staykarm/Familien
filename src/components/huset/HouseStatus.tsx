@@ -25,10 +25,26 @@ const ICONS: Record<string, LucideIcon> = {
   Biler: Car,
 };
 
-function RowIcon({ icon: Icon, alert = false, active = false }: { icon: LucideIcon; alert?: boolean; active?: boolean }) {
+/** Fargen ikonet får på det fargerike dashboardet (`.dash-farge` i globals.css); ellers grått/blått/rødt som over. */
+const HUES: Record<string, string> = {
+  Alarm: "himmel",
+  Røykvarslere: "rosa",
+  Lys: "sol",
+  Varme: "fersken",
+  Luft: "mint",
+  Takluke: "lavendel",
+  Maskiner: "himmel",
+  Persienner: "lavendel",
+  Roboter: "himmel",
+  Vanning: "mint",
+  Biler: "mint",
+  Musikk: "rosa",
+};
+
+function RowIcon({ icon: Icon, hue, alert = false, active = false }: { icon: LucideIcon; hue?: string; alert?: boolean; active?: boolean }) {
   const tone = alert ? "bg-danger/10 text-danger" : active ? "bg-primary-soft text-primary" : "bg-card-soft text-ink-light";
   return (
-    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${tone}`} aria-hidden>
+    <span data-hue={alert ? undefined : hue} data-active={active || undefined} className={`row-icon flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${tone}`} aria-hidden>
       <Icon size={14} strokeWidth={2} />
     </span>
   );
@@ -42,7 +58,7 @@ export function HouseStatusRows({ rows, playing = [], base }: { rows: StatusRow[
         {rows.map((r) => (
           <li key={`${r.area}-${r.label}`}>
             <Link href={`${base}${r.area}`} className="flex min-h-8 w-full items-center gap-2 border-b border-line py-1 text-left last:border-0 hover:bg-card-soft">
-              <RowIcon icon={ICONS[r.label] ?? Lightbulb} alert={r.alert} active={r.active} />
+              <RowIcon icon={ICONS[r.label] ?? Lightbulb} hue={HUES[r.label]} alert={r.alert} active={r.active} />
               <span className="w-20 shrink-0 text-xs text-ink-light">{r.label}</span>
               <span className={`min-w-0 flex-1 text-xs wrap-break-word ${r.alert ? "font-semibold text-danger" : "text-ink"}`}>{r.value}</span>
             </Link>
@@ -51,7 +67,7 @@ export function HouseStatusRows({ rows, playing = [], base }: { rows: StatusRow[
       </ul>
       {playing.map((p) => (
         <Link key={p.leader} href={`${base}musikk`} className="flex min-h-8 items-center gap-2 py-1 hover:bg-card-soft">
-          <RowIcon icon={Music} active />
+          <RowIcon icon={Music} hue={HUES.Musikk} active />
           <span className="w-20 shrink-0 text-xs text-ink-light wrap-break-word">{p.rooms}</span>
           <span className="min-w-0 flex-1 text-xs wrap-break-word">{p.title}</span>
         </Link>

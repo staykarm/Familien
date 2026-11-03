@@ -77,7 +77,7 @@ export function Dashboard(p: DashboardProps) {
 
       <SafetyBanner safety={safety} />
 
-      <main className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)_minmax(15rem,0.66fr)]">
+      <main className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.25fr)_minmax(15rem,0.62fr)]">
         {/* Familien til venstre: i dag (med været) og i morgen, per person. */}
         <div className="grid min-h-0 gap-3 lg:grid-rows-[minmax(0,1.5fr)_minmax(0,1fr)]">
           <TodayCard
@@ -113,7 +113,7 @@ export function Dashboard(p: DashboardProps) {
             og oppgavene og handlelisten under. */}
         <div className="flex min-h-0 flex-col gap-3">
           <Card title="🏠 Huset" href={viewHref("kart")} className="shrink-0" aside={live.data.ok ? <HouseQuickLights live={live} /> : undefined}>
-            <HousePage initial={p.house} setup={p.houseSetup} notice={null} fixedTab="kart" mapFloors={["1", "2"]} mapLegend={false} mapClassName="max-h-[40dvh]" onData={live.push} refreshKey={live.version} />
+            <HousePage initial={p.house} setup={p.houseSetup} notice={null} fixedTab="kart" mapFloors={["1", "2"]} mapLegend={false} mapClassName="max-h-[46dvh]" onData={live.push} refreshKey={live.version} />
           </Card>
           <div className="grid min-h-0 flex-1 gap-3 md:grid-cols-2">
             <Card title="✅ Oppgaver" href={viewHref("oppgaver")} aside={<Count n={p.tasks.length} />}>

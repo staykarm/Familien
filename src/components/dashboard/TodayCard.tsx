@@ -97,7 +97,7 @@ export function TodayCard({
       <div className="flex items-start gap-3">
         <Link href={viewHref("dag")} className="min-w-0 flex-1 rounded-md hover:opacity-80">
           <p className={label}>{greeting || "I dag"}</p>
-          <p className="text-xl leading-tight font-bold first-letter:uppercase">{date}</p>
+          <p className="text-lg leading-tight font-bold first-letter:uppercase">{date}</p>
         </Link>
         {nowWeather && (
           <Link href={viewHref("vaer")} className="flex shrink-0 items-center gap-2 rounded-md hover:opacity-80" aria-label="Været nå">

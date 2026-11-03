@@ -100,7 +100,6 @@ export const ROOMS: RoomConfig[] = [
       l("kontor_2etg_ut", "Lys"),
       l("kontor_2etg_kap", "Lys 2"),
       l("kontoret_oppe_skrivebord_kontoret_oppe", "Skrivebord"),
-      l("kontoret_oppe_hue_smart_plug_vekstlys", "Vekstlys"),
     ],
     scenePrefix: "kontoret_oppe_kontoret_oppe",
     climate: "climate.varme_kontor_2etg",

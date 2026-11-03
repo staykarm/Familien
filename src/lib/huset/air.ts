@@ -1,6 +1,7 @@
-// Luftsensorene fra Homely (binary_sensor.<prefiks>_tilkoblet der prefikset inneholder «luft»). I dag sender
-// Home Assistant bare temperatur, signal og tilkobling for dem. CO₂, VOC og fukt leses også, slik at de
-// dukker opp av seg selv hvis integrasjonen begynner å sende dem. Rene funksjoner uten nettverk.
+// Luftsensorene fra Homely (binary_sensor.<prefiks>_tilkoblet der prefikset inneholder «luft»). Homely-integrasjonen
+// gir bare temperatur, signal og tilkobling; fukt, VOC og luftkvalitetsindeksen hentes rett fra Homelys API i
+// config-repoet til Home Assistant (packages/homely_luft.yaml) som sensor.<prefiks>_luftfuktighet, _voc og
+// _luftkvalitet. De leses etter device_class (og navnet for luftkvaliteten). Rene funksjoner uten nettverk.
 
 import { ROOMS, type RoomConfig } from "./rooms";
 
@@ -22,6 +23,8 @@ export interface AirSensor {
   /** VOC slik sensoren melder den (ppb eller µg/m³). */
   voc: number | null;
   vocUnit: string | null;
+  /** Luftkvalitetsindeksen slik Homely viser den (f.eks. 5 = «Excellent»). */
+  quality: number | null;
   online: boolean;
   /** Signalstyrke i prosent. Under 20 % kan målingene falle ut. */
   signal: number | null;
@@ -54,6 +57,7 @@ export function toAir(states: StateLike[], rooms: RoomConfig[] = ROOMS): AirSens
       names.set(name, seen);
       if (seen > 1) name = `${name} ${seen}`;
       const voc = byClass("volatile_organic_compounds", "volatile_organic_compounds_parts");
+      const quality = byClass("aqi") ?? own.find((x) => /_(luftkvalitet|air_quality|airquality|iaq)$/.test(x.entity_id) && !x.attributes.device_class);
       return {
         id: prefix,
         name,
@@ -63,6 +67,7 @@ export function toAir(states: StateLike[], rooms: RoomConfig[] = ROOMS): AirSens
         co2: num(byClass("carbon_dioxide")),
         voc: num(voc),
         vocUnit: voc ? String(voc.attributes.unit_of_measurement ?? "") || null : null,
+        quality: num(quality),
         online: s.state === "on",
         signal: num(byId.get(`sensor.${prefix}_signalkvalitet`)),
       };
@@ -77,6 +82,7 @@ export function airText(a: AirSensor): string {
     a.humidity !== null ? `${Math.round(a.humidity)} %` : "",
     a.co2 !== null ? `CO₂ ${Math.round(a.co2)} ppm` : "",
     a.voc !== null ? `VOC ${Math.round(a.voc)}${a.vocUnit ? ` ${a.vocUnit}` : ""}` : "",
+    a.quality !== null ? `luftkvalitet ${Math.round(a.quality)}` : "",
   ].filter(Boolean);
   return a.online ? parts.join(" · ") || "Ingen målinger" : "Svarer ikke";
 }

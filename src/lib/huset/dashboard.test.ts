@@ -52,7 +52,7 @@ describe("houseStatus", () => {
 });
 
 describe("houseStatus med luft", () => {
-  const air = (name: string, co2: number | null, temperature = 21) => ({ id: name, name, roomId: null, temperature, humidity: null, co2, voc: null, vocUnit: null, online: true, signal: 50 });
+  const air = (name: string, co2: number | null, temperature = 21) => ({ id: name, name, roomId: null, temperature, humidity: null, co2, voc: null, vocUnit: null, quality: null, online: true, signal: 50 });
 
   it("viser temperatur når sensorene bare måler det, og CO₂ med varsel når det finnes", () => {
     const only = houseStatus({ ...home, air: [air("Entré", null, 20.6), air("Spisestue", null, 21.4)] }, [], { valves: [], sensors: [] });

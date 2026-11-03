@@ -12,7 +12,7 @@ const sensor = (prefix: string, values: Record<string, [string, string]>, online
 describe("toAir", () => {
   const states = [
     ...sensor("spisestue_luftkvalitet", { temperature: ["temperatur", "20.9"], carbon_dioxide: ["co2", "1250"], volatile_organic_compounds_parts: ["voc", "180"] }),
-    ...sensor("kid_s_room_luftkvalitet_1", { temperature: ["temperatur", "21"] }),
+    ...sensor("kid_s_room_luftkvalitet_1", { temperature: ["temperatur", "21"], humidity: ["luftfuktighet", "35"], aqi: ["luftkvalitet", "5"] }),
     ...sensor("entrance_luftsensor", { temperature: ["temperatur", "19.5"] }, "off"),
   ];
 
@@ -23,8 +23,16 @@ describe("toAir", () => {
       ["Entré", "entre", 19.5, null, false, 19],
       ["Spisestue", "spisestue", 20.9, 1250, true, 19],
     ]);
-    expect(air.map(airText)).toEqual(["21°", "Svarer ikke", "20,9° · CO₂ 1250 ppm · VOC 180 ppb"]);
+    expect(air.map(airText)).toEqual(["21° · 35 % · luftkvalitet 5", "Svarer ikke", "20,9° · CO₂ 1250 ppm · VOC 180 ppb"]);
     expect(airAlerts(air)).toEqual(["Dårlig luft i Spisestue (CO₂ 1250 ppm) – luft ut"]);
+  });
+
+  it("leser sensorene fra homely_luft.yaml i config-repoet (luftkvalitet uten device_class)", () => {
+    const air = toAir([
+      ...sensor("entrance_luftsensor", { temperature: ["temperatur", "19.9"], humidity: ["luftfuktighet", "36.9"], volatile_organic_compounds_parts: ["voc", "55"] }),
+      { entity_id: "sensor.entrance_luftsensor_luftkvalitet", state: "5", attributes: { state_class: "measurement", niva: "Excellent" } },
+    ]);
+    expect(air.map(airText)).toEqual(["19,9° · 37 % · VOC 55 ppb · luftkvalitet 5"]);
   });
 
   it("legger sensoren på rommet, og viser CO₂ på kartet når luften er dårlig", () => {

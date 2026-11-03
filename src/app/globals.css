@@ -79,8 +79,9 @@ html {
   gap: 0.5rem;
   overflow-x: auto;
   scrollbar-width: none;
-  margin-inline: -1rem;
-  padding-inline: 1rem;
+  /* Like bredt som sidemargen i AppShell på telefon (px-3), så raden går til kanten uten å lage sidelengs rulling. */
+  margin-inline: -0.75rem;
+  padding-inline: 0.75rem;
   padding-block: 0.125rem;
 }
 .chip-row::-webkit-scrollbar {

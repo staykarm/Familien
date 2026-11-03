@@ -1,7 +1,7 @@
-// Luftsensorene fra Homely (binary_sensor.<prefiks>_tilkoblet der prefikset inneholder «luft»). I dag sender
-// Home Assistant bare temperatur, signal og tilkobling for dem (Homely-integrasjonen henter ikke mer), selv om
-// sensoren (frient) også måler fukt og en luftkvalitetsindeks. Fukt, luftkvalitet, CO₂ og VOC leses likevel,
-// slik at de dukker opp av seg selv hvis integrasjonen begynner å sende dem. Rene funksjoner uten nettverk.
+// Luftsensorene fra Homely (binary_sensor.<prefiks>_tilkoblet der prefikset inneholder «luft»). Homely-integrasjonen
+// gir bare temperatur, signal og tilkobling; fukt, VOC og luftkvalitetsindeksen hentes rett fra Homelys API i
+// config-repoet til Home Assistant (packages/homely_luft.yaml) som sensor.<prefiks>_luftfuktighet, _voc og
+// _luftkvalitet. De leses etter device_class (og navnet for luftkvaliteten). Rene funksjoner uten nettverk.
 
 import { ROOMS, type RoomConfig } from "./rooms";
 

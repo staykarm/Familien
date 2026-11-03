@@ -27,6 +27,14 @@ describe("toAir", () => {
     expect(airAlerts(air)).toEqual(["Dårlig luft i Spisestue (CO₂ 1250 ppm) – luft ut"]);
   });
 
+  it("leser sensorene fra homely_luft.yaml i config-repoet (luftkvalitet uten device_class)", () => {
+    const air = toAir([
+      ...sensor("entrance_luftsensor", { temperature: ["temperatur", "19.9"], humidity: ["luftfuktighet", "36.9"], volatile_organic_compounds_parts: ["voc", "55"] }),
+      { entity_id: "sensor.entrance_luftsensor_luftkvalitet", state: "5", attributes: { state_class: "measurement", niva: "Excellent" } },
+    ]);
+    expect(air.map(airText)).toEqual(["19,9° · 37 % · VOC 55 ppb · luftkvalitet 5"]);
+  });
+
   it("legger sensoren på rommet, og viser CO₂ på kartet når luften er dårlig", () => {
     const home = toHome(states);
     const spisestue = home.rooms.find((r) => r.id === "spisestue")!;

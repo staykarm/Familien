@@ -31,6 +31,8 @@ interface Props {
   svgClassName?: string;
   /** Etasjene som vises (dashboardet viser 1. og 2. etasje). Uten: alle. */
   floors?: Floor["id"][];
+  /** Forklaringen og «Vis lyspunktene med nummer» under kartet (skjules på dashboardet). */
+  legend?: boolean;
 }
 
 type View = "1" | "2" | "tak" | "ute";
@@ -559,7 +561,7 @@ function RoomSheet({ room, groups, onClose, ...p }: Omit<Props, "home" | "initia
  * Kart over etasjene: trykk på et rom for å styre alt der. Rommet blir gult når lyset er på (sterkere jo høyere
  * lysstyrke), med merker for temperatur, varme, musikk og persienne nede. På PC står begge etasjene side om side.
  */
-export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initialRoom = null, svgClassName, floors: only }: Props) {
+export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initialRoom = null, svgClassName, floors: only, legend = true }: Props) {
   const floors = only ? FLOORS.filter((f) => only.includes(f.id)) : FLOORS;
   const startFloor = home.rooms.find((r) => r.id === initialRoom)?.floor;
   const [view, setView] = useState<View>(initialRoom === "ute" ? "ute" : initialRoom && FLOORS[2].shapes.some((x) => x.room === initialRoom) ? "tak" : startFloor === 1 ? "1" : "2");
@@ -655,11 +657,15 @@ export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initial
             <FloorMap key={f.id} floor={f} rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} showNumbers={numbers} />
           ))}
         </div>
-        <p className="px-1 pt-1 text-xs text-ink-light">Gult = lys på · 🎵 musikk · 🔥 varmer · 💧 vanner · 🧺 🍽️ ♨️ maskin går · ▾ persienne nede · CO₂ dårlig luft · 🚨 røykvarsler har gått · oransje trapp = varmekabler på. Trykk på et rom for å styre det.</p>
-        <button type="button" onClick={() => setNumbers((v) => !v)} aria-pressed={numbers} className="px-1 pt-1 text-xs font-semibold text-primary-dark underline">
-          {numbers ? "Skjul nummer på lyspunktene" : "Vis lyspunktene med nummer"}
-        </button>
-        {numbers && <FixtureLegend rooms={home.rooms} />}
+        {legend && (
+          <>
+            <p className="px-1 pt-1 text-xs text-ink-light">Gult = lys på · 🎵 musikk · 🔥 varmer · 💧 vanner · 🧺 🍽️ ♨️ maskin går · ▾ persienne nede · CO₂ dårlig luft · 🚨 røykvarsler har gått · oransje trapp = varmekabler på. Trykk på et rom for å styre det.</p>
+            <button type="button" onClick={() => setNumbers((v) => !v)} aria-pressed={numbers} className="px-1 pt-1 text-xs font-semibold text-primary-dark underline">
+              {numbers ? "Skjul nummer på lyspunktene" : "Vis lyspunktene med nummer"}
+            </button>
+            {numbers && <FixtureLegend rooms={home.rooms} />}
+          </>
+        )}
       </div>
 
       {outside.length > 0 && <div className={view === "ute" ? "hidden lg:block" : ""}>{outdoorList(outside)}</div>}

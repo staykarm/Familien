@@ -5,7 +5,7 @@ import { DashboardView } from "@/components/dashboard/DashboardView";
 import { ShoppingChecklist, TaskChecklist } from "@/components/dashboard/Lists";
 import { AgendaList, Card, DaysRow, HoursStrip } from "@/components/dashboard/parts";
 import { HousePage, type HouseTab } from "@/components/huset/public";
-import { osloDate } from "@/lib/calendar/dates";
+import { osloDate, touchesDay } from "@/lib/calendar/dates";
 import { dayAgenda, nextDays, nextHours, openTasks } from "@/lib/dashboard/day";
 import { AGENDA_DAYS, loadFamilyDay } from "@/lib/dashboard/load";
 import { isDashboardView } from "@/lib/dashboard/views";
@@ -116,12 +116,12 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
       tomorrow={tomorrow}
       members={members}
       categories={categories.event}
-      agendaToday={dayAgenda(events, today, nameOf)}
-      agendaTomorrow={dayAgenda(events, tomorrow, nameOf)}
+      events={events.filter((e) => touchesDay(e, today) || touchesDay(e, tomorrow))}
       care={care}
       tasks={open}
       shopping={shopping}
       hours={nextHours(forecast, new Date(), 16)}
+      todayWeather={forecast?.daily.find((d) => d.date === today)}
       days={nextDays(forecast, today, 5)}
       house={house}
       houseSetup={houseSetup}

@@ -2,10 +2,10 @@
 
 import { useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
-import { DateTime } from "luxon";
 import { Check, ChevronRight } from "lucide-react";
 import { setTaskStatus } from "@/actions/tasks";
 import { CareLine } from "@/components/care/CareLine";
+import { PeopleDay } from "@/components/today/PeopleDay";
 import { Avatar } from "@/components/ui/Avatar";
 import { card } from "@/components/ui/styles";
 import {
@@ -14,7 +14,7 @@ import {
   WeatherIcon,
   YrCredit,
 } from "@/components/weather/WeatherBadge";
-import { osloDate, touchesDay } from "@/lib/calendar/dates";
+import { osloDate } from "@/lib/calendar/dates";
 import type {
   CalendarCategory,
   CalendarEvent,
@@ -22,7 +22,6 @@ import type {
 } from "@/lib/calendar/types";
 import type { CareData } from "@/lib/care/plan";
 import type { Task } from "@/lib/tasks/types";
-import { TIME_ZONE } from "@/lib/time";
 import { symbolLabel } from "@/lib/weather/symbols";
 import type { Forecast } from "@/lib/weather/yr";
 
@@ -39,19 +38,6 @@ interface Props {
   care?: CareData;
   /** Kortet «Huset nå» (fra Huset), eller ingenting. */
   house?: ReactNode;
-}
-
-const hhmm = (iso: string) =>
-  DateTime.fromISO(iso).setZone(TIME_ZONE).toFormat("HH:mm");
-
-function when(e: CalendarEvent, day: string): string {
-  if (e.allDay) return "Hele dagen";
-  const startsToday =
-    DateTime.fromISO(e.start).setZone(TIME_ZONE).toISODate() === day;
-  const endsToday =
-    DateTime.fromISO(e.end).setZone(TIME_ZONE).toISODate() === day;
-  if (!startsToday) return `til ${hhmm(e.end)}`;
-  return endsToday ? `${hhmm(e.start)}–${hhmm(e.end)}` : `fra ${hhmm(e.start)}`;
 }
 
 export function TodayView({
@@ -105,7 +91,7 @@ export function TodayView({
         </p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
         {day && (
           <section
             className={`${card} flex flex-col gap-3 lg:col-span-2`}
@@ -152,6 +138,7 @@ export function TodayView({
 
         <DaySection
           label="I dag"
+          live
           day={today}
           members={members}
           categories={categories}
@@ -269,7 +256,7 @@ export function TodayView({
   );
 }
 
-/** Én dag: hvem skal hva, gruppert per person (bare de som har noe). */
+/** Én dag: hvem skal hva, gruppert per person (bare de som har noe). Samme visning som på dashboardet. */
 function DaySection({
   label,
   day,
@@ -277,6 +264,7 @@ function DaySection({
   categories,
   events,
   care,
+  live = false,
 }: {
   label: string;
   day: string;
@@ -284,20 +272,8 @@ function DaySection({
   categories: CalendarCategory[];
   events: CalendarEvent[];
   care: CareData;
+  live?: boolean;
 }) {
-  const onDay = events
-    .filter((e) => touchesDay(e, day))
-    .sort(
-      (a, b) =>
-        Number(b.allDay) - Number(a.allDay) || a.start.localeCompare(b.start),
-    );
-  const people = members
-    .map((m) => ({
-      m,
-      list: onDay.filter((e) => e.participantIds.includes(m.id)),
-    }))
-    .filter((p) => p.list.length);
-
   return (
     <section className={`${card} flex flex-col gap-3`}>
       <div className="flex items-baseline justify-between gap-2">
@@ -312,48 +288,7 @@ function DaySection({
         </Link>
       </div>
       <CareLine care={care} date={day} members={members} className="-mt-2" />
-      {people.length === 0 ? (
-        <p className="text-ink-light">Ingenting i kalenderen.</p>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {people.map(({ m, list }) => (
-            <li key={m.id} className="flex gap-3">
-              <Avatar
-                name={m.name}
-                color={m.color}
-                icon={m.icon}
-                url={m.avatarUrl}
-                size={34}
-              />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold" style={{ color: m.color }}>
-                  {m.name}
-                </p>
-                <ul className="flex flex-col gap-0.5">
-                  {list.map((e) => {
-                    const cat = categories.find((c) => c.id === e.categoryId);
-                    return (
-                      <li key={e.id} className="wrap-break-word">
-                        <span className="mr-1.5 text-sm font-bold tabular-nums text-ink-light">
-                          {when(e, day)}
-                        </span>
-                        {cat && <span aria-hidden>{cat.icon} </span>}
-                        <span className="font-semibold">{e.title}</span>
-                        {e.location && (
-                          <span className="text-sm text-ink-light">
-                            {" "}
-                            · {e.location}
-                          </span>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      <PeopleDay events={events} day={day} members={members} categories={categories} live={live} />
     </section>
   );
 }

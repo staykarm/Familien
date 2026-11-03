@@ -121,6 +121,12 @@ body {
     font-size: 14px;
   }
 }
+/* Store iPad-skjermer (iPad Pro liggende): litt større skrift, så dashboardet fyller skjermen. */
+@media (min-width: 1280px) and (min-height: 950px) {
+  :root:has(.dash) {
+    font-size: 15px;
+  }
+}
 :root:has(.dash) body {
   background: #f6f6f7;
 }

@@ -95,6 +95,7 @@ export function HousePage({
   room,
   mapClassName,
   mapFloors,
+  mapLegend = true,
   onData,
   refreshKey = 0,
   initialTab,
@@ -110,6 +111,8 @@ export function HousePage({
   mapClassName?: string;
   /** Etasjene kartet viser (dashboardet: 1. og 2. etasje). */
   mapFloors?: ("1" | "2" | "tak")[];
+  /** Forklaringen under kartet (skjules på dashboardet, som har lite plass). */
+  mapLegend?: boolean;
   /** Får hver nye tilstand, så resten av dashboardet viser det samme som kartet. */
   onData?: (data: HouseData) => void;
   /** Hent ny tilstand med en gang når denne endres (etter en handling et annet sted på siden). */
@@ -388,6 +391,7 @@ export function HousePage({
           initialRoom={room}
           svgClassName={mapClassName}
           floors={mapFloors}
+          legend={mapLegend}
         />
       )}
       {data.ok && tab === "lys" && <LightsTab home={data.home} run={runHome} />}

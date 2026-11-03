@@ -10,6 +10,7 @@ import type { CalendarMember } from "@/lib/calendar/types";
 import { osloDate } from "@/lib/calendar/dates";
 import type { ShoppingItem } from "@/lib/shopping/types";
 import type { Task } from "@/lib/tasks/types";
+import { FitList } from "@/components/today/FitList";
 
 // Oppgaver og handlelisten på dashboardet. Et trykk krysser av med en gang; et nytt trykk angrer.
 // Avkryssede står igjen (gjennomstreket) til siden hentes på nytt.
@@ -37,7 +38,8 @@ function due(task: Task, today: string): { text: string; late: boolean } | null 
   return { text: task.dueTime ? `${day} ${task.dueTime.slice(0, 5)}` : day, late };
 }
 
-export function TaskChecklist({ tasks, members, today, max }: { tasks: Task[]; members: CalendarMember[]; today: string; max?: number }) {
+/** Oppgavene. `fit`: bare så mange som får plass i høyden (dashboardet), ellers `max` eller alle. */
+export function TaskChecklist({ tasks, members, today, max, fit = false }: { tasks: Task[]; members: CalendarMember[]; today: string; max?: number; fit?: boolean }) {
   const router = useRouter();
   const [done, setDone] = useState<Record<string, boolean>>({});
   if (!tasks.length) return <p className="text-xs text-ink-light">Ingen åpne oppgaver.</p>;
@@ -51,27 +53,31 @@ export function TaskChecklist({ tasks, members, today, max }: { tasks: Task[]; m
     if (!next) router.refresh();
   }
 
+  const row = (t: Task) => {
+    const d = due(t, today);
+    const who = members.find((m) => m.id === t.assigneeId);
+    const isDone = !!done[t.id];
+    return (
+      <li key={t.id} className="flex items-center gap-2 border-b border-line py-1.5 last:border-0">
+        <Tick done={isDone} label={t.title} onClick={() => void toggle(t)} />
+        <span className={`min-w-0 flex-1 text-sm leading-snug wrap-break-word ${isDone ? "text-ink-faint line-through" : ""}`}>{t.title}</span>
+        {d && <span className={`shrink-0 text-xs tabular-nums ${d.late && !isDone ? "font-semibold text-danger" : "text-ink-light"}`}>{d.text}</span>}
+        {who && <Avatar name={who.name} color={who.color} icon={who.icon} url={who.avatarUrl} size={18} ring={false} />}
+      </li>
+    );
+  };
+
+  if (fit) return <FitList items={tasks} keyOf={(t) => t.id} render={row} />;
   return (
     <ul className="flex flex-col">
-      {shown.map((t) => {
-        const d = due(t, today);
-        const who = members.find((m) => m.id === t.assigneeId);
-        const isDone = !!done[t.id];
-        return (
-          <li key={t.id} className="flex items-center gap-2 border-b border-line py-1.5 last:border-0">
-            <Tick done={isDone} label={t.title} onClick={() => void toggle(t)} />
-            <span className={`min-w-0 flex-1 text-sm leading-snug wrap-break-word ${isDone ? "text-ink-faint line-through" : ""}`}>{t.title}</span>
-            {d && <span className={`shrink-0 text-xs tabular-nums ${d.late && !isDone ? "font-semibold text-danger" : "text-ink-light"}`}>{d.text}</span>}
-            {who && <Avatar name={who.name} color={who.color} icon={who.icon} url={who.avatarUrl} size={18} ring={false} />}
-          </li>
-        );
-      })}
+      {shown.map(row)}
       {max && tasks.length > max && <li className="pt-1 text-xs text-ink-light">+{tasks.length - max} til</li>}
     </ul>
   );
 }
 
-export function ShoppingChecklist({ items, max, columns = false }: { items: ShoppingItem[]; max?: number; columns?: boolean }) {
+/** Handlelisten med «Legg til vare». `fit`: bare så mange varer som får plass i høyden (dashboardet). */
+export function ShoppingChecklist({ items, max, columns = false, fit = false }: { items: ShoppingItem[]; max?: number; columns?: boolean; fit?: boolean }) {
   const router = useRouter();
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [name, setName] = useState("");
@@ -100,8 +106,19 @@ export function ShoppingChecklist({ items, max, columns = false }: { items: Shop
     }
   }
 
+  const row = (i: ShoppingItem) => {
+    const isChecked = !!checked[i.id];
+    return (
+      <li key={i.id} className="flex items-center gap-2 border-b border-line py-1 last:border-0">
+        <Tick done={isChecked} label={i.name} onClick={() => void toggle(i)} />
+        <span className={`min-w-0 flex-1 text-sm wrap-break-word ${isChecked ? "text-ink-faint line-through" : ""}`}>{i.name}</span>
+        {i.quantity && <span className="shrink-0 text-xs text-ink-light">{i.quantity}</span>}
+      </li>
+    );
+  };
+
   return (
-    <div className="flex min-h-0 flex-col gap-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
       <form
         className="flex items-center gap-1.5"
         onSubmit={(e) => {
@@ -126,19 +143,14 @@ export function ShoppingChecklist({ items, max, columns = false }: { items: Shop
       {!open.length ? (
         <p className="text-xs text-ink-light">Handlelisten er tom.</p>
       ) : (
-        <ul className={columns ? "grid grid-cols-2 gap-x-4 md:grid-cols-3" : "flex flex-col"}>
-          {shown.map((i) => {
-            const isChecked = !!checked[i.id];
-            return (
-              <li key={i.id} className="flex items-center gap-2 border-b border-line py-1 last:border-0">
-                <Tick done={isChecked} label={i.name} onClick={() => void toggle(i)} />
-                <span className={`min-w-0 flex-1 text-sm wrap-break-word ${isChecked ? "text-ink-faint line-through" : ""}`}>{i.name}</span>
-                {i.quantity && <span className="shrink-0 text-xs text-ink-light">{i.quantity}</span>}
-              </li>
-            );
-          })}
-          {max && open.length > max && <li className="pt-1 text-xs text-ink-light">+{open.length - max} til</li>}
-        </ul>
+        fit ? (
+          <FitList items={open} keyOf={(i) => i.id} render={row} />
+        ) : (
+          <ul className={columns ? "grid grid-cols-2 gap-x-4 md:grid-cols-3" : "flex flex-col"}>
+            {shown.map(row)}
+            {max && open.length > max && <li className="pt-1 text-xs text-ink-light">+{open.length - max} til</li>}
+          </ul>
+        )
       )}
     </div>
   );

@@ -14,7 +14,7 @@ import type { HomeCommand } from "@/lib/validation/huset";
 import { CoverLine } from "./CoversTab";
 import { ApplianceLine } from "./AppliancesTab";
 import { ValveLine } from "./WateringTab";
-import { AirLine, ClimateLine, SwitchLine } from "./HeatTab";
+import { AirHelp, AirLine, ClimateLine, SwitchLine } from "./HeatTab";
 import { RoomLightsPanel } from "./LightsTab";
 import { nowPlaying, PlayButton, VolumeSlider } from "./parts";
 
@@ -480,6 +480,7 @@ function RoomSheet({ room, groups, onClose, ...p }: Omit<Props, "home" | "initia
         <section>
           <h3 className="text-xs font-bold uppercase tracking-wide text-ink-light">Luft</h3>
           <AirLine air={room.air} />
+          <AirHelp air={[room.air]} />
         </section>
       )}
       {room.appliances && room.appliances.length > 0 && (

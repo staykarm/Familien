@@ -1,7 +1,7 @@
 // Huset på dashboardet: «God natt», «Utelys av» og én statuslinje per område (varme, roboter, vanning …).
 // Rene funksjoner uten nettverk, slik at de kan testes.
 
-import { CO2_HIGH } from "./air";
+import { BAD_QUALITY, CO2_HIGH, POOR_QUALITY, qualityLabel } from "./air";
 import { applianceShort } from "./appliances";
 import { undoLight, type UndoItem } from "./agentTargets";
 import type { HomeState, Light } from "./home";
@@ -87,13 +87,35 @@ export function houseStatus(home: HomeState, robots: Robot[], watering: Watering
   const air = (home.air ?? []).filter((a) => a.online);
   if (air.length) {
     const co2 = air.filter((a) => a.co2 !== null).sort((a, b) => b.co2! - a.co2!);
-    const temps = air.map((a) => a.temperature).filter((t): t is number => t !== null);
-    const value = co2.length
-      ? `CO₂ ${Math.round(co2[0].co2!)} ppm i ${co2[0].name}`
-      : temps.length
-        ? `${air.length} sensorer · ${Math.round(Math.min(...temps)) === Math.round(Math.max(...temps)) ? deg(temps[0]) : `${Math.round(Math.min(...temps))}–${deg(Math.max(...temps))}`}`
-        : `${air.length} sensorer`;
-    rows.push({ area: "varme", label: "Luft", value, alert: co2.length > 0 && co2[0].co2! > CO2_HIGH, active: false });
+    const values = (pick: (a: (typeof air)[number]) => number | null) => air.map(pick).filter((v): v is number => v !== null);
+    const span = (vs: number[], unit: string) => {
+      const lo = Math.round(Math.min(...vs));
+      const hi = Math.round(Math.max(...vs));
+      return lo === hi ? `${lo}${unit}` : `${lo}–${hi}${unit}`;
+    };
+    const temps = values((a) => a.temperature);
+    const hums = values((a) => a.humidity);
+    // Luftkvaliteten som i Homely (5 = Excellent … 1 = Unhealthy). Dårligst først, med rommet når den er 3 eller lavere.
+    const worst = air.filter((a) => a.quality !== null).sort((a, b) => a.quality! - b.quality!)[0];
+    const quality = worst
+      ? worst.quality! <= POOR_QUALITY
+        ? `luftkvalitet ${Math.round(worst.quality!)} (${qualityLabel(worst.quality!)}) i ${worst.name}`
+        : (() => {
+            const qs = values((a) => a.quality);
+            const lo = Math.round(Math.min(...qs));
+            const hi = Math.round(Math.max(...qs));
+            return lo === hi ? `luftkvalitet ${lo} (${qualityLabel(lo)})` : `luftkvalitet ${lo}–${hi} (${qualityLabel(lo)}–${qualityLabel(hi)})`;
+          })()
+      : "";
+    const parts = [
+      co2.length ? `CO₂ ${Math.round(co2[0].co2!)} ppm i ${co2[0].name}` : "",
+      quality,
+      hums.length ? span(hums, " %") : "",
+      temps.length ? (Math.round(Math.min(...temps)) === Math.round(Math.max(...temps)) ? deg(temps[0]) : `${Math.round(Math.min(...temps))}–${deg(Math.max(...temps))}`) : "",
+    ].filter(Boolean);
+    const value = co2.length || worst || hums.length ? parts.join(" · ") : parts.length ? `${air.length} sensorer · ${parts.join(" · ")}` : `${air.length} sensorer`;
+    const alert = (co2.length > 0 && co2[0].co2! > CO2_HIGH) || (worst !== undefined && worst.quality! <= BAD_QUALITY);
+    rows.push({ area: "varme", label: "Luft", value, alert, active: false });
   }
 
   const hatch = home.rooms.find((r) => r.hatch)?.hatch;

@@ -33,6 +33,26 @@ export interface AirSensor {
 /** Over dette er CO₂ høy nok til at det bør luftes (Folkehelseinstituttets anbefalte grense er 1000 ppm). */
 export const CO2_HIGH = 1000;
 export const WEAK_SIGNAL = 20;
+/** Luftkvalitet (5 = Excellent … 1 = Unhealthy): 3 eller lavere nevnes med rom, 2 eller lavere er et varsel. */
+export const POOR_QUALITY = 3;
+export const BAD_QUALITY = 2;
+
+/** Luftkvalitetsindeksen på norsk (Homely: Excellent, Good, Moderate, Poor, Unhealthy). */
+const QUALITY_LABELS: Record<number, string> = { 5: "utmerket", 4: "god", 3: "middels", 2: "dårlig", 1: "usunn" };
+export const qualityLabel = (q: number) => QUALITY_LABELS[Math.round(q)] ?? "";
+
+/** VOC i ppb med grensene sensorene (frient, via Homely) bruker for nivåene. */
+const VOC_LEVELS: [number, string][] = [
+  [65, "utmerket"],
+  [220, "god"],
+  [660, "middels"],
+  [2200, "dårlig"],
+];
+export const vocLabel = (ppb: number) => VOC_LEVELS.find(([max]) => ppb < max)?.[1] ?? "usunn";
+
+/** Kort forklaring som står under luftsensorene. */
+export const VOC_HELP =
+  "VOC er gasser fra folk, matlaging, rengjøring, maling og nye møbler. Under 65 ppb er utmerket, under 220 god og under 660 middels. Over det bør det luftes. Luftkvaliteten går fra 5 (utmerket) til 1 (usunn).";
 
 const HOMELY_ROOMS: Record<string, string> = { kid_s_room: "Barnerom", entrance: "Entré" };
 
@@ -75,14 +95,14 @@ export function toAir(states: StateLike[], rooms: RoomConfig[] = ROOMS): AirSens
     .sort((a, b) => a.name.localeCompare(b.name, "nb"));
 }
 
-/** Kort tekst for én sensor: «20,9° · 41 % · CO₂ 650 ppm». */
+/** Kort tekst for én sensor: «20,9° · 41 % · VOC 55 ppb (utmerket) · luftkvalitet 5 av 5 (utmerket)». */
 export function airText(a: AirSensor): string {
   const parts = [
     a.temperature !== null ? `${a.temperature.toLocaleString("nb-NO", { maximumFractionDigits: 1 })}°` : "",
     a.humidity !== null ? `${Math.round(a.humidity)} %` : "",
     a.co2 !== null ? `CO₂ ${Math.round(a.co2)} ppm` : "",
-    a.voc !== null ? `VOC ${Math.round(a.voc)}${a.vocUnit ? ` ${a.vocUnit}` : ""}` : "",
-    a.quality !== null ? `luftkvalitet ${Math.round(a.quality)}` : "",
+    a.voc !== null ? `VOC ${Math.round(a.voc)}${a.vocUnit ? ` ${a.vocUnit}` : ""}${a.vocUnit === "ppb" ? ` (${vocLabel(a.voc)})` : ""}` : "",
+    a.quality !== null ? `luftkvalitet ${Math.round(a.quality)} av 5${qualityLabel(a.quality) ? ` (${qualityLabel(a.quality)})` : ""}` : "",
   ].filter(Boolean);
   return a.online ? parts.join(" · ") || "Ingen målinger" : "Svarer ikke";
 }

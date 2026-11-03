@@ -6,16 +6,17 @@ import { useEffect } from "react";
 import { askDashboard } from "@/actions/dashboard";
 import { CareLine } from "@/components/care/CareLine";
 import { HouseAgent, HouseChips, HousePage, HouseQuickLights, HouseStatusList, kr, PriceChart, SafetyBanner, usePrices, useHouseLive } from "@/components/huset/public";
+import { PeopleDay } from "@/components/today/PeopleDay";
 import { formatTemp, WeatherIcon } from "@/components/weather/WeatherBadge";
-import type { CalendarCategory, CalendarMember } from "@/lib/calendar/types";
+import type { CalendarCategory, CalendarEvent, CalendarMember } from "@/lib/calendar/types";
 import type { CareData } from "@/lib/care/plan";
-import type { AgendaItem } from "@/lib/dashboard/day";
 import type { HouseData, HouseSetup } from "@/lib/huset/public";
 import type { ShoppingItem } from "@/lib/shopping/types";
 import type { Task } from "@/lib/tasks/types";
 import type { DailyWeather, HourlyWeather } from "@/lib/weather/yr";
 import { ShoppingChecklist, TaskChecklist } from "./Lists";
-import { AgendaList, Card, Clock, DaysRow, HoursStrip, viewHref } from "./parts";
+import { Card, Clock, viewHref } from "./parts";
+import { TodayCard } from "./TodayCard";
 
 /** Familiedelen (avtaler, oppgaver, handlelisten, været) hentes på nytt så ofte, og når skjermen våkner. */
 const FAMILY_REFRESH_MS = 2 * 60_000;
@@ -39,34 +40,35 @@ export interface DashboardProps {
   tomorrow: string;
   members: CalendarMember[];
   categories: CalendarCategory[];
-  agendaToday: AgendaItem[];
-  agendaTomorrow: AgendaItem[];
+  /** Avtalene i dag og i morgen (vises per person, som i «I dag» i appen). */
+  events: CalendarEvent[];
   care: CareData;
   tasks: Task[];
   shopping: ShoppingItem[];
   hours: HourlyWeather[];
+  /** Været i dag (maks/min) og de neste dagene. */
+  todayWeather: DailyWeather | undefined;
   days: DailyWeather[];
   house: HouseData;
   houseSetup: HouseSetup;
 }
 
 /**
- * Totaloversikten for iPad (liggende): været over hele bredden øverst, familien til venstre (avtaler, oppgaver og
- * handlelisten), kartet over 1. og 2. etasje i midten, og status fra enhetene til høyre (Huset nå og strømmen).
- * «Spør» nederst. Hvert kort åpner en underside med mer (`?vis=…`).
+ * Totaloversikten for iPad (liggende). Til venstre familien: «I dag» med været og hvem skal hva, og «I morgen»,
+ * per person. I midten kartet over 1. og 2. etasje, med oppgavene og handlelisten under. Til høyre «Huset nå» og
+ * strømmen. Hvert kort viser bare det som får plass, og åpner en underside med mer (`?vis=…`).
  */
 export function Dashboard(p: DashboardProps) {
   const live = useHouseLive(p.house);
   useAutoRefresh();
   const prices = usePrices();
-  const now = p.hours[0];
-  const outdoor = live.data.home.outdoorTemp;
   const { energy, safety } = live.data;
+  const tomorrowWeather = p.days.find((d) => d.date === p.tomorrow);
 
   return (
     <div className="flex min-h-dvh flex-col gap-3 p-3 lg:h-dvh lg:overflow-hidden">
       <header className="flex flex-wrap items-center gap-x-6 gap-y-1 px-1">
-        <Clock />
+        <Clock withDate={false} />
         <HouseChips energy={energy} safety={safety} base="/dashboard?vis=" />
         <Link href="/i-dag" className="ml-auto text-xs font-medium text-ink-light hover:text-ink">
           Til Familien
@@ -75,60 +77,63 @@ export function Dashboard(p: DashboardProps) {
 
       <SafetyBanner safety={safety} />
 
-      {/* Været over hele bredden: nå, time for time og de neste dagene. */}
-      <Link href={viewHref("vaer")} className="flex shrink-0 items-center gap-4 rounded-2xl bg-card px-3 py-2 shadow-[0_2px_12px_rgba(0,0,0,0.05)] hover:ring-2 hover:ring-line" aria-label="Været">
-        {now && (
-          <div className="flex shrink-0 items-center gap-2">
-            <WeatherIcon code={now.symbolCode} size={48} />
-            <div className="flex flex-col leading-tight">
-              <span className="text-3xl font-bold tabular-nums">{formatTemp(now.temp)}</span>
-              <span className="text-xs text-ink-light">
-                {outdoor !== null ? `Ved huset ${outdoor.toLocaleString("nb-NO", { maximumFractionDigits: 1 })}°` : "Nå"}
-              </span>
-            </div>
-          </div>
-        )}
-        <div className="min-w-0 flex-1">
-          <HoursStrip hours={p.hours.slice(1, 11)} />
-        </div>
-        <div className="hidden w-[32rem] shrink-0 lg:block">
-          <DaysRow days={p.days.slice(0, 5)} />
-        </div>
-      </Link>
-
-      <main className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[17rem_minmax(0,1fr)_17rem]">
-        {/* Familien til venstre. */}
-        <div className="flex min-h-0 flex-col gap-3">
-          <Card title="I dag" href={viewHref("dag")} className="overflow-hidden lg:flex-auto">
-            <CareLine care={p.care} date={p.today} members={p.members} className="text-xs" />
-            <AgendaList items={p.agendaToday} members={p.members} categories={p.categories} max={6} />
-          </Card>
-          <Card title="I morgen" href={viewHref("dag")} className="overflow-hidden lg:flex-auto">
+      <main className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)_minmax(15rem,0.66fr)]">
+        {/* Familien til venstre: i dag (med været) og i morgen, per person. */}
+        <div className="grid min-h-0 gap-3 lg:grid-rows-[minmax(0,1.5fr)_minmax(0,1fr)]">
+          <TodayCard
+            today={p.today}
+            events={p.events}
+            members={p.members}
+            categories={p.categories}
+            care={p.care}
+            now={p.hours[0]}
+            todayWeather={p.todayWeather}
+            outdoorTemp={live.data.home.outdoorTemp}
+            hours={p.hours.slice(1, 8)}
+            days={p.days.slice(0, 4)}
+          />
+          <Card
+            title="📅 I morgen"
+            href={viewHref("dag")}
+            aside={
+              tomorrowWeather && (
+                <span className="flex items-center gap-1 text-xs tabular-nums text-ink-light">
+                  <WeatherIcon code={tomorrowWeather.symbolCode} size={20} />
+                  {formatTemp(tomorrowWeather.tempMax)} / {formatTemp(tomorrowWeather.tempMin)}
+                </span>
+              )
+            }
+          >
             <CareLine care={p.care} date={p.tomorrow} members={p.members} className="text-xs" />
-            <AgendaList items={p.agendaTomorrow} members={p.members} categories={p.categories} max={3} />
-          </Card>
-          <Card title="Oppgaver" href={viewHref("oppgaver")} className="overflow-hidden lg:flex-auto">
-            <TaskChecklist tasks={p.tasks} members={p.members} today={p.today} max={4} />
-          </Card>
-          <Card title="Handleliste" href={viewHref("handleliste")} className="overflow-hidden lg:flex-auto">
-            <ShoppingChecklist items={p.shopping} max={6} />
+            <PeopleDay events={p.events} day={p.tomorrow} members={p.members} categories={p.categories} compact empty="Ingen avtaler i morgen." />
           </Card>
         </div>
 
-        {/* Kartet over 1. og 2. etasje i midten: trykk på et rom åpner det med lys, varme, persienner og musikk. */}
-        <Card title="Huset" href={viewHref("kart")} className="min-h-0 lg:flex-1" aside={live.data.ok ? <HouseQuickLights live={live} /> : undefined}>
-          <HousePage initial={p.house} setup={p.houseSetup} notice={null} fixedTab="kart" mapFloors={["1", "2"]} mapClassName="max-h-[58dvh]" onData={live.push} refreshKey={live.version} />
-        </Card>
+        {/* I midten kartet over 1. og 2. etasje (trykk på et rom åpner det med lys, varme, persienner og musikk),
+            og oppgavene og handlelisten under. */}
+        <div className="flex min-h-0 flex-col gap-3">
+          <Card title="🏠 Huset" href={viewHref("kart")} className="shrink-0" aside={live.data.ok ? <HouseQuickLights live={live} /> : undefined}>
+            <HousePage initial={p.house} setup={p.houseSetup} notice={null} fixedTab="kart" mapFloors={["1", "2"]} mapLegend={false} mapClassName="max-h-[40dvh]" onData={live.push} refreshKey={live.version} />
+          </Card>
+          <div className="grid min-h-0 flex-1 gap-3 md:grid-cols-2">
+            <Card title="✅ Oppgaver" href={viewHref("oppgaver")} aside={<Count n={p.tasks.length} />}>
+              <TaskChecklist tasks={p.tasks} members={p.members} today={p.today} fit />
+            </Card>
+            <Card title="🛒 Handleliste" href={viewHref("handleliste")} aside={<Count n={p.shopping.filter((i) => !i.checked).length} />}>
+              <ShoppingChecklist items={p.shopping} fit />
+            </Card>
+          </div>
+        </div>
 
-        {/* Status fra enhetene til høyre. */}
+        {/* Status fra enhetene og strømmen til høyre. */}
         <div className="flex min-h-0 flex-col gap-3">
           {live.data.ok && (
-            <Card title="Huset nå" className="overflow-hidden lg:flex-1">
+            <Card title="📡 Huset nå" className="min-h-0 flex-1 overflow-y-auto">
               <HouseStatusList live={live} base="/dashboard?vis=" />
             </Card>
           )}
           {energy.price !== null && (
-            <Card title="Strøm" href={viewHref("strom")} className="shrink-0" aside={<span className="text-xs tabular-nums text-ink-light">i dag {kr(energy.todayCost, 0)}</span>}>
+            <Card title="⚡ Strøm" href={viewHref("strom")} className="shrink-0" aside={<span className="text-xs tabular-nums text-ink-light">i dag {kr(energy.todayCost, 0)}</span>}>
               <PriceChart hours={prices.hours} now={prices.now} compact />
             </Card>
           )}
@@ -138,4 +143,10 @@ export function Dashboard(p: DashboardProps) {
       <HouseAgent ask={askDashboard} onChanged={live.refresh} placeholder="Spør om huset eller familien, f.eks. «hvem henter Olav i dag?» eller «skru av lyset i stua»" />
     </div>
   );
+}
+
+/** Antall i et lite merke i kortets tittel. */
+function Count({ n }: { n: number }) {
+  if (!n) return null;
+  return <span className="rounded-full bg-card-soft px-1.5 text-xs font-semibold tabular-nums text-ink-light">{n}</span>;
 }

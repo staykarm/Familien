@@ -306,7 +306,7 @@ export function FloorMap({ floor, rooms, selected, playing, onOpen, svgClassName
 }
 
 /**
- * Uteområdet (A10-05): plen, belegg, trær og nabohusene, med Hus C fra plantegningen. Trykk på hagen åpner
+ * Uteområdet (A10-05): plen, belegg og nabohusene, med Hus C fra plantegningen. Trykk på hagen åpner
  * «Hage og inngang». Inngangene, terrassen og utetrappa (med varmekabler) er de samme feltene som i 1. etasje.
  */
 export function SiteMap({ rooms, selected, playing, onOpen, svgClassName = "max-h-[72dvh]" }: {
@@ -407,11 +407,6 @@ export function SiteMap({ rooms, selected, playing, onOpen, svgClassName = "max-
         {stairs.map((st, i) => (
           <StairMark key={i} stair={st} heated={!!st.heat && switchesOn.has(st.heat)} />
         ))}
-        <g pointerEvents="none" clipPath="url(#site-lot)">
-          {SITE.trees.map(([x, y, r], i) => (
-            <circle key={i} cx={x} cy={y} r={r} fill="#79a865" fillOpacity={0.3} stroke="#6a9a58" strokeOpacity={0.6} strokeWidth={0.08} />
-          ))}
-        </g>
         {/* Kummer, lys i støttemuren og pullert. Lysene kobles til Home Assistant senere. */}
         <g pointerEvents="none">
           {SITE.points.map((pt, i) =>

@@ -18,17 +18,20 @@ export const viewHref = (view: string, extra?: Record<string, string>) => `/dash
 export const label = "text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-ink-light";
 
 /** Kort med tittel. Med `href` blir tittelen en lenke til undersiden («Vis alt ›»). */
-export function Card({ title, href, aside, className = "", children }: { title: string; href?: string; aside?: ReactNode; className?: string; children: ReactNode }) {
+/** Fargen kortet får i den fargerike versjonen (`.dash-farge`). Uten den er alle kortene hvite. */
+export type Tone = "lavendel" | "himmel" | "mint" | "fersken" | "sol" | "rosa";
+
+export function Card({ title, href, aside, tone, className = "", children }: { title: string; href?: string; aside?: ReactNode; tone?: Tone; className?: string; children: ReactNode }) {
   return (
-    <section className={`flex min-h-0 flex-col gap-2 rounded-xl border border-line bg-card p-3 ${className}`} aria-label={title}>
+    <section data-tone={tone} className={`dash-card flex min-h-0 flex-col gap-2 rounded-xl border border-line bg-card p-3 ${className}`} aria-label={title}>
       <header className="flex items-center gap-2">
         {href ? (
-          <Link href={href} className={`${label} -m-1 flex flex-1 items-center gap-1 rounded-md p-1 hover:text-ink`}>
+          <Link href={href} className={`${label} dash-card-title -m-1 flex flex-1 items-center gap-1 rounded-md p-1 hover:text-ink`}>
             {title}
             <ChevronRight size={12} className="ml-auto" aria-hidden />
           </Link>
         ) : (
-          <h2 className={`${label} flex-1`}>{title}</h2>
+          <h2 className={`${label} dash-card-title flex-1`}>{title}</h2>
         )}
         {aside}
       </header>

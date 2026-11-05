@@ -1,5 +1,6 @@
 "use client";
 
+import type React from "react";
 import Link from "next/link";
 import { CareLine } from "@/components/care/CareLine";
 import { PeopleDay, useNow } from "@/components/today/PeopleDay";
@@ -18,13 +19,13 @@ import { label, viewHref } from "./parts";
 const osloHour = (now: number) => Number(new Intl.DateTimeFormat("nb-NO", { timeZone: TIME_ZONE, hour: "2-digit", hourCycle: "h23" }).format(now));
 
 /** Tiden på døgnet: hilsen og en svak bakgrunnstone (morgen varm, dag lys blå, kveld fersken, natt dus blå). */
-export function dayPart(now: number | null): { greeting: string; tint: string } {
-  if (now === null) return { greeting: "", tint: "#ffffff" };
+export function dayPart(now: number | null): { greeting: string; tint: string; strong: string } {
+  if (now === null) return { greeting: "", tint: "#ffffff", strong: "#ffffff" };
   const h = osloHour(now);
-  if (h >= 5 && h < 10) return { greeting: "God morgen", tint: "#fff5e1" };
-  if (h >= 10 && h < 17) return { greeting: "God dag", tint: "#eaf3ff" };
-  if (h >= 17 && h < 22) return { greeting: "God kveld", tint: "#fdeee4" };
-  return { greeting: "God natt", tint: "#eceef8" };
+  if (h >= 5 && h < 10) return { greeting: "God morgen", tint: "#fff5e1", strong: "#ffe2a8" };
+  if (h >= 10 && h < 17) return { greeting: "God dag", tint: "#eaf3ff", strong: "#bfdcff" };
+  if (h >= 17 && h < 22) return { greeting: "God kveld", tint: "#fdeee4", strong: "#ffc9a8" };
+  return { greeting: "God natt", tint: "#eceef8", strong: "#c9cff0" };
 }
 
 /** Bare kuldegrader får farge (blå), så raden ikke blir for fargerik. */
@@ -89,15 +90,21 @@ export function TodayCard({
   days: DailyWeather[];
 }) {
   const now = useNow();
-  const { greeting, tint } = dayPart(now);
+  const { greeting, tint, strong } = dayPart(now);
   const date = osloDate(today).setLocale("nb").toFormat("cccc d. LLLL");
   const sky = symbolLabel(nowWeather?.symbolCode ?? todayWeather?.symbolCode);
   return (
-    <section className="flex min-h-0 flex-col gap-2 overflow-hidden rounded-xl border border-line p-3 transition-colors duration-700" style={{ background: `linear-gradient(180deg, ${tint} 0%, #ffffff 70%)` }} aria-label="I dag">
+    <section
+      data-tone="dag"
+      className="dash-today flex min-h-0 flex-col gap-2 overflow-hidden rounded-xl border border-line p-3 transition-colors duration-700"
+      // Nøytralt: svak tone øverst. Fargerikt (`.dash-farge`): sterkere tone som går lenger ned (globals.css).
+      style={{ "--tint": tint, "--tint-strong": strong } as React.CSSProperties}
+      aria-label="I dag"
+    >
       <div className="flex items-start gap-3">
         <Link href={viewHref("dag")} className="min-w-0 flex-1 rounded-md hover:opacity-80">
           <p className={label}>{greeting || "I dag"}</p>
-          <p className="text-xl leading-tight font-bold first-letter:uppercase">{date}</p>
+          <p className="text-lg leading-tight font-bold first-letter:uppercase">{date}</p>
         </Link>
         {nowWeather && (
           <Link href={viewHref("vaer")} className="flex shrink-0 items-center gap-2 rounded-md hover:opacity-80" aria-label="Været nå">

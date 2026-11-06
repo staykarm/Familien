@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronRight, Lightbulb, LightbulbOff, Moon, Sparkles } from "lucide-react";
 import { lightsOn, roomBrightness, type HomeState, type Light, type Room } from "@/lib/huset/home";
+import { groupByPlace, placeOf } from "@/lib/huset/site";
 import type { HomeCommand } from "@/lib/validation/huset";
 import { Range, Toggle } from "./parts";
 import { usePending } from "./usePending";
@@ -79,6 +80,24 @@ function LightRow({ light, pending }: { light: Light; pending: Pending }) {
   );
 }
 
+/** Et lys, og lysene i Hue-gruppa innrykket under (f.eks. Lily-spottene i «Bedd vest»). */
+function LightWithMembers({ light, pending }: { light: Light; pending: Pending }) {
+  return (
+    <>
+      <LightRow light={light} pending={pending} />
+      {light.members?.length ? (
+        <li>
+          <ul className="ml-3 flex flex-col border-l border-line pl-3" aria-label={`Lysene i ${light.name}`}>
+            {light.members.map((m) => (
+              <LightRow key={m.id} light={m} pending={pending} />
+            ))}
+          </ul>
+        </li>
+      ) : null}
+    </>
+  );
+}
+
 /**
  * Ett rom: hovedlinjen styrer alle lysene i rommet (lysstyrke og av/på).
  * Pila åpner scenene og hvert enkelt lys.
@@ -144,11 +163,26 @@ function RoomCard({ room, pending, open, onOpen }: { room: Room; pending: Pendin
               ))}
             </div>
           )}
-          <ul className="flex flex-col">
-            {room.lights.map((x) => (
-              <LightRow key={x.id} light={x} pending={pending} />
-            ))}
-          </ul>
+          {room.outdoor ? (
+            // Ute: lysene etter stedene på ute-kartet, med lysene i hver Hue-gruppe innrykket under gruppa.
+            groupByPlace(room.lights).map((g) => (
+              <section key={g.place ?? "uten"} aria-label={g.place ?? "Ikke på kartet"} className="pt-1">
+                {/* Overskriften droppes når arket allerede gjelder dette stedet (trykk på et lys i ute-kartet). */}
+                {g.place !== room.name && <h4 className="text-xs font-bold text-ink-light">{g.place ?? (room.lights.some((x) => placeOf(x.id)) ? "Ikke på kartet" : "")}</h4>}
+                <ul className="flex flex-col">
+                  {g.lights.map((x) => (
+                    <LightWithMembers key={x.id} light={x} pending={pending} />
+                  ))}
+                </ul>
+              </section>
+            ))
+          ) : (
+            <ul className="flex flex-col">
+              {room.lights.map((x) => (
+                <LightRow key={x.id} light={x} pending={pending} />
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </li>

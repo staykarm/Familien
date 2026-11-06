@@ -8,7 +8,7 @@ import { usePending } from "./usePending";
 
 interface Props {
   home: HomeState;
-  run: (cmd: HomeCommand) => Promise<void>;
+  run: (cmd: HomeCommand) => Promise<unknown>;
 }
 
 /** «Oppe», «Nede» eller «40 %». Home Assistant bruker 100 = oppe. */

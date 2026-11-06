@@ -1,6 +1,7 @@
 "use client";
 
-import { Droplets, Flame, Minus, Plus } from "lucide-react";
+import { useState } from "react";
+import { Droplets, Flame, Lock, Minus, Plus } from "lucide-react";
 import { airText, CO2_HIGH, VOC_HELP, WEAK_SIGNAL, type AirSensor } from "@/lib/huset/air";
 import { stepTarget, type Climate, type HomeState, type Switch } from "@/lib/huset/home";
 import type { HomeCommand } from "@/lib/validation/huset";
@@ -10,7 +11,7 @@ import { DeviceArt } from "./DeviceArt";
 
 interface Props {
   home: HomeState;
-  run: (cmd: HomeCommand) => Promise<void>;
+  run: (cmd: HomeCommand) => Promise<unknown>;
 }
 
 const temp = (v: number | null) =>
@@ -82,26 +83,113 @@ export function AirHelp({ air }: { air: AirSensor[] }) {
   return <p className="pt-1 text-xs text-ink-light wrap-break-word">{VOC_HELP}</p>;
 }
 
-/** En bryter (varmekabler o.l.) på én linje: navn, status og Slå på / Slå av. */
+/** Svaret fra en handling, hvis det finnes (`run` gir `{ ok, message }` fra serveren). */
+function resultOf(res: unknown): { ok: boolean; message?: string } | null {
+  return res && typeof res === "object" && "ok" in res ? (res as { ok: boolean; message?: string }) : null;
+}
+
+/**
+ * En bryter (varmekabler o.l.) på én linje: navn, status og Slå på / Slå av. Å slå på krever koden
+ * (HOUSE_SWITCH_PIN, sjekkes på serveren): «Slå på» åpner et felt for koden på linjen. Å slå av går med en gang.
+ */
 export function SwitchLine({ item, run }: { item: Switch; run: Props["run"] }) {
   const pending = usePending<Switch>();
   const s = pending.show(item.id, item);
+  const [asking, setAsking] = useState(false);
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function turnOn() {
+    if (!/^\d{4,8}$/.test(pin) || busy) return;
+    setBusy(true);
+    setError(null);
+    const res = resultOf(await run({ action: "switch", id: s.id, on: true, pin }));
+    setBusy(false);
+    setPin("");
+    if (res && !res.ok) {
+      setError(res.message ?? "Det virket ikke");
+      return;
+    }
+    setAsking(false);
+  }
+
   return (
-    <div className={`flex items-center gap-2 border-b border-line py-1 last:border-0 ${s.available ? "" : "opacity-50"}`}>
-      <Flame size={14} className={s.on ? "shrink-0 text-primary-dark" : "shrink-0 text-ink-light"} aria-hidden />
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold wrap-break-word">{s.name}</p>
-        <p className="text-xs text-ink-light">{!s.available ? "Svarer ikke" : s.on ? "På" : "Av"}</p>
+    <div className={`border-b border-line py-1 last:border-0 ${s.available ? "" : "opacity-50"}`}>
+      <div className="flex items-center gap-2">
+        <Flame size={14} className={s.on ? "shrink-0 text-primary-dark" : "shrink-0 text-ink-light"} aria-hidden />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold wrap-break-word">{s.name}</p>
+          <p className="text-xs text-ink-light">{!s.available ? "Svarer ikke" : s.on ? "På" : "Av"}</p>
+        </div>
+        {s.on ? (
+          <button
+            type="button"
+            disabled={!s.available}
+            aria-pressed
+            onClick={() => void pending.send(s.id, { on: false }, () => run({ action: "switch", id: s.id, on: false }))}
+            className="min-h-10 shrink-0 rounded-full border-2 border-primary bg-primary-soft px-3 text-sm font-semibold text-primary-dark transition disabled:opacity-50"
+          >
+            Slå av
+          </button>
+        ) : (
+          !asking && (
+            <button
+              type="button"
+              disabled={!s.available}
+              aria-pressed={false}
+              onClick={() => {
+                setAsking(true);
+                setError(null);
+              }}
+              className="inline-flex min-h-10 shrink-0 items-center gap-1 rounded-full border-2 border-line bg-card px-3 text-sm font-semibold transition disabled:opacity-50"
+            >
+              <Lock size={12} aria-hidden />
+              Slå på
+            </button>
+          )
+        )}
       </div>
-      <button
-        type="button"
-        disabled={!s.available}
-        aria-pressed={s.on}
-        onClick={() => void pending.send(s.id, { on: !s.on }, () => run({ action: "switch", id: s.id, on: !s.on }))}
-        className={`min-h-10 shrink-0 rounded-full border-2 px-3 text-sm font-semibold transition disabled:opacity-50 ${s.on ? "border-primary bg-primary-soft text-primary-dark" : "border-line bg-card"}`}
-      >
-        {s.on ? "Slå av" : "Slå på"}
-      </button>
+      {asking && !s.on && (
+        <form
+          className="mt-1 flex flex-wrap items-center gap-2 pl-6"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void turnOn();
+          }}
+        >
+          <input
+            value={pin}
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))}
+            type="password"
+            inputMode="numeric"
+            autoComplete="off"
+            autoFocus
+            placeholder="Kode"
+            aria-label={`Kode for å slå på ${s.name.toLowerCase()}`}
+            className="min-h-10 w-28 rounded-xl border border-line bg-card-soft px-3 text-center tracking-[0.3em] outline-none focus:border-ink-faint"
+          />
+          <button type="submit" disabled={busy || pin.length < 4} className="min-h-10 rounded-full bg-primary px-4 text-sm font-semibold text-white transition disabled:opacity-50">
+            {busy ? "Sjekker …" : "Slå på"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setAsking(false);
+              setPin("");
+              setError(null);
+            }}
+            className="min-h-10 rounded-full px-3 text-sm font-semibold text-ink-light"
+          >
+            Avbryt
+          </button>
+          {error && (
+            <p role="alert" className="basis-full text-xs font-semibold text-danger">
+              {error}
+            </p>
+          )}
+        </form>
+      )}
     </div>
   );
 }

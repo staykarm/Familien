@@ -216,9 +216,14 @@ export function HousePage({
     confirming.current++;
     try {
       const result = await controlHome(cmd);
-      setMessage(result.ok ? null : (result.message ?? "Det virket ikke"));
-      await new Promise((r) => setTimeout(r, SETTLE_MS));
-      setData(await loadHouse());
+      // Feil kode for varmekablene vises ved bryteren, ikke øverst.
+      const pinError = cmd.action === "switch" && cmd.on && !result.ok;
+      setMessage(result.ok || pinError ? null : (result.message ?? "Det virket ikke"));
+      if (!pinError) {
+        await new Promise((r) => setTimeout(r, SETTLE_MS));
+        setData(await loadHouse());
+      }
+      return result;
     } finally {
       confirming.current--;
     }
@@ -392,6 +397,7 @@ export function HousePage({
           svgClassName={mapClassName}
           floors={mapFloors}
           legend={mapLegend}
+          valves={data.watering.valves}
         />
       )}
       {data.ok && tab === "lys" && <LightsTab home={data.home} run={runHome} />}

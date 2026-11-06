@@ -63,8 +63,14 @@ export const homeCommandSchema = z.discriminatedUnion("action", [
     id: z.string().regex(/^(vacuum|lawn_mower)\.[a-z0-9_]+$/, "Ukjent robot"),
     command: z.enum(["start", "pause", "home", "locate"]),
   }),
-  /** Slå en bryter av eller på (bare de som står i romkartet, f.eks. varmekabler). */
-  z.object({ action: z.literal("switch"), id: entityOf("switch"), on: z.boolean() }),
+  /** Slå en bryter av eller på (bare de som står i romkartet, f.eks. varmekabler). Å slå på krever kode. */
+  z.object({
+    action: z.literal("switch"),
+    id: entityOf("switch"),
+    on: z.boolean(),
+    /** Koden som må til for å slå på (HOUSE_SWITCH_PIN). Ikke nødvendig for å slå av. */
+    pin: z.string().regex(/^\d{4,8}$/, "Koden er 4–8 sifre").optional(),
+  }),
   /** Vanning: åpne en ventil (eventuelt med vanningstid i minutter), eller stenge den. */
   z.object({
     action: z.literal("valve"),

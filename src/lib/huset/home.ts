@@ -24,6 +24,8 @@ export interface Light {
   dimmable: boolean;
   /** Fargetemperatur i kelvin, med grensene lyset tåler. Null hvis lyset ikke har det. */
   kelvin: { value: number | null; min: number; max: number } | null;
+  /** Lysene i en Hue-gruppe (f.eks. Lily-spottene i «Bedd vest»), når lyset er en gruppe. */
+  members?: Light[];
 }
 
 export interface Scene {
@@ -181,7 +183,15 @@ export function toHome(states: StateLike[], rooms: RoomConfig[] = ROOMS): HomeSt
       floor: r.floor ?? null,
       lights: (r.lights ?? []).flatMap((x) => {
         const s = byId.get(x.id);
-        return s ? [toLight(s, x.name)] : [];
+        if (!s) return [];
+        const light = toLight(s, x.name);
+        // En Hue-gruppe har lysene sine i `entity_id`; de vises under gruppa (f.eks. på stedene ute).
+        const ids = Array.isArray(s.attributes.entity_id) ? (s.attributes.entity_id as string[]) : [];
+        const members = ids.flatMap((id) => {
+          const m = byId.get(id);
+          return m && id !== x.id ? [toLight(m, String(m.attributes.friendly_name ?? id).replace(/^Hue\s+/, "").trim())] : [];
+        });
+        return [members.length ? { ...light, members } : light];
       }),
       scenes: scenesFor(r, states),
       climate: climate

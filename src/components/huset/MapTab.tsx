@@ -6,7 +6,7 @@ import { Sheet } from "@/components/ui/Sheet";
 import { buttonPrimary, buttonSecondary } from "@/components/ui/styles";
 import { bounds, doorGap, doorSwing, FLOORS, FONT, labelLines, roomLook, VIEWBOX, type Door, type Floor, type Shape, type Stair } from "@/lib/huset/floorplan";
 import { FURNITURE, type Furniture } from "@/lib/huset/furniture";
-import { inside, SITE, SITE_VIEWBOX, siteDeviceLook } from "@/lib/huset/site";
+import { inside, placeRoom, SITE, SITE_VIEWBOX, siteDeviceLook } from "@/lib/huset/site";
 import type { Valve } from "@/lib/huset/watering";
 import { FIXTURES, fixtureIndex, fixtureLook, labelDirection, type Fixture, type FixtureLook } from "@/lib/huset/fixtures";
 import type { HomeState, Light, Room } from "@/lib/huset/home";
@@ -312,12 +312,12 @@ export function FloorMap({ floor, rooms, selected, playing, onOpen, svgClassName
  * Uteområdet (A10-05): plen, belegg og nabohusene, med Hus C fra plantegningen. Trykk på hagen åpner
  * «Hage og inngang». Inngangene, terrassen og utetrappa (med varmekabler) er de samme feltene som i 1. etasje.
  */
-/** Lysene og ventilene ute, plassert av Marius (SITE.devices). Bare visning; trykk åpner «Hage og inngang». */
-function SiteDevices({ rooms, valves, font }: { rooms: Map<string, Room>; valves: Valve[]; font: number }) {
+/** Lysene og ventilene ute, plassert av Marius (SITE.devices). Trykk på et lys åpner stedet (`sted:<navn>`); ventilene er bare visning. */
+function SiteDevices({ rooms, valves, font, onOpen }: { rooms: Map<string, Room>; valves: Valve[]; font: number; onOpen: (id: string) => void }) {
   const lights = new Map([...rooms.values()].flatMap((r) => r.lights.map((l) => [l.id, l] as const)));
   const byId = new Map(valves.map((v) => [v.id, v] as const));
   return (
-    <g pointerEvents="none">
+    <g>
       {SITE.devices.map((d, i) => {
         const look = siteDeviceLook(d, lights, byId);
         const [x, y] = d.at;
@@ -328,8 +328,27 @@ function SiteDevices({ rooms, valves, font }: { rooms: Map<string, Room>; valves
         );
         if (d.kind === "lys") {
           return (
-            <g key={i} opacity={look.available ? 1 : 0.45}>
-              {look.on && <circle cx={x} cy={y} r={0.55 + 1.1 * look.level} fill="#ffd54a" fillOpacity={0.25 + 0.35 * look.level} />}
+            <g
+              key={i}
+              opacity={look.available ? 1 : 0.45}
+              role="button"
+              tabIndex={0}
+              aria-label={`${d.name}: ${!look.available ? "svarer ikke" : look.on ? "på" : "av"}`}
+              className="cursor-pointer focus:outline-none"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpen(`sted:${d.name}`);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onOpen(`sted:${d.name}`);
+                }
+              }}
+            >
+              {/* Stor, usynlig trykkflate, så lyset er lett å treffe med fingeren. */}
+              <circle cx={x} cy={y} r={1.1} fill="transparent" />
+              {look.on && <circle cx={x} cy={y} r={0.55 + 1.1 * look.level} fill="#ffd54a" fillOpacity={0.25 + 0.35 * look.level} pointerEvents="none" />}
               <circle cx={x} cy={y} r={0.28} fill={look.on ? "#f5b300" : "#ffffff"} stroke={look.on ? "#c98d00" : "var(--color-ink-faint)"} strokeWidth={0.08} />
               {label}
               <title>{`${d.name}: ${!look.available ? "svarer ikke" : look.on ? "på" : "av"}`}</title>
@@ -337,7 +356,7 @@ function SiteDevices({ rooms, valves, font }: { rooms: Map<string, Room>; valves
           );
         }
         return (
-          <g key={i} opacity={look.available ? 1 : 0.45}>
+          <g key={i} opacity={look.available ? 1 : 0.45} pointerEvents="none">
             {look.on && <circle cx={x} cy={y} r={1} fill="#4aa3f0" fillOpacity={0.25} />}
             <path d={`M ${x} ${y - 0.42} C ${x - 0.08} ${y - 0.2} ${x - 0.3} ${y - 0.02} ${x - 0.3} ${y + 0.12} A 0.3 0.3 0 0 0 ${x + 0.3} ${y + 0.12} C ${x + 0.3} ${y - 0.02} ${x + 0.08} ${y - 0.2} ${x} ${y - 0.42} Z`} fill={look.on ? "#2b7fd6" : "#ffffff"} stroke="#2b7fd6" strokeWidth={0.07} />
             {label}
@@ -450,7 +469,7 @@ export function SiteMap({ rooms, valves = [], selected, playing, onOpen, svgClas
           <StairMark key={i} stair={st} heated={!!st.heat && switchesOn.has(st.heat)} />
         ))}
         {/* Lys og ventiler fra Home Assistant: lys med gul glorie når de er på, ventiler blå når de vanner. */}
-        <SiteDevices rooms={rooms} valves={valves} font={font} />
+        <SiteDevices rooms={rooms} valves={valves} font={font} onOpen={onOpen} />
         {/* Kummer, lys i støttemuren og pullert. Lysene i støttemuren kobles til Home Assistant senere. */}
         <g pointerEvents="none">
           {SITE.points.map((pt, i) =>
@@ -611,7 +630,8 @@ export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initial
   const playing = new Set(groups.filter((g) => g.leader.status === "playing").flatMap((g) => g.speakers.map((s) => s.id)));
   const onMap = new Set(FLOORS.flatMap((f) => f.shapes.map((s) => s.room)));
   const outside = home.rooms.filter((r) => r.outdoor && !onMap.has(r.id));
-  const room = selected ? rooms.get(selected) : undefined;
+  // «sted:<navn>» er et sted ute (trykk på et lys i ute-kartet): bare lysene der.
+  const room = selected?.startsWith("sted:") ? placeRoom(selected.slice(5), rooms.get("ute")) : selected ? rooms.get(selected) : undefined;
   const views: { id: View; label: string }[] = [
     { id: "1", label: "1. etasje" },
     { id: "2", label: "2. etasje" },

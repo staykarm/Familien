@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { area, FLOORS } from "./floorplan";
 import { ROOMS } from "./rooms";
-import { inside, SITE, SITE_VIEWBOX, siteDeviceLook } from "./site";
+import { groupByPlace, inside, placeOf, placeRoom, SITE, SITE_PLACES, SITE_VIEWBOX, siteDeviceLook } from "./site";
 
 describe("uteområdet", () => {
   it("har Hus C, nabohusene og flatene innenfor tomta", () => {
@@ -46,5 +46,26 @@ describe("uteområdet", () => {
     expect(siteDeviceLook(nord, lights, valves)).toEqual({ on: true, level: 0.5, available: true });
     expect(siteDeviceLook(vest, lights, valves)).toEqual({ on: true, level: 1, available: true });
     expect(siteDeviceLook(vest, lights, new Map())).toEqual({ on: false, level: 0, available: false });
+  });
+
+  it("sorterer utelysene etter stedene på kartet, med resten sist", () => {
+    expect(SITE_PLACES).toEqual(["Bedd vest", "Skog sør", "Baksiden", "Inngang nord", "Inngang sør"]);
+    expect(placeOf("light.utelys_bakside_v_lekerom")).toBe("Baksiden");
+    expect(placeOf("light.snuplassen_snuplassen")).toBeNull();
+    const lights = [{ id: "light.snuplassen_snuplassen" }, { id: "light.utelys_inngang_sor" }, { id: "light.bedd_vest_bedd_vest" }];
+    expect(groupByPlace(lights).map((g) => [g.place, g.lights.map((l) => l.id)])).toEqual([
+      ["Bedd vest", ["light.bedd_vest_bedd_vest"]],
+      ["Inngang sør", ["light.utelys_inngang_sor"]],
+      [null, ["light.snuplassen_snuplassen"]],
+    ]);
+    expect(groupByPlace([{ id: "light.stue" }])).toEqual([{ place: null, lights: [{ id: "light.stue" }] }]);
+  });
+
+  it("åpner ett sted ute med bare lysene der", () => {
+    const light = (id: string) => ({ id, name: id, on: false, available: true, brightness: 0, dimmable: true, kelvin: null });
+    const ute = { id: "ute", name: "Hage og inngang", outdoor: true, floor: null, lights: [light("light.utelys_bakside_v_lekerom"), light("light.snuplassen_snuplassen")], scenes: [], climate: null, covers: [], speakers: [] };
+    expect(placeRoom("Baksiden", ute)?.lights.map((l) => l.id)).toEqual(["light.utelys_bakside_v_lekerom"]);
+    expect(placeRoom("Baksiden", ute)?.name).toBe("Baksiden");
+    expect(placeRoom("Skog sør", ute)).toBeUndefined();
   });
 });

@@ -23,8 +23,8 @@ const rooms: RoomConfig[] = [
 const states = [
   s("light.stue_kap", "on", { supported_color_modes: ["brightness"], brightness: 38 }),
   s("light.stue_lampe", "off", { supported_color_modes: ["color_temp"], min_color_temp_kelvin: 2202, max_color_temp_kelvin: 4504 }),
-  s("light.taket_taket", "on", { supported_color_modes: ["color_temp", "xy"], is_hue_group: true, lights: ["Lyslist 1", "Lyslist 2"], brightness: 255 }),
-  s("light.taket_lyslist_1", "on", { friendly_name: "Lyslist 1", supported_color_modes: ["xy"] }),
+  s("light.taket_taket", "on", { supported_color_modes: ["color_temp", "xy"], is_hue_group: true, lights: ["Hue Lyslist 1", "Lyslist 2"], entity_id: ["light.taket_lyslist_1"], brightness: 255 }),
+  s("light.taket_lyslist_1", "on", { friendly_name: "Hue Lyslist 1", supported_color_modes: ["xy"] }),
   s("light.stue_stue", "on", { friendly_name: "Stue", is_hue_group: true }),
   s("light.garasje", "off", { friendly_name: "Garasje", supported_color_modes: ["onoff"] }),
   s("light.borte", "unavailable", { friendly_name: "Borte" }),
@@ -63,6 +63,12 @@ describe("toHome", () => {
     const andre = home.rooms.find((r) => r.id === "andre");
     expect(andre?.lights.map((x) => x.name)).toEqual(["Garasje"]);
     expect(andre?.lights[0]).toMatchObject({ dimmable: false, brightness: null });
+  });
+
+  it("tar med lysene i en Hue-gruppe under gruppa, uten «Hue» foran navnet", () => {
+    const taket = home.rooms[1].lights[0];
+    expect(taket.members?.map((m) => [m.id, m.name, m.on])).toEqual([["light.taket_lyslist_1", "Lyslist 1", true]]);
+    expect(home.rooms[0].lights[0].members).toBeUndefined();
   });
 
   it("finner lysene som er på", () => {

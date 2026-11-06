@@ -10,7 +10,7 @@ import { DeviceArt } from "./DeviceArt";
 
 interface Props {
   robots: Robot[];
-  run: (cmd: HomeCommand) => Promise<void>;
+  run: (cmd: HomeCommand) => Promise<unknown>;
 }
 
 const STATUS_AFTER: Record<string, Partial<Robot>> = {

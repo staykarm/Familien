@@ -10,7 +10,7 @@ import { usePending } from "./usePending";
 interface Props {
   home: HomeState;
   /** Kjører handlingen og venter til siden har hentet ny tilstand. */
-  run: (cmd: HomeCommand) => Promise<void>;
+  run: (cmd: HomeCommand) => Promise<unknown>;
 }
 
 type Pending = ReturnType<typeof usePending<Light>> & { run: Props["run"] };

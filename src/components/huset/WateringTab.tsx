@@ -11,7 +11,7 @@ import { DeviceArt } from "./DeviceArt";
 interface Props {
   watering: Watering;
   outdoorTemp: number | null;
-  run: (cmd: HomeCommand) => Promise<void>;
+  run: (cmd: HomeCommand) => Promise<unknown>;
 }
 
 const SECTIONS: { kind: ZoneKind; title: string }[] = [

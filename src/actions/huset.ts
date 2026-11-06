@@ -8,6 +8,7 @@ import { voiceTarget } from "@/lib/huset/intentAi";
 import { toHome, type HomeState } from "@/lib/huset/home";
 import { robotService } from "@/lib/huset/robotControl";
 import { CONTROLLABLE_SWITCHES } from "@/lib/huset/rooms";
+import { pinMatches } from "@/lib/huset/switchPin";
 import { toRobots, type Robot } from "@/lib/huset/robots";
 import { toWatering, type Watering } from "@/lib/huset/watering";
 import { NO_ENERGY, toEnergy, type Energy, type PricePoint } from "@/lib/huset/energy";
@@ -58,6 +59,9 @@ export interface HouseData {
 
 const EMPTY_HOME: HomeState = { rooms: [], sharedCovers: [], outdoorTemp: null };
 const NO_WATERING: Watering = { valves: [], sensors: [] };
+
+/** Ventetid før svaret når koden for å slå på en bryter er feil. */
+const WRONG_PIN_DELAY_MS = 1500;
 
 export interface HouseResult {
   ok: boolean;
@@ -196,6 +200,16 @@ export async function controlHome(input: HomeCommand): Promise<HouseResult> {
       case "switch":
         // Bare brytere fra romkartet: appen skal aldri slå av f.eks. strømmen til Miele-maskinene.
         if (!CONTROLLABLE_SWITCHES.has(entity_id)) return { ok: false, message: "Den bryteren kan ikke styres fra appen" };
+        // Å slå på (varmekablene trekker mye strøm) krever koden; å slå av gjør det ikke.
+        if (cmd.on) {
+          const expected = process.env.HOUSE_SWITCH_PIN;
+          if (!expected) return { ok: false, message: "Koden for å slå på er ikke satt opp ennå (HOUSE_SWITCH_PIN i Vercel)" };
+          if (!pinMatches(cmd.pin, expected)) {
+            // Litt ventetid ved feil kode, så den ikke kan prøves fram raskt.
+            await new Promise((r) => setTimeout(r, WRONG_PIN_DELAY_MS));
+            return { ok: false, message: cmd.pin ? "Feil kode" : "Skriv koden for å slå på" };
+          }
+        }
         await callService("switch", cmd.on ? "turn_on" : "turn_off", { entity_id });
         break;
       case "robot": {

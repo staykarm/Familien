@@ -21,7 +21,7 @@ import { nowPlaying, PlayButton, VolumeSlider } from "./parts";
 interface Props {
   home: HomeState;
   groups: SpeakerGroup[];
-  run: (cmd: HomeCommand) => Promise<void>;
+  run: (cmd: HomeCommand) => Promise<unknown>;
   onToggle: (leader: Speaker) => void;
   onVolume: (id: string, volume: number, send: boolean) => void;
   onMusic: (leader: Speaker) => void;

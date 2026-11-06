@@ -1,14 +1,27 @@
 // Uteområdet rundt husene (A10-05 Utomhusplan, FAX Arkitekter, 1:200), regnet om til kartets meter (samme nullpunkt
 // som floorplan.ts: akse 22/P på Hus C). Tegningen er rettet inn etter fløyen med kontor og vaskerom på Hus C.
-// Hus C selv tegnes fra plantegningene (1. etasje). Lys, vanning og gressklippere kan plasseres her senere.
+// Hus C selv tegnes fra plantegningene (1. etasje). Lys og ventiler (`devices`) er plassert av Marius; gressklipperne kan komme senere.
 // Rene data uten nettverk.
 
 import type { Pt } from "./floorplan";
+import type { Light } from "./home";
+import type { Valve } from "./watering";
 
 /** Noe som står på et punkt ute: kum, lys i støttemuren eller pullert. */
 export interface SitePoint {
   kind: "kum" | "lys" | "pullert";
   name: string;
+  at: Pt;
+}
+
+/**
+ * Lys og ventiler ute, koblet til Home Assistant (`entity`). Plassert av Marius på tegnesiden for ute-kartet.
+ * Et lys kan være en Hue-gruppe (Bedd Vest, Skog Sør); flere punkter kan dele samme lys.
+ */
+export interface SiteDevice {
+  kind: "lys" | "ventil";
+  name: string;
+  entity: string;
   at: Pt;
 }
 
@@ -23,11 +36,11 @@ export interface Site {
   paving: Pt[][];
   /** Belegningsstein: snuplassen. */
   pavers: Pt[][];
-  /** Bruddskifer: terrassen sør for Hus C og stien nord for gårdsplassen. */
+  /** Bruddskifer: terrassen sør for Hus C. */
   stone: Pt[][];
   /** Fjell i dagen. */
   rock: Pt[][];
-  /** Regnbedet. */
+  /** Regnbedet (fjernet; tomt når det ikke finnes). */
   rainbed: Pt[];
   /** Støttemurer (streker langs murene). */
   walls: Pt[][];
@@ -37,6 +50,8 @@ export interface Site {
   houses: { name: string; pts: Pt[]; at: Pt }[];
   /** Kummer, lys og pullerter. */
   points: SitePoint[];
+  /** Lys og ventiler som styres fra Home Assistant. */
+  devices: SiteDevice[];
   /** Navn på flatene. */
   labels: { text: string; at: Pt }[];
   /** Veiene rundt, med plassering og vinkel (grader). */
@@ -51,8 +66,10 @@ export const SITE: Site = {
     [-1.64, 17.4], [-2.88, 11.92], [-4.88, 10.42], [-11.35, 7.93], [-14.34, 4.94], [-17.83, -1.04],
   ],
   green: [
+    // Feltet vest for gårdsplassen er gress (var bruddskifer på tegningen; rettet av Marius).
+    [[-13.57, 3.2], [-12.58, 2.61], [-5.73, 2.61], [-5.73, 8.42], [-7.96, 8.27], [-9.24, 7.86], [-10.42, 7.22], [-12.39, 5.36]],
     [[-39.3, 10.33], [-38.55, 8.4], [-37.32, 7.51], [-31.17, 6.67], [-27.57, 5.77], [-25.11, 4.97], [-21.71, 3.38], [-21.07, 4.85], [-21.3, 5.74], [-29.04, 9.44], [-27.8, 12.1], [-29.44, 12.1], [-29.44, 12.86], [-33.09, 14.57], [-33.09, 18.68], [-22.57, 18.68], [-22.57, 23.17], [-22.72, 23.17], [-22.72, 18.83], [-32.21, 18.83], [-32.21, 22.63], [-24.21, 22.63], [-24.39, 24.15], [-26.1, 29.21], [-26.11, 31.31], [-39.25, 31.31]],
-    [[-1.53, 21.23], [-0.38, 20.33], [0.12, 20.36], [0.12, 16.97], [-0.38, 16.97], [-0.38, 16.72], [0.42, 16.72], [0.42, 18.76], [1.96, 19.73], [4.26, 19.3], [5.4, 19.96], [6.81, 20.17], [6.81, 1.51], [6.27, 1.51], [6.27, 0.08], [10.18, 0.08], [10.18, -6.37], [7.08, -6.37], [6.48, -7.37], [5.99, -9], [10.96, -10], [10.79, 23.8], [9.91, 24.53], [8.66, 24.64], [7.44, 25.04], [6.19, 25.07], [2.89, 23.5], [2.51, 23.16], [1.41, 21.18], [0.12, 20.97]],
+    [[-1.53, 21.23], [-0.38, 20.33], [0.12, 20.36], [0.12, 16.97], [-0.38, 16.97], [-0.38, 16.72], [0.42, 16.72], [0.42, 18.76], [6.81, 18.76], [6.81, 1.51], [6.27, 1.51], [6.27, 0.08], [10.18, 0.08], [10.18, -6.37], [7.08, -6.37], [6.48, -7.37], [5.99, -9], [10.96, -10], [10.79, 23.8], [9.91, 24.53], [8.66, 24.64], [7.44, 25.04], [6.19, 25.07], [2.89, 23.5], [2.51, 23.16], [1.41, 21.18], [0.12, 20.97]],
     [[-14.59, 0.8], [-14.49, 0.18], [-13.89, -0.91], [-13.01, -1.53], [-2.73, -6.12], [2.14, -7.91], [2.48, -6.77], [2.48, -0.17], [-1.34, -0.17], [-1.34, 0.08], [-5.72, 0.08], [-5.72, 2.61], [-12.58, 2.61], [-13.57, 3.2], [-14.44, 1.72]],
     [[-26.1, 29.21], [-24.21, 23.21], [-24.21, 23.77], [-22.8, 23.77], [-22.57, 23.07], [-14.57, 23.07], [-14.57, 23.85], [-3.26, 23.85], [-2.95, 22.52], [-1.59, 22.84], [-1.16, 22.15], [-1.54, 21.24], [0.12, 20.97], [1.41, 21.18], [2.51, 23.16], [2.89, 23.5], [6.19, 25.07], [7.44, 25.04], [8.66, 24.64], [9.91, 24.53], [10.79, 23.8], [10.79, 31.31], [-26.11, 31.31]],
     [[-40.76, 8.2], [-40.28, 6.95], [-39.89, 6.53], [-39.32, 6.31], [-35.43, 6.19], [-32.29, 5.79], [-27.38, 4.45], [-25.12, 3.37], [-25.08, 3.81], [-24.68, 4.32], [-24.39, 4.19], [-27.68, 5.39], [-31.24, 6.28], [-37.48, 7.13], [-38.88, 8.15], [-39.7, 10.26], [-39.53, 31.34], [-41.03, 31.34], [-40.97, 14.38]],
@@ -67,13 +84,13 @@ export const SITE: Site = {
     [[2.14, -7.91], [5.98, -8.97], [6.84, -6.17], [9.98, -6.17], [9.98, -0.17], [6.07, -0.17], [6.07, 0.08], [2.53, 0.08], [2.53, -6.59]],
   ],
   stone: [
-    [[-13.57, 3.2], [-12.58, 2.61], [-5.73, 2.61], [-5.73, 8.42], [-7.96, 8.27], [-9.24, 7.86], [-10.42, 7.22], [-12.39, 5.36]],
-    [[-0.38, 15.22], [6.81, 15.22], [6.81, 20.17], [5.4, 19.96], [4.26, 19.3], [1.96, 19.73], [0.42, 18.76], [0.42, 16.72], [-0.38, 16.72]],
+    // Rektangulær terrasse sør for Hus C, ned til der bruddskiferen var nærmest veggen (rettet av Marius).
+    [[-0.38, 15.22], [6.81, 15.22], [6.81, 18.76], [0.42, 18.76], [0.42, 16.72], [-0.38, 16.72]],
   ],
   rock: [
     [[-32.96, 5.85], [-28.95, 4.96], [-27.38, 4.45], [-25.12, 3.37], [-25.08, 3.81], [-24.68, 4.32], [-23.54, 4.25], [-23.31, 4.72], [-23.66, 5.19], [-23.9, 6.24], [-25.12, 7.24], [-26.02, 7.15], [-26.19, 7.52], [-28.06, 8.19], [-28.73, 8.25], [-29.59, 7.31], [-29.74, 7.51], [-30.47, 7.71], [-30.68, 8.12], [-31.85, 6.77], [-32.26, 6.82]],
   ],
-  rainbed: [[-0.39, -6.47], [-0.93, -6.25], [-1.54, -5.74], [-2.48, -5.66], [-3.13, -5.13], [-3.72, -5.09], [-3.28, -4.33], [-3.35, -3.63], [-1.83, -3.92], [-1.16, -4.11], [-0.66, -4.13], [-0.22, -4.58], [0.28, -4.85], [0.11, -5.59], [-0.39, -6.47]],
+  rainbed: [],
   walls: [
     [[6.81, 1.51], [6.81, 1.25]],
     [[6.81, 1.03], [6.81, 0.73]],
@@ -199,11 +216,8 @@ export const SITE: Site = {
     [[-0.38, 15.22], [-0.38, 16.72]],
     [[-0.38, 16.72], [0.42, 16.72]],
     [[0.42, 16.72], [0.42, 18.76]],
-    [[0.42, 18.76], [1.96, 19.73]],
-    [[1.96, 19.73], [4.26, 19.3]],
-    [[4.26, 19.3], [5.4, 19.96]],
-    [[5.4, 19.96], [6.81, 20.17]],
-    [[6.81, 20.17], [6.81, 15.89]],
+    [[0.42, 18.76], [6.81, 18.76]],
+    [[6.81, 18.76], [6.81, 15.89]],
     [[6.81, 15.89], [6.81, 15.22]],
     [[6.81, 15.22], [4.72, 15.22]],
     [[4.72, 15.22], [-0.38, 15.22]],
@@ -385,9 +399,22 @@ export const SITE: Site = {
     { kind: "kum", name: "Husdrenskum", at: [-8.43, 4.51] },
     { kind: "kum", name: "Kum", at: [-7.08, 5.51] },
   ],
+  devices: [
+    { kind: "lys", name: "Bedd Vest", entity: "light.bedd_vest_bedd_vest", at: [-5.8, 5.6] },
+    { kind: "lys", name: "Skog Sør", entity: "light.skog_sor_skog_sor", at: [5.1, 27] },
+    { kind: "lys", name: "Utelys bakside", entity: "light.utelys_bakside_v_lekerom", at: [0.5, 14.9] },
+    { kind: "lys", name: "Utelys bakside", entity: "light.utelys_bakside_v_lekerom", at: [5.9, 15] },
+    { kind: "lys", name: "Utelys inngang nord", entity: "light.utelys_inngang_nord", at: [-1.3, 3.6] },
+    { kind: "lys", name: "Utelys inngang sør", entity: "light.utelys_inngang_sor", at: [-1.5, 7.8] },
+    { kind: "ventil", name: "Plen nord", entity: "valve.plen_nordvest_plen_nord", at: [-4.6, -2.7] },
+    { kind: "ventil", name: "Plen vest", entity: "valve.plen_nordvest_plen_vest", at: [-6.6, 7.4] },
+    { kind: "ventil", name: "Plen sør", entity: "valve.plen_sorost_plen_sor", at: [4.9, 21.9] },
+    { kind: "ventil", name: "Plen øst", entity: "valve.plen_sorost_plen_ost", at: [8.7, 8.2] },
+    { kind: "ventil", name: "Vest", entity: "valve.vest", at: [-5.8, 6.8] },
+    { kind: "ventil", name: "Øst", entity: "valve.ost", at: [6.8, 12] },
+  ],
   labels: [
     { text: "Snuplass", at: [6.06, -4.45] },
-    { text: "Regnbed", at: [-1.72, -3.65] },
     { text: "Blomsterbed", at: [1.2, -0.95] },
     { text: "Bruddskifer", at: [3.21, 17.7] },
   ],
@@ -410,4 +437,23 @@ export function inside([x, y]: Pt, pts: Pt[]): boolean {
     if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) hit = !hit;
   }
   return hit;
+}
+
+/** Hvordan et lys eller en ventil ute vises: på/av (lysstyrke 0–1 for glorien) og om den svarer. */
+export interface SiteDeviceLook {
+  on: boolean;
+  level: number;
+  available: boolean;
+}
+
+/** Lys: på med lysstyrke (glorie). Ventil: åpen = vanner. Ukjent enhet = svarer ikke. */
+export function siteDeviceLook(d: SiteDevice, lights: Map<string, Light>, valves: Map<string, Valve>): SiteDeviceLook {
+  if (d.kind === "lys") {
+    const l = lights.get(d.entity);
+    if (!l || !l.available) return { on: false, level: 0, available: false };
+    return { on: l.on, level: l.on ? (l.brightness === null ? 1 : Math.max(0.1, l.brightness / 100)) : 0, available: true };
+  }
+  const v = valves.get(d.entity);
+  if (!v || !v.available) return { on: false, level: 0, available: false };
+  return { on: v.open, level: v.open ? 1 : 0, available: true };
 }

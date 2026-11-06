@@ -397,6 +397,7 @@ export function HousePage({
           svgClassName={mapClassName}
           floors={mapFloors}
           legend={mapLegend}
+          valves={data.watering.valves}
         />
       )}
       {data.ok && tab === "lys" && <LightsTab home={data.home} run={runHome} />}

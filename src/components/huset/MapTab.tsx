@@ -6,7 +6,8 @@ import { Sheet } from "@/components/ui/Sheet";
 import { buttonPrimary, buttonSecondary } from "@/components/ui/styles";
 import { bounds, doorGap, doorSwing, FLOORS, FONT, labelLines, roomLook, VIEWBOX, type Door, type Floor, type Shape, type Stair } from "@/lib/huset/floorplan";
 import { FURNITURE, type Furniture } from "@/lib/huset/furniture";
-import { inside, SITE, SITE_VIEWBOX } from "@/lib/huset/site";
+import { inside, SITE, SITE_VIEWBOX, siteDeviceLook } from "@/lib/huset/site";
+import type { Valve } from "@/lib/huset/watering";
 import { FIXTURES, fixtureIndex, fixtureLook, labelDirection, type Fixture, type FixtureLook } from "@/lib/huset/fixtures";
 import type { HomeState, Light, Room } from "@/lib/huset/home";
 import type { Speaker, SpeakerGroup } from "@/lib/huset/sonos";
@@ -31,6 +32,8 @@ interface Props {
   svgClassName?: string;
   /** Etasjene som vises (dashboardet viser 1. og 2. etasje). Uten: alle. */
   floors?: Floor["id"][];
+  /** Ventilene fra Vanning, til ute-kartet. */
+  valves?: Valve[];
   /** Forklaringen og «Vis lyspunktene med nummer» under kartet (skjules på dashboardet). */
   legend?: boolean;
 }
@@ -309,8 +312,47 @@ export function FloorMap({ floor, rooms, selected, playing, onOpen, svgClassName
  * Uteområdet (A10-05): plen, belegg og nabohusene, med Hus C fra plantegningen. Trykk på hagen åpner
  * «Hage og inngang». Inngangene, terrassen og utetrappa (med varmekabler) er de samme feltene som i 1. etasje.
  */
-export function SiteMap({ rooms, selected, playing, onOpen, svgClassName = "max-h-[72dvh]" }: {
+/** Lysene og ventilene ute, plassert av Marius (SITE.devices). Bare visning; trykk åpner «Hage og inngang». */
+function SiteDevices({ rooms, valves, font }: { rooms: Map<string, Room>; valves: Valve[]; font: number }) {
+  const lights = new Map([...rooms.values()].flatMap((r) => r.lights.map((l) => [l.id, l] as const)));
+  const byId = new Map(valves.map((v) => [v.id, v] as const));
+  return (
+    <g pointerEvents="none">
+      {SITE.devices.map((d, i) => {
+        const look = siteDeviceLook(d, lights, byId);
+        const [x, y] = d.at;
+        const label = (
+          <text x={x + 0.55} y={y + font * 0.25} fontSize={font * 0.62} fill="var(--color-ink-light)" fontWeight={700} stroke="#ffffff" strokeWidth={0.18} paintOrder="stroke">
+            {d.name}
+          </text>
+        );
+        if (d.kind === "lys") {
+          return (
+            <g key={i} opacity={look.available ? 1 : 0.45}>
+              {look.on && <circle cx={x} cy={y} r={0.55 + 1.1 * look.level} fill="#ffd54a" fillOpacity={0.25 + 0.35 * look.level} />}
+              <circle cx={x} cy={y} r={0.28} fill={look.on ? "#f5b300" : "#ffffff"} stroke={look.on ? "#c98d00" : "var(--color-ink-faint)"} strokeWidth={0.08} />
+              {label}
+              <title>{`${d.name}: ${!look.available ? "svarer ikke" : look.on ? "på" : "av"}`}</title>
+            </g>
+          );
+        }
+        return (
+          <g key={i} opacity={look.available ? 1 : 0.45}>
+            {look.on && <circle cx={x} cy={y} r={1} fill="#4aa3f0" fillOpacity={0.25} />}
+            <path d={`M ${x} ${y - 0.42} C ${x - 0.08} ${y - 0.2} ${x - 0.3} ${y - 0.02} ${x - 0.3} ${y + 0.12} A 0.3 0.3 0 0 0 ${x + 0.3} ${y + 0.12} C ${x + 0.3} ${y - 0.02} ${x + 0.08} ${y - 0.2} ${x} ${y - 0.42} Z`} fill={look.on ? "#2b7fd6" : "#ffffff"} stroke="#2b7fd6" strokeWidth={0.07} />
+            {label}
+            <title>{`Ventil ${d.name}: ${!look.available ? "svarer ikke" : look.on ? "vanner" : "stengt"}`}</title>
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+export function SiteMap({ rooms, valves = [], selected, playing, onOpen, svgClassName = "max-h-[72dvh]" }: {
   rooms: Map<string, Room>;
+  /** Ventilene fra Vanning, så de kan vises blå når de vanner. */
+  valves?: Valve[];
   selected: string | null;
   playing: Set<string>;
   onOpen: (id: string) => void;
@@ -377,7 +419,7 @@ export function SiteMap({ rooms, selected, playing, onOpen, svgClassName = "max-
           {SITE.rock.map((g, i) => (
             <polygon key={`r${i}`} points={pts(g)} fill="#dcd9d4" stroke="#c4c0ba" strokeWidth={0.08} />
           ))}
-          <polygon points={pts(SITE.rainbed)} fill="#cfe3f1" stroke="#7fb0d6" strokeWidth={0.08} strokeLinejoin="round" />
+          {SITE.rainbed.length > 0 && <polygon points={pts(SITE.rainbed)} fill="#cfe3f1" stroke="#7fb0d6" strokeWidth={0.08} strokeLinejoin="round" />}
           {SITE.details.map((d, i) => (
             <polyline key={`d${i}`} points={pts(d)} fill="none" stroke="#b9b1a6" strokeWidth={0.04} />
           ))}
@@ -407,7 +449,9 @@ export function SiteMap({ rooms, selected, playing, onOpen, svgClassName = "max-
         {stairs.map((st, i) => (
           <StairMark key={i} stair={st} heated={!!st.heat && switchesOn.has(st.heat)} />
         ))}
-        {/* Kummer, lys i støttemuren og pullert. Lysene kobles til Home Assistant senere. */}
+        {/* Lys og ventiler fra Home Assistant: lys med gul glorie når de er på, ventiler blå når de vanner. */}
+        <SiteDevices rooms={rooms} valves={valves} font={font} />
+        {/* Kummer, lys i støttemuren og pullert. Lysene i støttemuren kobles til Home Assistant senere. */}
         <g pointerEvents="none">
           {SITE.points.map((pt, i) =>
             pt.kind === "kum" ? (
@@ -556,7 +600,7 @@ function RoomSheet({ room, groups, onClose, ...p }: Omit<Props, "home" | "initia
  * Kart over etasjene: trykk på et rom for å styre alt der. Rommet blir gult når lyset er på (sterkere jo høyere
  * lysstyrke), med merker for temperatur, varme, musikk og persienne nede. På PC står begge etasjene side om side.
  */
-export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initialRoom = null, svgClassName, floors: only, legend = true }: Props) {
+export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initialRoom = null, svgClassName, floors: only, legend = true, valves = [] }: Props) {
   const floors = only ? FLOORS.filter((f) => only.includes(f.id)) : FLOORS;
   const startFloor = home.rooms.find((r) => r.id === initialRoom)?.floor;
   const [view, setView] = useState<View>(initialRoom === "ute" ? "ute" : initialRoom && FLOORS[2].shapes.some((x) => x.room === initialRoom) ? "tak" : startFloor === 1 ? "1" : "2");
@@ -616,7 +660,7 @@ export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initial
         <div className="lg:hidden">
           {view === "ute" ? (
             <div className="flex flex-col gap-3 p-1">
-              <SiteMap rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} />
+              <SiteMap rooms={rooms} valves={valves} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} />
               {outdoorList(home.rooms.filter((r) => r.outdoor))}
             </div>
           ) : (
@@ -644,7 +688,7 @@ export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initial
         </div>
         {wide === "ute" && (
           <div className="hidden lg:block">
-            <SiteMap rooms={rooms} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} />
+            <SiteMap rooms={rooms} valves={valves} selected={selected} playing={playing} onOpen={setSelected} svgClassName={svgClassName} />
           </div>
         )}
         <div className={wide === "ute" ? "hidden" : "hidden gap-4 lg:grid"} style={{ gridTemplateColumns: floors.map((f) => `${(f.viewBox ?? VIEWBOX).w}fr`).join(" ") }}>
@@ -654,7 +698,7 @@ export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initial
         </div>
         {legend && (
           <>
-            <p className="px-1 pt-1 text-xs text-ink-light">Gult = lys på · 🎵 musikk · 🔥 varmer · 💧 vanner · 🧺 🍽️ ♨️ maskin går · ▾ persienne nede · CO₂ dårlig luft · 🚨 røykvarsler har gått · oransje trapp = varmekabler på. Trykk på et rom for å styre det.</p>
+            <p className="px-1 pt-1 text-xs text-ink-light">Gult = lys på · 🎵 musikk · 🔥 varmer · 💧 vanner · 🧺 🍽️ ♨️ maskin går · ▾ persienne nede · CO₂ dårlig luft · 🚨 røykvarsler har gått · oransje trapp = varmekabler på · ute: gul glorie = lys på, blå dråpe = vanner. Trykk på et rom for å styre det.</p>
             <button type="button" onClick={() => setNumbers((v) => !v)} aria-pressed={numbers} className="px-1 pt-1 text-xs font-semibold text-primary-dark underline">
               {numbers ? "Skjul nummer på lyspunktene" : "Vis lyspunktene med nummer"}
             </button>

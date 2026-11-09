@@ -4,7 +4,7 @@
 // Rene data uten nettverk.
 
 import type { Pt } from "./floorplan";
-import type { Light } from "./home";
+import type { Light, Room } from "./home";
 import type { Valve } from "./watering";
 
 /** Noe som står på et punkt ute: kum, lys i støttemuren eller pullert. */
@@ -399,13 +399,14 @@ export const SITE: Site = {
     { kind: "kum", name: "Husdrenskum", at: [-8.43, 4.51] },
     { kind: "kum", name: "Kum", at: [-7.08, 5.51] },
   ],
+  // Lysene står i rekkefølgen stedene vises i appen (omtrent nord til sør). Navnet på et lys er stedet.
   devices: [
-    { kind: "lys", name: "Bedd Vest", entity: "light.bedd_vest_bedd_vest", at: [-5.8, 5.6] },
-    { kind: "lys", name: "Skog Sør", entity: "light.skog_sor_skog_sor", at: [5.1, 27] },
-    { kind: "lys", name: "Utelys bakside", entity: "light.utelys_bakside_v_lekerom", at: [0.5, 14.9] },
-    { kind: "lys", name: "Utelys bakside", entity: "light.utelys_bakside_v_lekerom", at: [5.9, 15] },
-    { kind: "lys", name: "Utelys inngang nord", entity: "light.utelys_inngang_nord", at: [-1.3, 3.6] },
-    { kind: "lys", name: "Utelys inngang sør", entity: "light.utelys_inngang_sor", at: [-1.5, 7.8] },
+    { kind: "lys", name: "Bedd vest", entity: "light.bedd_vest_bedd_vest", at: [-5.8, 5.6] },
+    { kind: "lys", name: "Skog sør", entity: "light.skog_sor_skog_sor", at: [5.1, 27] },
+    { kind: "lys", name: "Baksiden", entity: "light.utelys_bakside_v_lekerom", at: [0.5, 14.9] },
+    { kind: "lys", name: "Baksiden", entity: "light.utelys_bakside_v_lekerom", at: [5.9, 15] },
+    { kind: "lys", name: "Inngang nord", entity: "light.utelys_inngang_nord", at: [-1.3, 3.6] },
+    { kind: "lys", name: "Inngang sør", entity: "light.utelys_inngang_sor", at: [-1.5, 7.8] },
     { kind: "ventil", name: "Plen nord", entity: "valve.plen_nordvest_plen_nord", at: [-4.6, -2.7] },
     { kind: "ventil", name: "Plen vest", entity: "valve.plen_nordvest_plen_vest", at: [-6.6, 7.4] },
     { kind: "ventil", name: "Plen sør", entity: "valve.plen_sorost_plen_sor", at: [4.9, 21.9] },
@@ -456,4 +457,30 @@ export function siteDeviceLook(d: SiteDevice, lights: Map<string, Light>, valves
   const v = valves.get(d.entity);
   if (!v || !v.available) return { on: false, level: 0, available: false };
   return { on: v.open, level: v.open ? 1 : 0, available: true };
+}
+
+/** Stedene ute med lys, i rekkefølgen de vises (fra `devices`). */
+export const SITE_PLACES: string[] = [...new Set(SITE.devices.filter((d) => d.kind === "lys").map((d) => d.name))];
+
+/** Stedet på ute-kartet der et lys står, eller null hvis det ikke er tegnet inn. */
+export function placeOf(lightId: string): string | null {
+  return SITE.devices.find((d) => d.kind === "lys" && d.entity === lightId)?.name ?? null;
+}
+
+/**
+ * Lysene gruppert etter sted på ute-kartet, i kartets rekkefølge, med lys uten sted sist (`place: null`).
+ * Har ingen av lysene et sted, blir det én gruppe uten sted.
+ */
+export function groupByPlace<T extends { id: string }>(lights: T[]): { place: string | null; lights: T[] }[] {
+  const groups = SITE_PLACES.map((place) => ({ place: place as string | null, lights: lights.filter((l) => placeOf(l.id) === place) })).filter((g) => g.lights.length);
+  const rest = lights.filter((l) => placeOf(l.id) === null);
+  return [...groups, ...(rest.length || !groups.length ? [{ place: null, lights: rest }] : [])];
+}
+
+/** Et «rom» for ett sted ute (åpnes ved trykk på et lys i ute-kartet): bare lysene der. */
+export function placeRoom(place: string, ute: Room | undefined): Room | undefined {
+  if (!ute) return undefined;
+  const lights = ute.lights.filter((l) => placeOf(l.id) === place);
+  if (!lights.length) return undefined;
+  return { id: ute.id, name: place, outdoor: true, floor: null, lights, scenes: [], climate: null, covers: [], speakers: [] };
 }

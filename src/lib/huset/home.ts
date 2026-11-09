@@ -4,6 +4,7 @@
 import { toAir, type AirSensor } from "./air";
 import { toAppliances, type Appliance } from "./appliances";
 import { toHatch, type Hatch } from "./hatch";
+import { toHumidifier, type Humidifier } from "./humidifier";
 import { toWatering, type Valve } from "./watering";
 import { OUTDOOR_SCENE_PREFIXES, OUTDOOR_TEMP, ROOMS, SHARED_COVERS, type RoomConfig } from "./rooms";
 
@@ -24,6 +25,8 @@ export interface Light {
   dimmable: boolean;
   /** Fargetemperatur i kelvin, med grensene lyset tåler. Null hvis lyset ikke har det. */
   kelvin: { value: number | null; min: number; max: number } | null;
+  /** Lysene i en Hue-gruppe (f.eks. Lily-spottene i «Bedd vest»), når lyset er en gruppe. */
+  members?: Light[];
 }
 
 export interface Scene {
@@ -74,6 +77,8 @@ export interface Room {
   valves?: Valve[];
   /** Takluka (bare visning). */
   hatch?: Hatch;
+  /** Luftfukteren (bare visning). */
+  humidifier?: Humidifier;
   /** Brytere som kan styres (varmekabler o.l.). */
   switches?: Switch[];
 }
@@ -181,7 +186,15 @@ export function toHome(states: StateLike[], rooms: RoomConfig[] = ROOMS): HomeSt
       floor: r.floor ?? null,
       lights: (r.lights ?? []).flatMap((x) => {
         const s = byId.get(x.id);
-        return s ? [toLight(s, x.name)] : [];
+        if (!s) return [];
+        const light = toLight(s, x.name);
+        // En Hue-gruppe har lysene sine i `entity_id`; de vises under gruppa (f.eks. på stedene ute).
+        const ids = Array.isArray(s.attributes.entity_id) ? (s.attributes.entity_id as string[]) : [];
+        const members = ids.flatMap((id) => {
+          const m = byId.get(id);
+          return m && id !== x.id ? [toLight(m, String(m.attributes.friendly_name ?? id).replace(/^Hue\s+/, "").trim())] : [];
+        });
+        return [members.length ? { ...light, members } : light];
       }),
       scenes: scenesFor(r, states),
       climate: climate
@@ -207,6 +220,7 @@ export function toHome(states: StateLike[], rooms: RoomConfig[] = ROOMS): HomeSt
       ...(r.air && air.some((a) => a.id === r.air) ? { air: air.find((a) => a.id === r.air) } : {}),
       ...(appliances.some((a) => a.roomId === r.id) ? { appliances: appliances.filter((a) => a.roomId === r.id) } : {}),
       ...(r.hatch && toHatch(states, r.hatch) ? { hatch: toHatch(states, r.hatch)! } : {}),
+      ...(r.humidifier && toHumidifier(states, r.humidifier) ? { humidifier: toHumidifier(states, r.humidifier)! } : {}),
       ...(r.valves?.some((id) => valves.some((v) => v.id === id)) ? { valves: valves.filter((v) => r.valves!.includes(v.id)) } : {}),
       ...(r.switches?.some((x) => byId.has(x.id))
         ? {

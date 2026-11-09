@@ -11,6 +11,8 @@ import { CONTROLLABLE_SWITCHES } from "@/lib/huset/rooms";
 import { pinMatches } from "@/lib/huset/switchPin";
 import { toRobots, type Robot } from "@/lib/huset/robots";
 import { toWatering, type Watering } from "@/lib/huset/watering";
+import { applySeason, houseSeasonSchema, IN_SEASON, type HouseSeason } from "@/lib/huset/season";
+import { loadSeason, storeSeason } from "@/lib/huset/seasonDb";
 import { NO_ENERGY, toEnergy, type Energy, type PricePoint } from "@/lib/huset/energy";
 import { loadPriceAndUse } from "@/lib/huset/prices";
 import { NO_SAFETY, toSafety, type Safety } from "@/lib/huset/safety";
@@ -54,6 +56,8 @@ export interface HouseData {
   energy: Energy;
   /** Alarm, røykvarslere og bevegelse (Homely). Bare til visning. */
   safety: Safety;
+  /** Om klipperne og vanningen er i bruk eller av for sesongen. */
+  season: HouseSeason;
   updatedAt: string;
 }
 
@@ -117,14 +121,23 @@ export async function loadHouse(): Promise<HouseData> {
   await requireFamily();
   const updatedAt = new Date().toISOString();
   if (!haConfigured()) {
-    return { ok: false, message: "Home Assistant er ikke koblet til ennå (HA_URL og HA_TOKEN mangler).", groups: [], home: EMPTY_HOME, robots: [], watering: NO_WATERING, energy: NO_ENERGY, safety: NO_SAFETY, updatedAt };
+    return { ok: false, message: "Home Assistant er ikke koblet til ennå (HA_URL og HA_TOKEN mangler).", groups: [], home: EMPTY_HOME, robots: [], watering: NO_WATERING, energy: NO_ENERGY, safety: NO_SAFETY, season: IN_SEASON, updatedAt };
   }
   try {
-    const states = await getStates();
-    return { ok: true, groups: toGroups(toSpeakers(states)), home: toHome(states), robots: toRobots(states), watering: toWatering(states), energy: toEnergy(states), safety: toSafety(states), updatedAt };
+    const [states, season] = await Promise.all([getStates(), loadSeason()]);
+    const outside = applySeason(toRobots(states), toWatering(states), season);
+    return { ok: true, groups: toGroups(toSpeakers(states)), home: toHome(states), ...outside, energy: toEnergy(states), safety: toSafety(states), season, updatedAt };
   } catch (e) {
-    return { ok: false, message: failure(e), groups: [], home: EMPTY_HOME, robots: [], watering: NO_WATERING, energy: NO_ENERGY, safety: NO_SAFETY, updatedAt };
+    return { ok: false, message: failure(e), groups: [], home: EMPTY_HOME, robots: [], watering: NO_WATERING, energy: NO_ENERGY, safety: NO_SAFETY, season: IN_SEASON, updatedAt };
   }
+}
+
+/** Setter klipperne og/eller vanningen av for sesongen, eller i bruk igjen. Gjelder hele familien. */
+export async function saveHouseSeason(input: HouseSeason): Promise<{ ok: boolean; message?: string }> {
+  await requireFamily();
+  const parsed = houseSeasonSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Ugyldig valg" };
+  return (await storeSeason(parsed.data)) ? { ok: true } : { ok: false, message: "Kunne ikke lagre sesongvalget" };
 }
 
 /** Strømprisen og forbruket time for time, fra i går til i morgen (Tibber). Hentes sjeldnere enn resten. */

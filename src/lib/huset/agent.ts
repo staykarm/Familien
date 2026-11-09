@@ -21,6 +21,8 @@ import { toEnergy } from "./energy";
 import { loadPriceHours } from "./prices";
 import { toRobots, type Robot } from "./robots";
 import { toSafety } from "./safety";
+import { applySeason } from "./season";
+import { loadSeason } from "./seasonDb";
 import { DEFAULT_MINUTES, toWatering, type Watering } from "./watering";
 import { searchSpotify, spotifyConfigured } from "./spotify";
 import { membersToRemove, pickLeader, toGroups, toSpeakers, withJoined, withUnjoined, type Speaker } from "./sonos";
@@ -498,8 +500,8 @@ function speakerUndo(ctx: Context, id: string): UndoItem {
  * `history` er tidligere beskjeder og svar (bare tekst), så man kan følge opp («og på kjøkkenet også»).
  */
 export async function askHouse(history: AgentTurn[], text: string, presets: Context["presets"], family?: string): Promise<AgentResult> {
-  const states = await getStates();
-  const ctx: Context = { home: toHome(states), speakers: toSpeakers(states), robots: toRobots(states), watering: toWatering(states), presets, actions: [], undo: [] };
+  const [states, season] = await Promise.all([getStates(), loadSeason()]);
+  const ctx: Context = { home: toHome(states), speakers: toSpeakers(states), ...applySeason(toRobots(states), toWatering(states), season), presets, actions: [], undo: [] };
   const prices = await loadPriceHours().catch(() => []);
   const overview = describeHome(ctx.home, ctx.speakers, presets, ctx.robots, ctx.watering, { energy: toEnergy(states), safety: toSafety(states), prices });
 

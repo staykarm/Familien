@@ -7,11 +7,14 @@ import type { HomeCommand } from "@/lib/validation/huset";
 import { usePending } from "./usePending";
 import { AppLink } from "./parts";
 import { DeviceArt } from "./DeviceArt";
+import { SeasonBox } from "./SeasonToggle";
 
 interface Props {
   watering: Watering;
   outdoorTemp: number | null;
   run: (cmd: HomeCommand) => Promise<unknown>;
+  /** Setter vanningen i bruk (true) eller av for sesongen (false). */
+  onSeason: (inUse: boolean) => Promise<unknown>;
 }
 
 const SECTIONS: { kind: ZoneKind; title: string }[] = [
@@ -143,7 +146,7 @@ function Recommendations() {
 }
 
 /** Vanning: jorda øverst med råd, så sonene (plen, bed, taket), og anbefalte innstillinger nederst. */
-export function WateringTab({ watering, outdoorTemp, run }: Props) {
+export function WateringTab({ watering, outdoorTemp, run, onSeason }: Props) {
   const pending = usePending<Valve>();
   if (!watering.valves.length) return <p className="text-sm text-ink-light">Fant ikke noe vanningsanlegg i Home Assistant.</p>;
   const advice = wateringAdvice(watering.sensors, outdoorTemp);
@@ -181,28 +184,30 @@ export function WateringTab({ watering, outdoorTemp, run }: Props) {
         <AppLink app="gardena" />
       </div>
 
-      {offline > 0 && (
-        <p className="text-xs text-ink-light">
-          {offline} av {watering.valves.length} ventiler svarer ikke. Er de tatt inn for vinteren, er det som det skal være.
-        </p>
-      )}
+      <SeasonBox resting={!!watering.resting} restingText="Vanningen er av for sesongen." onChange={onSeason}>
+        {offline > 0 && !watering.resting && (
+          <p className="text-xs text-ink-light">
+            {offline} av {watering.valves.length} ventiler svarer ikke. Er de tatt inn for vinteren, er det som det skal være.
+          </p>
+        )}
 
-      <div className="grid items-start gap-2 lg:grid-cols-2">
-        {SECTIONS.map(({ kind, title }) => {
-          const valves = watering.valves.filter((v) => v.kind === kind);
-          if (!valves.length) return null;
-          return (
-            <section key={kind} className={panel} aria-label={title}>
-              <h3 className="text-xs font-bold uppercase tracking-wide text-ink-light">{title}</h3>
-              <ul className="flex flex-col">
-                {valves.map((v) => (
-                  <ValveRow key={v.id} valve={v} pending={pending} run={run} />
-                ))}
-              </ul>
-            </section>
-          );
-        })}
-      </div>
+        <div className="grid items-start gap-2 lg:grid-cols-2">
+          {SECTIONS.map(({ kind, title }) => {
+            const valves = watering.valves.filter((v) => v.kind === kind);
+            if (!valves.length) return null;
+            return (
+              <section key={kind} className={panel} aria-label={title}>
+                <h3 className="text-xs font-bold uppercase tracking-wide text-ink-light">{title}</h3>
+                <ul className="flex flex-col">
+                  {valves.map((v) => (
+                    <ValveRow key={v.id} valve={v} pending={pending} run={run} />
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+        </div>
+      </SeasonBox>
 
       <Recommendations />
     </div>

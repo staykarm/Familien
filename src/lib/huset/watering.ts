@@ -36,6 +36,8 @@ export interface SoilSensor {
 export interface Watering {
   valves: Valve[];
   sensors: SoilSensor[];
+  /** Av for sesongen (om vinteren): teller ikke i «Huset nå». */
+  resting?: boolean;
 }
 
 /** Standard vanningstid per type sone (minutter) når man trykker «Vann nå». */

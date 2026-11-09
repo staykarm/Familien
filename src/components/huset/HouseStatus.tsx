@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlarmSmoke, Blinds, Bot, Car, Droplets, Lightbulb, Music, PanelTop, ShieldCheck, Thermometer, WashingMachine, Wind, type LucideIcon } from "lucide-react";
+import { AlarmSmoke, Blinds, Bot, Car, Droplet, Droplets, Lightbulb, Music, PanelTop, ShieldCheck, Thermometer, WashingMachine, Wind, type LucideIcon } from "lucide-react";
 import type { PlayingNow, StatusArea, StatusRow } from "@/lib/huset/dashboard";
 import { kr, watt, type Energy } from "@/lib/huset/energy";
 import type { Safety } from "@/lib/huset/safety";
@@ -18,6 +18,7 @@ const ICONS: Record<string, LucideIcon> = {
   Varme: Thermometer,
   Luft: Wind,
   Takluke: PanelTop,
+  Luftfukter: Droplet,
   Maskiner: WashingMachine,
   Persienner: Blinds,
   Roboter: Bot,
@@ -33,6 +34,7 @@ const HUES: Record<string, string> = {
   Varme: "fersken",
   Luft: "mint",
   Takluke: "lavendel",
+  Luftfukter: "himmel",
   Maskiner: "himmel",
   Persienner: "lavendel",
   Roboter: "himmel",

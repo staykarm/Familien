@@ -35,6 +35,8 @@ export interface RoomConfig {
   valves?: string[];
   /** Takluka (bare visning, styres aldri fra appen). */
   hatch?: HatchConfig;
+  /** Luftfukteren (Duux) i rommet: starten på entity-id-ene (binary_sensor.<id>_problem osv.). Bare visning. */
+  humidifier?: string;
   /** Brytere (switch.*) som kan slås av og på fra appen, f.eks. varmekabler. Bare disse kan styres. */
   switches?: RoomLight[];
 }
@@ -79,6 +81,7 @@ export const ROOMS: RoomConfig[] = [
     id: "spisestue", floor: 2,
     smoke: "spisestue_intelligent_smoke_alarm",
     air: "spisestue_luftkvalitet",
+    humidifier: "duux_1_33435",
     speakers: sp("spisestue"),
     name: "Spisestue",
     lights: [

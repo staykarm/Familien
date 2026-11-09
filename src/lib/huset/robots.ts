@@ -27,6 +27,8 @@ export interface Robot {
   problems: string[];
   /** Deler som er på overtid og skal byttes eller rengjøres. */
   maintenance: string[];
+  /** Av for sesongen (klippere om vinteren): teller ikke i «Huset nå». */
+  resting?: boolean;
   /** Kartet fra Roborock (image.<navn>_map_0) og når det sist ble oppdatert, hvis det finnes. */
   map?: { id: string; version: string };
 }

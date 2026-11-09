@@ -7,10 +7,13 @@ import type { VendorAppId } from "@/lib/huset/apps";
 import { AppLink, IconButton } from "./parts";
 import { usePending } from "./usePending";
 import { DeviceArt } from "./DeviceArt";
+import { SeasonBox } from "./SeasonToggle";
 
 interface Props {
   robots: Robot[];
   run: (cmd: HomeCommand) => Promise<unknown>;
+  /** Setter gressklipperne i bruk (true) eller av for sesongen (false). */
+  onSeason: (inUse: boolean) => Promise<unknown>;
 }
 
 const STATUS_AFTER: Record<string, Partial<Robot>> = {
@@ -85,7 +88,7 @@ function RobotRow({ robot, pending, run }: { robot: Robot; pending: ReturnType<t
 }
 
 /** Støvsugere og robotgressklippere. Vanning kommer når den er satt opp i Home Assistant. */
-export function RobotsTab({ robots, run }: Props) {
+export function RobotsTab({ robots, run, onSeason }: Props) {
   const pending = usePending<Robot>();
   if (!robots.length) return <p className="text-sm text-ink-light">Fant ingen støvsugere eller gressklippere i Home Assistant.</p>;
   const vacuums = robots.filter((r) => r.kind === "vacuum");
@@ -107,7 +110,13 @@ export function RobotsTab({ robots, run }: Props) {
   return (
     <div className="grid items-start gap-2 lg:grid-cols-2">
       {list(vacuums, "Støvsugere", "roborock")}
-      {list(mowers, "Gressklippere", "navimow")}
+      {mowers.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <SeasonBox resting={mowers.every((r) => r.resting)} restingText="Gressklipperne er av for sesongen." onChange={onSeason}>
+            {list(mowers, "Gressklippere", "navimow")}
+          </SeasonBox>
+        </div>
+      )}
     </div>
   );
 }

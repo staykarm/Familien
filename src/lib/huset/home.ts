@@ -4,6 +4,7 @@
 import { toAir, type AirSensor } from "./air";
 import { toAppliances, type Appliance } from "./appliances";
 import { toHatch, type Hatch } from "./hatch";
+import { toHumidifier, type Humidifier } from "./humidifier";
 import { toWatering, type Valve } from "./watering";
 import { OUTDOOR_SCENE_PREFIXES, OUTDOOR_TEMP, ROOMS, SHARED_COVERS, type RoomConfig } from "./rooms";
 
@@ -76,6 +77,8 @@ export interface Room {
   valves?: Valve[];
   /** Takluka (bare visning). */
   hatch?: Hatch;
+  /** Luftfukteren (bare visning). */
+  humidifier?: Humidifier;
   /** Brytere som kan styres (varmekabler o.l.). */
   switches?: Switch[];
 }
@@ -217,6 +220,7 @@ export function toHome(states: StateLike[], rooms: RoomConfig[] = ROOMS): HomeSt
       ...(r.air && air.some((a) => a.id === r.air) ? { air: air.find((a) => a.id === r.air) } : {}),
       ...(appliances.some((a) => a.roomId === r.id) ? { appliances: appliances.filter((a) => a.roomId === r.id) } : {}),
       ...(r.hatch && toHatch(states, r.hatch) ? { hatch: toHatch(states, r.hatch)! } : {}),
+      ...(r.humidifier && toHumidifier(states, r.humidifier) ? { humidifier: toHumidifier(states, r.humidifier)! } : {}),
       ...(r.valves?.some((id) => valves.some((v) => v.id === id)) ? { valves: valves.filter((v) => r.valves!.includes(v.id)) } : {}),
       ...(r.switches?.some((x) => byId.has(x.id))
         ? {

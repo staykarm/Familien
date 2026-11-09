@@ -10,6 +10,7 @@ import {
   loadHouseSetup,
   restoreHouseGroup,
   saveHouseGroup,
+  saveHouseSeason,
   startHouseGroup,
   type HouseData,
   type HouseResult,
@@ -18,6 +19,7 @@ import {
 import { card } from "@/components/ui/styles";
 import { useUndo } from "@/components/ui/UndoToast";
 import { planGroup } from "@/lib/huset/musicMap";
+import type { HouseSeason } from "@/lib/huset/season";
 import { groupName, isMoved, moveSpeaker, type Speaker, type SpeakerGroup } from "@/lib/huset/sonos";
 import type { HomeCommand, SpeakerCommand } from "@/lib/validation/huset";
 import { AppliancesTab } from "./AppliancesTab";
@@ -212,6 +214,13 @@ export function HousePage({
   }
 
   /** Lys, varme og persienner: kjør handlingen, vent litt og hent ny tilstand før endringen slippes. */
+  /** Klippere og vanning av for sesongen, eller i bruk igjen. */
+  async function changeSeason(next: HouseSeason) {
+    const result = await saveHouseSeason(next);
+    setMessage(result.ok ? null : (result.message ?? "Det virket ikke"));
+    setData(await loadHouse());
+  }
+
   async function runHome(cmd: HomeCommand) {
     confirming.current++;
     try {
@@ -403,11 +412,11 @@ export function HousePage({
       {data.ok && tab === "lys" && <LightsTab home={data.home} run={runHome} />}
       {data.ok && tab === "varme" && <HeatTab home={data.home} run={runHome} />}
       {data.ok && tab === "persienner" && <CoversTab home={data.home} run={runHome} />}
-      {data.ok && tab === "roboter" && <RobotsTab robots={data.robots} run={runHome} />}
+      {data.ok && tab === "roboter" && <RobotsTab robots={data.robots} run={runHome} onSeason={(inUse) => changeSeason({ ...data.season, mowers: inUse })} />}
       {data.ok && tab === "maskiner" && <AppliancesTab appliances={data.home.appliances ?? []} />}
       {data.ok && tab === "strom" && <EnergyTab energy={data.energy} />}
       {data.ok && tab === "sikkerhet" && <SafetyTab safety={data.safety} />}
-      {data.ok && tab === "vanning" && <WateringTab watering={data.watering} outdoorTemp={data.home.outdoorTemp} run={runHome} />}
+      {data.ok && tab === "vanning" && <WateringTab watering={data.watering} outdoorTemp={data.home.outdoorTemp} run={runHome} onSeason={(inUse) => changeSeason({ ...data.season, watering: inUse })} />}
 
       {data.ok && tab === "musikk" && (
         <>

@@ -124,6 +124,12 @@ export function houseStatus(home: HomeState, robots: Robot[], watering: Watering
     rows.push({ area: "kart", label: "Takluke", value: hatch.text, alert: false, active: open });
   }
 
+  const fukter = home.rooms.find((r) => r.humidifier);
+  if (fukter?.humidifier) {
+    const h = fukter.humidifier;
+    rows.push({ area: "kart", label: "Luftfukter", value: h.problem || !h.online ? `${h.text} (${fukter.name})` : h.text, alert: h.problem || !h.online, active: h.on === true });
+  }
+
   const appliances = home.appliances ?? [];
   if (appliances.length) {
     const busy = appliances.filter((a) => a.failure || a.running || a.done || a.waiting);
@@ -137,18 +143,22 @@ export function houseStatus(home: HomeState, robots: Robot[], watering: Watering
     rows.push({ area: "persienner", label: "Persienner", value: down === 0 ? "Alle oppe" : down === covers.length ? "Alle nede" : `${down} av ${covers.length} nede`, alert: false, active: false });
   }
 
-  if (robots.length) {
-    const busy = robots.filter((r) => r.active);
-    const broken = robots.filter((r) => r.problems.length);
+  // Klippere som er av for sesongen, teller ikke (feil og status om vinteren er ikke interessant).
+  const inUse = robots.filter((r) => !r.resting);
+  if (inUse.length) {
+    const busy = inUse.filter((r) => r.active);
+    const broken = inUse.filter((r) => r.problems.length);
     const value = broken.length
       ? `${broken[0].name}: ${broken[0].problems[0]}`
       : busy.length
         ? busy.map((r) => `${r.name} ${r.status.toLowerCase()}${r.room ? ` i ${r.room}` : ""}`).join(" · ")
-        : `${robots.length} i ro`;
+        : `${inUse.length} i ro`;
     rows.push({ area: "roboter", label: "Roboter", value, alert: broken.length > 0, active: busy.length > 0 });
   }
 
-  if (watering.valves.length) {
+  if (watering.valves.length && watering.resting) {
+    rows.push({ area: "vanning", label: "Vanning", value: "Av for sesongen", alert: false, active: false });
+  } else if (watering.valves.length) {
     const open = watering.valves.filter((v) => v.open);
     const online = watering.valves.filter((v) => v.available);
     const broken = online.filter((v) => v.problem);

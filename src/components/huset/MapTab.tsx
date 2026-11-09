@@ -508,7 +508,7 @@ export function SiteMap({ rooms, valves = [], selected, playing, onOpen, svgClas
 /** Alt som kan styres i ett rom: lys og scener, varme, persienner og musikk. */
 function RoomSheet({ room, groups, onClose, ...p }: Omit<Props, "home" | "initialRoom" | "svgClassName"> & { room: Room; onClose: () => void }) {
   const speakers = groups.flatMap((g) => g.speakers.map((s) => ({ speaker: s, leader: g.leader }))).filter((x) => room.speakers.includes(x.speaker.id));
-  const empty = !room.lights.length && !room.climate && !room.air && !room.appliances?.length && !room.valves?.length && !room.hatch && !room.switches?.length && !room.covers.length && !speakers.length;
+  const empty = !room.lights.length && !room.climate && !room.air && !room.appliances?.length && !room.valves?.length && !room.hatch && !room.humidifier && !room.switches?.length && !room.covers.length && !speakers.length;
   return (
     <Sheet
       title={room.name}
@@ -541,6 +541,16 @@ function RoomSheet({ room, groups, onClose, ...p }: Omit<Props, "home" | "initia
           <h3 className="text-xs font-bold uppercase tracking-wide text-ink-light">Luft</h3>
           <AirLine air={room.air} />
           <AirHelp air={[room.air]} />
+        </section>
+      )}
+      {room.humidifier && (
+        <section>
+          <h3 className="text-xs font-bold uppercase tracking-wide text-ink-light">Luftfukter</h3>
+          <p className="flex flex-wrap items-baseline gap-x-2 py-1 text-sm">
+            <span className={`font-semibold ${room.humidifier.problem || !room.humidifier.online ? "text-danger" : ""}`}>{room.humidifier.text}</span>
+            {room.humidifier.temperature !== null && <span className="text-xs text-ink-light">{Math.round(room.humidifier.temperature)}° ved fukteren</span>}
+          </p>
+          <p className="text-xs text-ink-light">Duux Beam. Bare status: den skrus av og på i Duux-appen.</p>
         </section>
       )}
       {room.appliances && room.appliances.length > 0 && (

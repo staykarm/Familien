@@ -7,6 +7,8 @@ import { summarizeHouse, type HouseSummary } from "./summary";
 import { toEnergy } from "./energy";
 import { toSafety } from "./safety";
 import { toWatering } from "./watering";
+import { applySeason } from "./season";
+import { loadSeason } from "./seasonDb";
 
 // Det resten av Familien får bruke fra Huset (serveren). Visningen ligger i components/huset/public.tsx.
 // Holdes lite, så Huset kan flyttes til en egen app senere (da blir dette et API-kall).
@@ -20,8 +22,9 @@ const SUMMARY_TIMEOUT_MS = 2_500;
 export async function loadHouseSummary(): Promise<HouseSummary | null> {
   if (!haConfigured()) return null;
   try {
-    const states = await getStates(SUMMARY_TIMEOUT_MS);
-    return summarizeHouse(toHome(states), toGroups(toSpeakers(states)), toRobots(states), toWatering(states), toSafety(states), toEnergy(states));
+    const [states, season] = await Promise.all([getStates(SUMMARY_TIMEOUT_MS), loadSeason()]);
+    const { robots, watering } = applySeason(toRobots(states), toWatering(states), season);
+    return summarizeHouse(toHome(states), toGroups(toSpeakers(states)), robots, watering, toSafety(states), toEnergy(states));
   } catch {
     return null;
   }

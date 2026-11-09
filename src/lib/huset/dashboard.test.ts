@@ -49,6 +49,19 @@ describe("houseStatus", () => {
     expect(rows.find((r) => r.area === "roboter")).toMatchObject({ value: "Støve: Børsten sitter fast", alert: true });
     expect(rows.find((r) => r.area === "vanning")).toMatchObject({ value: "Plen: Lavt batteri", alert: true });
   });
+
+  it("teller ikke klippere og vanning som er av for sesongen", () => {
+    const mower: Robot = { ...robot, id: "lawn_mower.k", kind: "mower", name: "Klippe øst", state: "error", active: false, problems: ["Feil"], resting: true };
+    const rows = houseStatus(home, [{ ...robot, active: false }, mower], { valves: [valve({ problem: "Lavt batteri" })], sensors: [], resting: true });
+    expect(rows.find((r) => r.area === "roboter")).toMatchObject({ value: "1 i ro", alert: false });
+    expect(rows.find((r) => r.area === "vanning")).toMatchObject({ value: "Av for sesongen", alert: false });
+  });
+
+  it("viser luftfukteren med rommet når den melder feil", () => {
+    const humidifier = { online: true, problem: true, error: "sjekk vanntanken", temperature: 21, on: null, target: null, humidity: null, text: "Feil – sjekk vanntanken" };
+    const rows = houseStatus({ ...home, rooms: [...home.rooms, room("Spisestue", { humidifier })] }, [], { valves: [], sensors: [] });
+    expect(rows.find((r) => r.label === "Luftfukter")).toMatchObject({ value: "Feil – sjekk vanntanken (Spisestue)", alert: true });
+  });
 });
 
 describe("houseStatus med luft", () => {

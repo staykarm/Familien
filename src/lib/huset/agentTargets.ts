@@ -127,10 +127,12 @@ export function describeHome(
     for (const r of robots) {
       const kind = r.kind === "vacuum" ? "støvsuger" : "gressklipper";
       const extra = [r.battery !== null ? `batteri ${r.battery}%` : "", r.room ? `i ${r.room}` : "", ...r.problems].filter(Boolean).join(", ");
-      lines.push(`- ${r.name} [${r.id}] ${kind}: ${r.status}${extra ? ` (${extra})` : ""}`);
+      lines.push(r.resting ? `- ${r.name} [${r.id}] ${kind}: av for sesongen (vinter), ikke start den` : `- ${r.name} [${r.id}] ${kind}: ${r.status}${extra ? ` (${extra})` : ""}`);
     }
   }
-  if (watering.valves.length) {
+  if (watering.valves.length && watering.resting) {
+    lines.push("", "VANNING (Gardena): av for sesongen (vinter) – ventilene er tatt inn, ikke start vanning.");
+  } else if (watering.valves.length) {
     lines.push("", "VANNING (Gardena):");
     for (const v of watering.valves) {
       const state = !v.available ? "svarer ikke" : v.open ? "vanner" : "av";
@@ -145,6 +147,8 @@ export function describeHome(
   const switches = home.rooms.flatMap((r) => r.switches ?? []);
   if (switches.length) lines.push("", `BRYTERE (bare til info): ${switches.map((s) => `${s.name}: ${!s.available ? "svarer ikke" : s.on ? "på" : "av"}`).join(", ")}`);
   const hatch = home.rooms.find((r) => r.hatch)?.hatch;
+  const fukter = home.rooms.find((r) => r.humidifier);
+  if (fukter?.humidifier) lines.push("", `LUFTFUKTER i ${fukter.name} (bare til info – kan ikke styres herfra): ${fukter.humidifier.text.toLowerCase()}`);
   if (hatch) lines.push("", `TAKLUKE (bare til info – kan aldri åpnes eller lukkes herfra): ${hatch.text.toLowerCase()}${hatch.fromContact ? "" : " (anslått ut fra siste åpne/lukke)"}`);
   if (home.appliances?.length) {
     lines.push("", "MASKINER (Miele, bare til info – kan ikke startes eller stoppes herfra):");

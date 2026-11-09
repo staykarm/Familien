@@ -70,8 +70,9 @@ export function summarizeHouse(
     ...(safety?.problems ?? []),
     ...airAlerts(home.air ?? []),
     ...(home.appliances ?? []).flatMap((a) => a.alerts),
-    ...robots.flatMap((r) => r.problems.map((p) => `${r.name}: ${p}`)),
-    ...watering.valves.filter((v) => v.available && v.problem).map((v) => `Vanning ${v.name}: ${v.problem}`),
+    ...robots.filter((r) => !r.resting).flatMap((r) => r.problems.map((p) => `${r.name}: ${p}`)),
+    ...(watering.resting ? [] : watering.valves.filter((v) => v.available && v.problem).map((v) => `Vanning ${v.name}: ${v.problem}`)),
+    ...home.rooms.flatMap((r) => (r.humidifier?.problem ? [`Luftfukteren i ${r.name}: ${r.humidifier.error}`] : [])),
   ];
   return { rows: houseStatus(home, robots, watering, energy, safety), playing: playingNow(groups), lines, alerts };
 }

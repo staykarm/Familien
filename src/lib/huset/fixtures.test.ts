@@ -15,6 +15,9 @@ const inside = ([x, y]: [number, number], pts: [number, number][]) => {
   return hit;
 };
 
+/** Lys som også styrer punkter i et annet rom: entreen har ingen egne lys, spottene der går på gangens kurs. */
+const ALSO_IN: Record<string, string[]> = { "light.gang_kap": ["entre"] };
+
 describe("lyspunktene", () => {
   it("har unike numre per etasje", () => {
     for (const floor of ["1", "2", "tak"]) {
@@ -29,6 +32,7 @@ describe("lyspunktene", () => {
       const shape = floor.shapes.find((s) => inside([f.x, f.y], s.pts));
       expect(shape, `punkt ${f.n}`).toBeDefined();
       if (!f.light) continue;
+      if (ALSO_IN[f.light]?.includes(shape!.room)) continue;
       const room = ROOMS.find((r) => r.id === shape!.room)!;
       expect((room.lights ?? []).map((l) => l.id), `punkt ${f.n} i ${room.id}`).toContain(f.light);
     }
@@ -54,7 +58,9 @@ describe("lyspunktene", () => {
 
   it("lager koblingslisten", () => {
     const { byLight, unassigned } = fixtureIndex(FIXTURES);
-    expect(byLight.get("light.bod_2etg_kap")).toEqual([38, 39]);
+    expect(fixtureIndex(FIXTURES.filter((f) => f.floor === "2")).byLight.get("light.bod_2etg_kap")).toEqual([38, 39]);
+    expect(byLight.get("light.nattbordlamper_hovedsov")).toEqual([9, 10]);
+    expect(FIXTURES.filter((f) => f.floor === "1")).toHaveLength(48);
     expect(unassigned).toEqual([]);
   });
 });

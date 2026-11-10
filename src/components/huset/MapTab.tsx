@@ -8,8 +8,9 @@ import { bounds, doorGap, doorSwing, FLOORS, FONT, labelLines, roomLook, VIEWBOX
 import { FURNITURE, type Furniture } from "@/lib/huset/furniture";
 import { inside, placeRoom, SITE, SITE_VIEWBOX, siteDeviceLook } from "@/lib/huset/site";
 import type { Valve } from "@/lib/huset/watering";
+import { BLINDS, blindLook, coveredTo, slats, type Blind, type BlindLook } from "@/lib/huset/blinds";
 import { FIXTURES, fixtureIndex, fixtureLook, labelDirection, type Fixture, type FixtureLook } from "@/lib/huset/fixtures";
-import type { HomeState, Light, Room } from "@/lib/huset/home";
+import type { Cover, HomeState, Light, Room } from "@/lib/huset/home";
 import type { Speaker, SpeakerGroup } from "@/lib/huset/sonos";
 import type { HomeCommand } from "@/lib/validation/huset";
 import { CoverLine } from "./CoversTab";
@@ -211,6 +212,30 @@ function FixtureMark({ fixture: f, look, showNumber, away }: { fixture: Fixture;
   );
 }
 
+/**
+ * Solskjermingen i et vindu: blått glass når persiennen er oppe, mørke lameller på tvers av vinduet når den er
+ * nede (like stor del av vinduet som den er nede). Den blinker mens den går, og er blek når den ikke svarer.
+ */
+function BlindMark({ blind: b, look }: { blind: Blind; look: BlindLook }) {
+  const [x0, y0] = b.from;
+  const [x1, y1] = b.to;
+  const [cx, cy] = coveredTo(b, look.down);
+  return (
+    <g pointerEvents="none" opacity={look.available ? 1 : 0.4} className={look.moving ? "animate-pulse" : undefined}>
+      <line x1={x0} y1={y0} x2={x1} y2={y1} stroke="#ffffff" strokeWidth={0.2} />
+      <line x1={x0} y1={y0} x2={x1} y2={y1} stroke="#7cc4ee" strokeWidth={0.12} strokeDasharray={look.known || !look.available ? undefined : "0.08 0.06"} />
+      {look.down > 0 && (
+        <>
+          <line x1={x0} y1={y0} x2={cx} y2={cy} stroke="#5b4636" strokeWidth={0.07} />
+          {slats(b, look.down).map(([a, z], i) => (
+            <line key={i} x1={a[0]} y1={a[1]} x2={z[0]} y2={z[1]} stroke="#5b4636" strokeWidth={0.045} strokeLinecap="round" />
+          ))}
+        </>
+      )}
+    </g>
+  );
+}
+
 /** Koblingslisten under kartet: hvilke punkter hvert lys styrer, og hvilke som ikke er koblet. */
 function FixtureLegend({ rooms }: { rooms: Room[] }) {
   const { byLight, unassigned } = fixtureIndex(FIXTURES);
@@ -253,6 +278,8 @@ export function FloorMap({ floor, rooms, selected, playing, onOpen, svgClassName
 }) {
   const lights = new Map([...rooms.values()].flatMap((r) => r.lights.map((l): [string, Light] => [l.id, l])));
   const fixtures = FIXTURES.filter((f) => f.floor === floor.id);
+  const covers = new Map([...rooms.values()].flatMap((r) => r.covers.map((c): [string, Cover] => [c.id, c])));
+  const blinds = BLINDS.filter((b) => b.floor === floor.id);
   const furniture = FURNITURE.filter((f) => f.floor === floor.id);
   const switchesOn = new Set([...rooms.values()].flatMap((r) => (r.switches ?? []).filter((x) => x.on).map((x) => x.id)));
   // Rom med lyspunkter viser lyset i punktene; selve rommet får bare en svak gultone.
@@ -299,6 +326,9 @@ export function FloorMap({ floor, rooms, selected, playing, onOpen, svgClassName
         ))}
         {floor.doors.map((d, i) => (
           <DoorMark key={i} door={d} />
+        ))}
+        {blinds.map((b) => (
+          <BlindMark key={b.cover} blind={b} look={blindLook(b, covers)} />
         ))}
         {floor.shapes.map((s, i) => (
           <RoomLabel key={`${s.room}-${i}`} shape={s} room={rooms.get(s.room)} label={labelOf(s)} multi={count(s.room) > 1} playing={playing} />
@@ -728,7 +758,7 @@ export function MapTab({ home, groups, run, onToggle, onVolume, onMusic, initial
         </div>
         {legend && (
           <>
-            <p className="px-1 pt-1 text-xs text-ink-light">Gult = lys på · 🎵 musikk · 🔥 varmer · 💧 vanner · 🧺 🍽️ ♨️ maskin går · ▾ persienne nede · CO₂ dårlig luft · 🚨 røykvarsler har gått · oransje trapp = varmekabler på · ute: gul glorie = lys på, blå dråpe = vanner. Trykk på et rom for å styre det.</p>
+            <p className="px-1 pt-1 text-xs text-ink-light">Gult = lys på · 🎵 musikk · 🔥 varmer · 💧 vanner · 🧺 🍽️ ♨️ maskin går · ▾ persienne nede · vinduer: blått = solskjerming oppe, brune lameller = nede · CO₂ dårlig luft · 🚨 røykvarsler har gått · oransje trapp = varmekabler på · ute: gul glorie = lys på, blå dråpe = vanner. Trykk på et rom for å styre det.</p>
             <button type="button" onClick={() => setNumbers((v) => !v)} aria-pressed={numbers} className="px-1 pt-1 text-xs font-semibold text-primary-dark underline">
               {numbers ? "Skjul nummer på lyspunktene" : "Vis lyspunktene med nummer"}
             </button>

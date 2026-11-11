@@ -1,7 +1,7 @@
 // Lyspunktene i huset, lest av elektrotegningene (GP Elektro: 1. etasje 07.04.22, 2. etasje 21.04.22) og regnet om til kartets meter
 // (samme nullpunkt som floorplan.ts). Hvert punkt hører til ett lys i Home Assistant (`light`), eller er
 // ennå ikke koblet (`null`). Grågrønne og oransje prikker på tegningen er to spottetyper; pendler og
-// lamper er egne punkter. Der et rom har både UT og KAP, er grågrønne UT og oransje KAP. Koblingen rettes i koblingsrunden («Vis lyspunktene med nummer» på kartet).
+// lamper er egne punkter. Der et rom har både UT og KAP, er grågrønne UT og oransje KAP.
 // Rene data og funksjoner uten nettverk.
 
 import type { Light } from "./home";
@@ -9,7 +9,7 @@ import type { Light } from "./home";
 export type FixtureKind = "spot" | "pendel" | "lampe";
 
 export interface Fixture {
-  /** Nummeret som vises i koblingsvisningen (unikt per etasje). */
+  /** Nummer på punktet (unikt per etasje), brukt som nøkkel. */
   n: number;
   floor: "1" | "2" | "tak";
   x: number;
@@ -154,27 +154,4 @@ export function fixtureLook(f: Fixture, lights: Map<string, Light>): FixtureLook
   if (!light || !light.available) return { on: false, level: 0, available: !!light?.available };
   if (!light.on) return { on: false, level: 0, available: true };
   return { on: true, level: light.brightness === null ? 1 : Math.max(0.05, light.brightness / 100), available: true };
-}
-
-/** Koblingslisten: lys → punktnumre, og punkter som ikke er koblet. */
-export function fixtureIndex(fixtures: Fixture[]): { byLight: Map<string, number[]>; unassigned: number[] } {
-  const byLight = new Map<string, number[]>();
-  const unassigned: number[] = [];
-  for (const f of fixtures) {
-    if (!f.light) unassigned.push(f.n);
-    else byLight.set(f.light, [...(byLight.get(f.light) ?? []), f.n]);
-  }
-  return { byLight, unassigned };
-}
-
-/** Retning (enhetsvektor) for nummeret ved et punkt: bort fra nærmeste nabo, så tette par ikke får nummer oppå hverandre. */
-export function labelDirection(f: Fixture, fixtures: Fixture[]): [number, number] {
-  let near: Fixture | null = null;
-  let best = 0.6;
-  for (const o of fixtures) {
-    const d = Math.hypot(o.x - f.x, o.y - f.y);
-    if (o !== f && o.floor === f.floor && d < best) [near, best] = [o, d];
-  }
-  if (!near || best === 0) return [0.71, -0.71];
-  return [(f.x - near.x) / best, (f.y - near.y) / best];
 }

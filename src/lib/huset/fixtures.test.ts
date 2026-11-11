@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FIXTURES, fixtureIndex, fixtureLook, labelDirection } from "./fixtures";
+import { FIXTURES, fixtureLook } from "./fixtures";
 import { FLOORS } from "./floorplan";
 import type { Light } from "./home";
 import { ROOMS } from "./rooms";
@@ -48,19 +48,9 @@ describe("lyspunktene", () => {
     expect(fixtureLook({ ...f, light: null }, new Map()).available).toBe(false);
   });
 
-  it("setter nummeret bort fra nærmeste nabo", () => {
-    const a = { n: 1, floor: "2" as const, x: 0, y: 0, kind: "spot" as const, light: null };
-    const b = { ...a, n: 2, y: 0.2 };
-    expect(labelDirection(a, [a, b])).toEqual([0, -1]);
-    expect(labelDirection(b, [a, b])).toEqual([0, 1]);
-    expect(labelDirection(a, [a])).toEqual([0.71, -0.71]);
-  });
-
-  it("lager koblingslisten", () => {
-    const { byLight, unassigned } = fixtureIndex(FIXTURES);
-    expect(fixtureIndex(FIXTURES.filter((f) => f.floor === "2")).byLight.get("light.bod_2etg_kap")).toEqual([38, 39]);
-    expect(byLight.get("light.nattbordlamper_hovedsov")).toEqual([9, 10]);
+  it("har alle punktene koblet til et lys", () => {
+    expect(FIXTURES.filter((f) => !f.light)).toEqual([]);
     expect(FIXTURES.filter((f) => f.floor === "1")).toHaveLength(48);
-    expect(unassigned).toEqual([]);
+    expect(FIXTURES.filter((f) => f.light === "light.nattbordlamper_hovedsov").map((f) => f.kind)).toEqual(["lampe", "lampe"]);
   });
 });

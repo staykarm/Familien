@@ -4,15 +4,15 @@ import { z } from "zod";
 import { askHouse as runHouseAgent, undoHouse as runHouseUndo, type AgentResult, type AgentTurn } from "@/lib/huset/agent";
 import type { UndoItem } from "@/lib/huset/agentTargets";
 import { callService, getStates, haConfigured, HaError } from "@/lib/huset/ha";
+import { executeHomeCommand } from "@/lib/huset/execute";
 import { voiceTarget } from "@/lib/huset/intentAi";
 import { toHome, type HomeState } from "@/lib/huset/home";
-import { robotService } from "@/lib/huset/robotControl";
-import { CONTROLLABLE_SWITCHES } from "@/lib/huset/rooms";
-import { pinMatches } from "@/lib/huset/switchPin";
 import { toRobots, type Robot } from "@/lib/huset/robots";
 import { toWatering, type Watering } from "@/lib/huset/watering";
 import { applySeason, houseSeasonSchema, IN_SEASON, type HouseSeason } from "@/lib/huset/season";
 import { loadSeason, storeSeason } from "@/lib/huset/seasonDb";
+import { cancelSchedule, pendingSchedule } from "@/lib/huset/scheduleDb";
+import type { ScheduledItem } from "@/lib/huset/schedule";
 import { NO_ENERGY, toEnergy, type Energy, type PricePoint } from "@/lib/huset/energy";
 import { loadPriceAndUse } from "@/lib/huset/prices";
 import { NO_SAFETY, toSafety, type Safety } from "@/lib/huset/safety";
@@ -58,6 +58,8 @@ export interface HouseData {
   safety: Safety;
   /** Om klipperne og vanningen er i bruk eller av for sesongen. */
   season: HouseSeason;
+  /** Planlagte handlinger som ikke er utført ennå. */
+  schedule: ScheduledItem[];
   updatedAt: string;
 }
 
@@ -65,7 +67,6 @@ const EMPTY_HOME: HomeState = { rooms: [], sharedCovers: [], outdoorTemp: null }
 const NO_WATERING: Watering = { valves: [], sensors: [] };
 
 /** Ventetid før svaret når koden for å slå på en bryter er feil. */
-const WRONG_PIN_DELAY_MS = 1500;
 
 export interface HouseResult {
   ok: boolean;
@@ -121,15 +122,22 @@ export async function loadHouse(): Promise<HouseData> {
   await requireFamily();
   const updatedAt = new Date().toISOString();
   if (!haConfigured()) {
-    return { ok: false, message: "Home Assistant er ikke koblet til ennå (HA_URL og HA_TOKEN mangler).", groups: [], home: EMPTY_HOME, robots: [], watering: NO_WATERING, energy: NO_ENERGY, safety: NO_SAFETY, season: IN_SEASON, updatedAt };
+    return { ok: false, message: "Home Assistant er ikke koblet til ennå (HA_URL og HA_TOKEN mangler).", groups: [], home: EMPTY_HOME, robots: [], watering: NO_WATERING, energy: NO_ENERGY, safety: NO_SAFETY, season: IN_SEASON, schedule: [], updatedAt };
   }
   try {
-    const [states, season] = await Promise.all([getStates(), loadSeason()]);
+    const [states, season, schedule] = await Promise.all([getStates(), loadSeason(), pendingSchedule()]);
     const outside = applySeason(toRobots(states), toWatering(states), season);
-    return { ok: true, groups: toGroups(toSpeakers(states)), home: toHome(states), ...outside, energy: toEnergy(states), safety: toSafety(states), season, updatedAt };
+    return { ok: true, groups: toGroups(toSpeakers(states)), home: toHome(states), ...outside, energy: toEnergy(states), safety: toSafety(states), season, schedule, updatedAt };
   } catch (e) {
-    return { ok: false, message: failure(e), groups: [], home: EMPTY_HOME, robots: [], watering: NO_WATERING, energy: NO_ENERGY, safety: NO_SAFETY, season: IN_SEASON, updatedAt };
+    return { ok: false, message: failure(e), groups: [], home: EMPTY_HOME, robots: [], watering: NO_WATERING, energy: NO_ENERGY, safety: NO_SAFETY, season: IN_SEASON, schedule: [], updatedAt };
   }
+}
+
+/** Avlyser en planlagt handling. */
+export async function cancelHouseSchedule(id: string): Promise<{ ok: boolean; message?: string }> {
+  await requireFamily();
+  if (!z.uuid().safeParse(id).success) return { ok: false, message: "Ugyldig plan" };
+  return (await cancelSchedule(id)) ? { ok: true } : { ok: false, message: "Fant ikke planen, eller den er allerede utført" };
 }
 
 /** Setter klipperne og/eller vanningen av for sesongen, eller i bruk igjen. Gjelder hele familien. */
@@ -152,87 +160,8 @@ export async function controlHome(input: HomeCommand): Promise<HouseResult> {
   await requireFamily();
   const parsed = homeCommandSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
-  const cmd = parsed.data;
   try {
-    const states = new Map((await getStates()).map((s) => [s.entity_id, s]));
-    const ids = cmd.action === "lights_off" || cmd.action === "lights_on" ? cmd.ids : [cmd.id];
-    const known = ids.filter((id) => states.has(id) && states.get(id)!.state !== "unavailable");
-    if (!known.length) return { ok: false, message: "Fant ikke enheten, eller den svarer ikke" };
-    const entity_id = known[0];
-
-    switch (cmd.action) {
-      case "light":
-        if (cmd.on === false) await callService("light", "turn_off", { entity_id });
-        else
-          await callService("light", "turn_on", {
-            entity_id,
-            ...(cmd.brightness !== undefined ? { brightness_pct: cmd.brightness } : {}),
-            ...(cmd.kelvin !== undefined ? { color_temp_kelvin: cmd.kelvin } : {}),
-          });
-        break;
-      case "lights_off":
-        await callService("light", "turn_off", { entity_id: known });
-        break;
-      case "lights_on": {
-        // Lys som bare kan slås av og på, får ikke lysstyrke (Home Assistant avviser det).
-        const dimmable = known.filter((id) => {
-          const modes = states.get(id)!.attributes.supported_color_modes;
-          return Array.isArray(modes) && modes.some((m) => m !== "onoff");
-        });
-        const plain = known.filter((id) => !dimmable.includes(id));
-        if (cmd.brightness !== undefined && dimmable.length) await callService("light", "turn_on", { entity_id: dimmable, brightness_pct: cmd.brightness });
-        const rest = cmd.brightness !== undefined ? plain : known;
-        if (rest.length) await callService("light", "turn_on", { entity_id: rest });
-        break;
-      }
-      case "scene":
-        await callService("scene", "turn_on", { entity_id });
-        break;
-      case "climate":
-        await callService("climate", "set_temperature", { entity_id, temperature: cmd.temperature });
-        break;
-      case "cover":
-        await callService("cover", cmd.command === "open" ? "open_cover" : cmd.command === "close" ? "close_cover" : "stop_cover", { entity_id });
-        break;
-      case "cover_position":
-        await callService("cover", "set_cover_position", { entity_id, position: cmd.position });
-        break;
-      case "valve": {
-        if (cmd.command === "close") {
-          await callService("valve", "close_valve", { entity_id });
-          break;
-        }
-        // Vanningstiden ligger i Gardena; settes den, brukes den når ventilen åpnes.
-        const valve = toWatering([...states.values()]).valves.find((v) => v.id === entity_id);
-        if (cmd.minutes !== undefined && valve?.durationId) {
-          await callService("number", "set_value", { entity_id: valve.durationId, value: cmd.minutes });
-        }
-        await callService("valve", "open_valve", { entity_id });
-        break;
-      }
-      case "switch":
-        // Bare brytere fra romkartet: appen skal aldri slå av f.eks. strømmen til Miele-maskinene.
-        if (!CONTROLLABLE_SWITCHES.has(entity_id)) return { ok: false, message: "Den bryteren kan ikke styres fra appen" };
-        // Å slå på (varmekablene trekker mye strøm) krever koden; å slå av gjør det ikke.
-        if (cmd.on) {
-          const expected = process.env.HOUSE_SWITCH_PIN;
-          if (!expected) return { ok: false, message: "Koden for å slå på er ikke satt opp ennå (HOUSE_SWITCH_PIN i Vercel)" };
-          if (!pinMatches(cmd.pin, expected)) {
-            // Litt ventetid ved feil kode, så den ikke kan prøves fram raskt.
-            await new Promise((r) => setTimeout(r, WRONG_PIN_DELAY_MS));
-            return { ok: false, message: cmd.pin ? "Feil kode" : "Skriv koden for å slå på" };
-          }
-        }
-        await callService("switch", cmd.on ? "turn_on" : "turn_off", { entity_id });
-        break;
-      case "robot": {
-        const service = robotService(entity_id, cmd.command);
-        if (!service) return { ok: false, message: "Det kan ikke den roboten" };
-        await callService(service.domain, service.service, { entity_id });
-        break;
-      }
-    }
-    return { ok: true };
+    return await executeHomeCommand(parsed.data);
   } catch (e) {
     return { ok: false, message: failure(e) };
   }

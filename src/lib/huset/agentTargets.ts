@@ -2,6 +2,7 @@
 // og hvordan de skal settes tilbake med «Angre». Rene funksjoner uten nettverk, slik at de kan testes.
 
 import type { Climate, Cover, HomeState, Light, Room } from "./home";
+import { scheduleWhen, type ScheduledItem } from "./schedule";
 import type { Robot } from "./robots";
 import { airText } from "./air";
 import { applianceText } from "./appliances";
@@ -93,7 +94,7 @@ export function describeHome(
   presets: { id: string; name: string; speakerIds: string[] }[],
   robots: Robot[] = [],
   watering: Watering = { valves: [], sensors: [] },
-  more: { energy?: Energy; safety?: Safety; prices?: PricePoint[]; now?: Date } = {}
+  more: { energy?: Energy; safety?: Safety; prices?: PricePoint[]; now?: Date; schedule?: ScheduledItem[] } = {}
 ): string {
   const lines: string[] = [];
   if (home.outdoorTemp !== null) lines.push(`Ute: ${home.outdoorTemp.toFixed(1)} °C`);
@@ -145,7 +146,12 @@ export function describeHome(
     for (const a of home.air) lines.push(`- ${a.name}: ${airText(a)}`);
   }
   const switches = home.rooms.flatMap((r) => r.switches ?? []);
-  if (switches.length) lines.push("", `BRYTERE (bare til info): ${switches.map((s) => `${s.name}: ${!s.available ? "svarer ikke" : s.on ? "på" : "av"}`).join(", ")}`);
+  if (switches.length)
+    lines.push("", `BRYTERE (kan slås av med switch_off, men aldri på herfra – det krever kode i appen): ${switches.map((s) => `${s.name} [${s.id}]: ${!s.available ? "svarer ikke" : s.on ? "på" : "av"}`).join(", ")}`);
+  if (more.schedule?.length) {
+    lines.push("", "PLANLAGT (kan avlyses med cancel_schedule):");
+    for (const p of more.schedule) lines.push(`- [${p.id}] ${scheduleWhen(p.runAt, more.now)}: ${p.description}`);
+  }
   const hatch = home.rooms.find((r) => r.hatch)?.hatch;
   const fukter = home.rooms.find((r) => r.humidifier);
   if (fukter?.humidifier) lines.push("", `LUFTFUKTER i ${fukter.name} (bare til info – kan ikke styres herfra): ${fukter.humidifier.text.toLowerCase()}`);

@@ -28,6 +28,7 @@ import { EnergyTab } from "./EnergyTab";
 import { HouseChips } from "./HouseStatus";
 import { HeatTab } from "./HeatTab";
 import { HouseAgent } from "./HouseAgent";
+import { ScheduleList } from "./ScheduleList";
 import { LightsTab } from "./LightsTab";
 import { MapTab } from "./MapTab";
 import { RobotsTab } from "./RobotsTab";
@@ -359,6 +360,7 @@ export function HousePage({
           </div>
 
           {data.ok && <HouseAgent onChanged={() => setTimeout(refresh, SETTLE_MS)} />}
+          {data.ok && <ScheduleList items={data.schedule ?? []} onChanged={refresh} />}
 
           <div className="-mx-3 overflow-x-clip px-3 md:mx-0 md:px-0">
             <div className="chip-row" role="tablist" aria-label="Velg hva du vil styre">

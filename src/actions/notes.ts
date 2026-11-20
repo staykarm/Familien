@@ -104,7 +104,11 @@ export async function saveNote(input: z.input<typeof saveNoteSchema>): Promise<N
     .eq("version", version)
     .select("id, owner_id, title, plain_text, pinned, updated_at, deleted_at, content, version")
     .maybeSingle();
-  if (error) return { ok: false, message: "Kunne ikke lagre notatet" };
+  if (error) {
+    console.error("Kunne ikke lagre notatet", id, error.code, error.message, error.details);
+    // Feilkoden vises i notatet, så vi kan se hva som er galt uten tilgang til loggene.
+    return { ok: false, message: `Kunne ikke lagre notatet (${error.code ?? "ukjent"}: ${error.message})` };
+  }
   if (!data) return { ok: false, conflict: true, message: "Notatet ble endret på en annen skjerm" };
 
   await broadcastChange(NOTES_TOPIC, { id, version: data.version });

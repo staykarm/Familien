@@ -10,6 +10,7 @@ import { groupName, type SpeakerGroup } from "./sonos";
 import type { Energy } from "./energy";
 import type { Safety } from "./safety";
 import type { Watering } from "./watering";
+import { vacationText } from "./vacation";
 
 export interface LightsOff {
   ids: string[];
@@ -54,6 +55,9 @@ export function houseStatus(home: HomeState, robots: Robot[], watering: Watering
 
   if (safety?.alarm) {
     rows.push({ area: "sikkerhet", label: "Alarm", value: safety.alarm.label, alert: safety.alarm.triggered, active: safety.alarm.armed });
+  }
+  if (home.vacation?.on) {
+    rows.push({ area: "sikkerhet", label: "Ferie", value: vacationText(home.vacation), alert: false, active: home.vacation.active });
   }
   if (safety?.smoke.length) {
     const bad = safety.smoke.filter((x) => x.fire || !x.online || x.lowBattery);

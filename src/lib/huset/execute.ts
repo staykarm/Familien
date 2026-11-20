@@ -5,6 +5,7 @@ import { callService, getStates } from "./ha";
 import { robotService } from "./robotControl";
 import { CONTROLLABLE_SWITCHES } from "./rooms";
 import { pinMatches } from "./switchPin";
+import { VACATION_ENTITY } from "./vacation";
 import { toWatering } from "./watering";
 
 // Utfører én handling fra knappene i Huset (og planlagte handlinger). Sjekker at enheten finnes og svarer,
@@ -18,7 +19,7 @@ const WRONG_PIN_DELAY_MS = 1500;
 
 export async function executeHomeCommand(cmd: ParsedHomeCommand): Promise<{ ok: boolean; message?: string }> {
   const states = new Map((await getStates()).map((s) => [s.entity_id, s]));
-  const ids = cmd.action === "lights_off" || cmd.action === "lights_on" ? cmd.ids : [cmd.id];
+  const ids = cmd.action === "lights_off" || cmd.action === "lights_on" ? cmd.ids : cmd.action === "vacation" ? [VACATION_ENTITY] : [cmd.id];
   const known = ids.filter((id) => states.has(id) && states.get(id)!.state !== "unavailable");
   if (!known.length) return { ok: false, message: "Fant ikke enheten, eller den svarer ikke" };
   const entity_id = known[0];
@@ -87,6 +88,9 @@ export async function executeHomeCommand(cmd: ParsedHomeCommand): Promise<{ ok: 
         }
       }
       await callService("switch", cmd.on ? "turn_on" : "turn_off", { entity_id });
+      break;
+    case "vacation":
+      await callService("input_boolean", cmd.on ? "turn_on" : "turn_off", { entity_id: VACATION_ENTITY });
       break;
     case "robot": {
       const service = robotService(entity_id, cmd.command);

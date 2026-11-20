@@ -148,6 +148,7 @@ export function describeHome(
   const switches = home.rooms.flatMap((r) => r.switches ?? []);
   if (switches.length)
     lines.push("", `BRYTERE (kan slås av med switch_off, men aldri på herfra – det krever kode i appen): ${switches.map((s) => `${s.name} [${s.id}]: ${!s.available ? "svarer ikke" : s.on ? "på" : "av"}`).join(", ")}`);
+  if (home.vacation) lines.push("", `FERIE (bare til info, slås av og på i Huset → Sikkerhet): ${home.vacation.on ? (home.vacation.active ? "på, og alarmen står på" : "på, venter på at alarmen slås på") : "av"}`);
   if (more.schedule?.length) {
     lines.push("", "PLANLAGT (kan avlyses med cancel_schedule):");
     for (const p of more.schedule) lines.push(`- [${p.id}] ${scheduleWhen(p.runAt, more.now)}: ${p.description}`);

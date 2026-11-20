@@ -417,7 +417,7 @@ export function HousePage({
       {data.ok && tab === "roboter" && <RobotsTab robots={data.robots} run={runHome} onSeason={(inUse) => changeSeason({ ...data.season, mowers: inUse })} />}
       {data.ok && tab === "maskiner" && <AppliancesTab appliances={data.home.appliances ?? []} />}
       {data.ok && tab === "strom" && <EnergyTab energy={data.energy} />}
-      {data.ok && tab === "sikkerhet" && <SafetyTab safety={data.safety} />}
+      {data.ok && tab === "sikkerhet" && <SafetyTab safety={data.safety} vacation={data.home.vacation} run={runHome} />}
       {data.ok && tab === "vanning" && <WateringTab watering={data.watering} outdoorTemp={data.home.outdoorTemp} run={runHome} onSeason={(inUse) => changeSeason({ ...data.season, watering: inUse })} />}
 
       {data.ok && tab === "musikk" && (

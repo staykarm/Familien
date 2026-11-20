@@ -81,3 +81,16 @@ describe("describeHome", () => {
     expect(text).toContain("FASTE GRUPPER: 1. etasje [p1]");
   });
 });
+
+describe("describeHome med brytere og planer", () => {
+  it("viser at bryterne kan slås av, og det som er planlagt", () => {
+    const withSwitch: HomeState = { ...home, rooms: [...home.rooms, { ...room("ute", null, [], true), switches: [{ id: "switch.varmekabler_trapp_ute", name: "Varmekabler i trappa", on: true, available: true }] }] };
+    const text = describeHome(withSwitch, [], [], [], { valves: [], sensors: [] }, {
+      now: new Date("2026-11-13T06:12:00Z"),
+      schedule: [{ id: "abc", runAt: "2026-11-13T09:00:00Z", description: "Slå av Varmekabler i trappa" }],
+    });
+    expect(text).toContain("Varmekabler i trappa [switch.varmekabler_trapp_ute]: på");
+    expect(text).toContain("aldri på herfra");
+    expect(text).toContain("- [abc] kl. 10:00: Slå av Varmekabler i trappa");
+  });
+});

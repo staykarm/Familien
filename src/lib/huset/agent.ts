@@ -25,6 +25,11 @@ import { applySeason } from "./season";
 import { loadSeason } from "./seasonDb";
 import { DEFAULT_MINUTES, toWatering, type Watering } from "./watering";
 import { searchSpotify, spotifyConfigured } from "./spotify";
+import { CONTROLLABLE_SWITCHES } from "./rooms";
+import { osloNow, parseOsloTime, scheduleWhen } from "./schedule";
+import { addSchedule, cancelSchedule, pendingSchedule } from "./scheduleDb";
+import type { ParsedHomeCommand } from "./execute";
+import { homeCommandSchema } from "@/lib/validation/huset";
 import { membersToRemove, pickLeader, toGroups, toSpeakers, withJoined, withUnjoined, type Speaker } from "./sonos";
 
 // «Spør huset»: Claude tolker en beskjed («skru av lyset i stua») og bruker verktøyene under.
@@ -65,6 +70,8 @@ Slik tolker du beskjeder:
 - Når du starter musikk, gjør det i ett kall: ta med volume i samme kall hvis volum er nevnt (det settes før musikken starter). Rommet tas automatisk ut av en gruppe med andre rom, så du trenger ikke group_speakers først.
 - Gjør bare det som er bedt om. Er beskjeden uklar eller finnes ikke rommet/enheten, spør kort eller si fra, i stedet for å gjette.
 - Du kan ikke styre dører, låser, alarmer eller noe som ikke står i oversikten.
+- BRYTERE (varmekablene): du kan slå dem AV med switch_off, nå eller planlagt. Du kan aldri slå dem på; si at det gjøres med koden i appen (Huset → Varme).
+- Tid: «klokka 10», «om en time», «i kveld kl. 22» osv. betyr at noe skal skje senere. Bruk da schedule_action med tidspunktet i Oslo-tid (åååå-mm-ddTtt:mm), regnet fra «Nå» i beskjeden. Uten dag gjelder i dag, eller i morgen hvis tiden har vært. Det utføres innen 5 minutter etter tidspunktet. Si når det skjer: «Varmekablene skrus av kl. 10:00.» Avlys med cancel_schedule.
 - STRØM, ELBILER, MASKINER og SIKKERHET i oversikten er bare til info: svar på spørsmål om strømpris, når strømmen er billigst, forbruk, batteri på bilene, når vasken eller oppvasken er ferdig og om alarmen er på. Foreslå gjerne de billigste timene for å starte en maskin. Maskinene kan du ikke starte eller stoppe, og alarmen og røykvarslerne kan du aldri styre; si at det gjøres i Miele- eller Homely-appen.
 - Får du med «FAMILIEN» (kalender, levering og henting, oppgaver, handleliste), kan du svare på spørsmål om det («hva skjer i morgen?», «hvem henter Olav?»). Du kan ikke endre det; si fra at det gjøres i appen.
 
@@ -198,6 +205,45 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "switch_off",
+    description: "Slå AV brytere fra oversikten (BRYTERE, f.eks. varmekablene) med en gang. Kan aldri slå på.",
+    input_schema: {
+      type: "object",
+      properties: { switches: { type: "array", items: { type: "string" }, description: "Bryter-id-er (switch.*)" } },
+      required: ["switches"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "schedule_action",
+    description:
+      "Planlegg noe som skal skje senere (innen en uke): slå av lys, slå på lys, slå av brytere (varmekabler), sette temperatur eller kjøre persienner opp/ned. Utføres innen 5 minutter etter tidspunktet.",
+    input_schema: {
+      type: "object",
+      properties: {
+        at: { type: "string", description: "Tidspunkt i Oslo-tid, åååå-mm-ddTtt:mm, f.eks. 2026-11-13T10:00" },
+        action: { enum: ["lights_off", "lights_on", "switch_off", "set_temperature", "covers"] },
+        target: { ...targetSchema, description: "Rom, etasjer eller enheter (for lys, varme og persienner)" },
+        switches: { type: "array", items: { type: "string" }, description: "Bryter-id-er (for switch_off)" },
+        brightness: { type: "integer", minimum: 1, maximum: 100, description: "Lysstyrke for lights_on" },
+        temperature: { type: "number", minimum: 5, maximum: 30, description: "Grader for set_temperature" },
+        cover: { enum: ["open", "close"], description: "Opp eller ned for covers" },
+      },
+      required: ["at", "action"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "cancel_schedule",
+    description: "Avlys noe som er planlagt (id fra PLANLAGT i oversikten).",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "string" } },
+      required: ["id"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "start_house_group",
     description: "Start en av de faste gruppene (kobler rommene og setter eventuelt musikk og volum).",
     input_schema: {
@@ -241,7 +287,59 @@ const inputs = {
   start_house_group: z.object({ id: z.string() }),
   control_watering: z.object({ valves: z.array(z.string()).min(1).max(20), command: z.enum(["start", "stop"]), minutes: z.number().int().min(1).max(240).optional() }),
   control_robot: z.object({ robots: z.array(z.string()).min(1).max(10), command: z.enum(["start", "pause", "home", "locate"]) }),
+  switch_off: z.object({ switches: z.array(z.string()).min(1).max(10) }),
+  schedule_action: z.object({
+    at: z.string().max(40),
+    action: z.enum(["lights_off", "lights_on", "switch_off", "set_temperature", "covers"]),
+    target: target.optional(),
+    switches: z.array(z.string()).max(10).optional(),
+    brightness: z.number().int().min(1).max(100).optional(),
+    temperature: z.number().min(5).max(30).optional(),
+    cover: z.enum(["open", "close"]).optional(),
+  }),
+  cancel_schedule: z.object({ id: z.uuid() }),
 };
+
+/** Brytere fra beskjeden som finnes i huset og kan styres. */
+function knownSwitches(home: HomeState, ids: string[]) {
+  return home.rooms.flatMap((r) => r.switches ?? []).filter((s) => ids.includes(s.id) && CONTROLLABLE_SWITCHES.has(s.id));
+}
+
+/** Gjør en planlagt beskjed om til handlinger med faste enheter, og en kort tekst («Slå av 4 lys i Stue»). */
+function planCommands(home: HomeState, p: z.infer<typeof inputs.schedule_action>): { commands: ParsedHomeCommand[]; description: string } | string {
+  const where = p.target ? roomNames(home, p.target) : "";
+  const parse = (c: unknown) => homeCommandSchema.parse(c);
+  switch (p.action) {
+    case "lights_off":
+    case "lights_on": {
+      const ids = p.target ? targetLights(home, p.target).map((l) => l.id) : [];
+      if (!ids.length) return "Fant ingen lys som passer.";
+      const on = p.action === "lights_on";
+      return {
+        commands: [parse({ action: p.action, ids, ...(on && p.brightness ? { brightness: p.brightness } : {}) })],
+        description: `${on ? "Slå på" : "Slå av"} ${ids.length} lys${on && p.brightness ? ` (${p.brightness} %)` : ""}${where ? ` i ${where}` : ""}`,
+      };
+    }
+    case "switch_off": {
+      const list = knownSwitches(home, p.switches ?? []);
+      if (!list.length) return "Fant ingen brytere som passer.";
+      return { commands: list.map((s) => parse({ action: "switch", id: s.id, on: false })), description: `Slå av ${list.map((s) => s.name).join(", ")}` };
+    }
+    case "set_temperature": {
+      if (p.temperature === undefined) return "Si hvilken temperatur.";
+      const climates = p.target ? targetClimates(home, p.target) : [];
+      if (!climates.length) return "Fant ingen termostater som passer.";
+      const temperature = Math.round(p.temperature * 2) / 2;
+      return { commands: climates.map((c) => parse({ action: "climate", id: c.id, temperature })), description: `Sett varmen til ${temperature}°${where ? ` i ${where}` : ""}` };
+    }
+    case "covers": {
+      if (!p.cover) return "Si om persiennene skal opp eller ned.";
+      const covers = p.target ? targetCovers(home, p.target) : [];
+      if (!covers.length) return "Fant ingen persienner som passer.";
+      return { commands: covers.map((c) => parse({ action: "cover", id: c.id, command: p.cover })), description: `Persiennene ${p.cover === "open" ? "opp" : "ned"}${where ? ` i ${where}` : ""}` };
+    }
+  }
+}
 
 interface Context {
   home: HomeState;
@@ -258,6 +356,30 @@ const roomNames = (home: HomeState, t: Target) =>
 
 async function runTool(name: string, raw: unknown, ctx: Context): Promise<string> {
   switch (name) {
+    case "switch_off": {
+      const p = inputs.switch_off.parse(raw);
+      const list = knownSwitches(ctx.home, p.switches);
+      if (!list.length) return "Fant ingen brytere som passer.";
+      await callService("switch", "turn_off", { entity_id: list.map((s) => s.id) });
+      ctx.actions.push(`Slo av ${list.map((s) => s.name).join(", ")}`);
+      return "Slått av.";
+    }
+    case "schedule_action": {
+      const p = inputs.schedule_action.parse(raw);
+      const runAt = parseOsloTime(p.at);
+      if (!runAt) return "Ugyldig tidspunkt (må være fram i tid og innen en uke, åååå-mm-ddTtt:mm).";
+      const plan = planCommands(ctx.home, p);
+      if (typeof plan === "string") return plan;
+      const item = await addSchedule(runAt, plan.commands, plan.description);
+      ctx.actions.push(`Planla ${scheduleWhen(item.runAt)}: ${item.description}`);
+      return `Planlagt ${scheduleWhen(item.runAt)}: ${item.description}.`;
+    }
+    case "cancel_schedule": {
+      const p = inputs.cancel_schedule.parse(raw);
+      if (!(await cancelSchedule(p.id))) return "Fant ikke planen (kanskje den allerede er utført).";
+      ctx.actions.push("Avlyste en plan");
+      return "Avlyst.";
+    }
     case "set_lights": {
       const p = inputs.set_lights.parse(raw);
       const lights = targetLights(ctx.home, p.target, p.only_lit ?? false);
@@ -500,15 +622,15 @@ function speakerUndo(ctx: Context, id: string): UndoItem {
  * `history` er tidligere beskjeder og svar (bare tekst), så man kan følge opp («og på kjøkkenet også»).
  */
 export async function askHouse(history: AgentTurn[], text: string, presets: Context["presets"], family?: string): Promise<AgentResult> {
-  const [states, season] = await Promise.all([getStates(), loadSeason()]);
+  const [states, season, schedule] = await Promise.all([getStates(), loadSeason(), pendingSchedule()]);
   const ctx: Context = { home: toHome(states), speakers: toSpeakers(states), ...applySeason(toRobots(states), toWatering(states), season), presets, actions: [], undo: [] };
   const prices = await loadPriceHours().catch(() => []);
-  const overview = describeHome(ctx.home, ctx.speakers, presets, ctx.robots, ctx.watering, { energy: toEnergy(states), safety: toSafety(states), prices });
+  const overview = describeHome(ctx.home, ctx.speakers, presets, ctx.robots, ctx.watering, { energy: toEnergy(states), safety: toSafety(states), prices, schedule });
 
   const client = new Anthropic({ apiKey: serverEnv("ANTHROPIC_API_KEY") });
   const messages: Anthropic.MessageParam[] = [
     ...history.map((t) => ({ role: t.role, content: t.text })),
-    { role: "user", content: `Slik er huset nå:\n${overview}${family ? `\n\nFAMILIEN:\n${family}` : ""}\n\nBeskjed: ${text}` },
+    { role: "user", content: `Nå: ${osloNow()} (Oslo)\n\nSlik er huset nå:\n${overview}${family ? `\n\nFAMILIEN:\n${family}` : ""}\n\nBeskjed: ${text}` },
   ];
 
   let reply = "";

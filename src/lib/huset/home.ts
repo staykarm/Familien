@@ -5,6 +5,7 @@ import { toAir, type AirSensor } from "./air";
 import { toAppliances, type Appliance } from "./appliances";
 import { toHatch, type Hatch } from "./hatch";
 import { toHumidifier, type Humidifier } from "./humidifier";
+import { toVacation, type Vacation } from "./vacation";
 import { toWatering, type Valve } from "./watering";
 import { OUTDOOR_SCENE_PREFIXES, OUTDOOR_TEMP, ROOMS, SHARED_COVERS, type RoomConfig } from "./rooms";
 
@@ -99,6 +100,8 @@ export interface HomeState {
   appliances?: Appliance[];
   sharedCovers: Cover[];
   outdoorTemp: number | null;
+  /** Ferie (lys som om noen er hjemme), hvis Home Assistant har bryteren. */
+  vacation?: Vacation;
 }
 
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
@@ -252,6 +255,7 @@ export function toHome(states: StateLike[], rooms: RoomConfig[] = ROOMS): HomeSt
       return s ? [toCover(s, x.name)] : [];
     }),
     outdoorTemp: numState(byId.get(OUTDOOR_TEMP)),
+    ...(toVacation(states) ? { vacation: toVacation(states)! } : {}),
     ...(air.length ? { air } : {}),
     ...(appliances.length ? { appliances } : {}),
   };

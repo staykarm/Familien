@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlarmSmoke, Blinds, Bot, Car, Droplet, Droplets, Lightbulb, Music, PanelTop, ShieldCheck, Thermometer, WashingMachine, Wind, type LucideIcon } from "lucide-react";
+import { AlarmSmoke, Blinds, Bot, Car, Droplet, Droplets, Lightbulb, Music, PanelTop, ShieldCheck, Thermometer, TreePalm, WashingMachine, Wind, type LucideIcon } from "lucide-react";
 import type { PlayingNow, StatusArea, StatusRow } from "@/lib/huset/dashboard";
 import { kr, watt, type Energy } from "@/lib/huset/energy";
 import type { Safety } from "@/lib/huset/safety";
@@ -13,6 +13,7 @@ import { LEVEL_COLOR, LEVEL_TEXT } from "./EnergyTab";
 /** Ikonet for hver linje. Bare to farger: blått når noe er i gang, rødt når noe er galt. */
 const ICONS: Record<string, LucideIcon> = {
   Alarm: ShieldCheck,
+  Ferie: TreePalm,
   Røykvarslere: AlarmSmoke,
   Lys: Lightbulb,
   Varme: Thermometer,
@@ -29,6 +30,7 @@ const ICONS: Record<string, LucideIcon> = {
 /** Fargen ikonet får på det fargerike dashboardet (`.dash-farge` i globals.css); ellers grått/blått/rødt som over. */
 const HUES: Record<string, string> = {
   Alarm: "himmel",
+  Ferie: "mint",
   Røykvarslere: "rosa",
   Lys: "sol",
   Varme: "fersken",

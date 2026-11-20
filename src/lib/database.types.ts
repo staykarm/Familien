@@ -288,6 +288,28 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["house_groups"]["Insert"]>;
         Relationships: [];
       };
+      house_schedule: {
+        Row: {
+          id: string;
+          run_at: string;
+          commands: Json;
+          description: string;
+          created_at: string;
+          done_at: string | null;
+          result: string | null;
+        };
+        Insert: {
+          id?: string;
+          run_at: string;
+          commands: Json;
+          description: string;
+          created_at?: string;
+          done_at?: string | null;
+          result?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["house_schedule"]["Insert"]>;
+        Relationships: [];
+      };
       shopping_category_memory: {
         Row: { name_key: string; category_id: string; source: "user" | "ai"; updated_at: string };
         Insert: { name_key: string; category_id: string; source?: "user" | "ai"; updated_at?: string };

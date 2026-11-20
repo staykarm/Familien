@@ -28,6 +28,7 @@ import { EnergyTab } from "./EnergyTab";
 import { HouseChips } from "./HouseStatus";
 import { HeatTab } from "./HeatTab";
 import { HouseAgent } from "./HouseAgent";
+import { ScheduleList } from "./ScheduleList";
 import { LightsTab } from "./LightsTab";
 import { MapTab } from "./MapTab";
 import { RobotsTab } from "./RobotsTab";
@@ -359,6 +360,7 @@ export function HousePage({
           </div>
 
           {data.ok && <HouseAgent onChanged={() => setTimeout(refresh, SETTLE_MS)} />}
+          {data.ok && <ScheduleList items={data.schedule ?? []} onChanged={refresh} />}
 
           <div className="-mx-3 overflow-x-clip px-3 md:mx-0 md:px-0">
             <div className="chip-row" role="tablist" aria-label="Velg hva du vil styre">
@@ -415,7 +417,7 @@ export function HousePage({
       {data.ok && tab === "roboter" && <RobotsTab robots={data.robots} run={runHome} onSeason={(inUse) => changeSeason({ ...data.season, mowers: inUse })} />}
       {data.ok && tab === "maskiner" && <AppliancesTab appliances={data.home.appliances ?? []} />}
       {data.ok && tab === "strom" && <EnergyTab energy={data.energy} />}
-      {data.ok && tab === "sikkerhet" && <SafetyTab safety={data.safety} />}
+      {data.ok && tab === "sikkerhet" && <SafetyTab safety={data.safety} vacation={data.home.vacation} run={runHome} />}
       {data.ok && tab === "vanning" && <WateringTab watering={data.watering} outdoorTemp={data.home.outdoorTemp} run={runHome} onSeason={(inUse) => changeSeason({ ...data.season, watering: inUse })} />}
 
       {data.ok && tab === "musikk" && (

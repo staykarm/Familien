@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Backpack, CalendarDays, FileUp, House, ListChecks, NotebookPen, Settings, ShoppingBasket, Sun, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { VoiceButton } from "@/components/voice/VoiceButton";
+import { LockGuard } from "@/components/lock/LockGuard";
 
 const NAV = [
   { href: "/i-dag", label: "I dag", icon: Sun },
@@ -39,6 +40,7 @@ export function AppShell({ children, me }: { children: ReactNode; me: ReactNode 
 
   return (
     <div className="flex min-h-dvh flex-1">
+      <LockGuard />
       <aside className="sticky top-0 hidden h-dvh w-20 shrink-0 flex-col items-center gap-1 border-r-2 border-line bg-card-soft px-2 py-3 md:flex lg:w-60 lg:items-stretch lg:p-4">
         <div className="mb-3 flex flex-col items-center gap-2 lg:flex-row lg:justify-between lg:px-2">
           <span className="font-display text-lg font-bold text-primary-dark lg:text-2xl">

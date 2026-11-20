@@ -8,6 +8,7 @@ import TaskItem from "@tiptap/extension-task-item";
 import { Placeholder } from "@tiptap/extensions";
 import { Bold, CheckSquare, Heading, Italic, List, ListOrdered, Redo2, Undo2 } from "lucide-react";
 import { saveNote } from "@/actions/notes";
+import { redirectIfLocked } from "@/lib/lock/client";
 import type { NoteFull } from "@/lib/notes/types";
 import type { DocNode } from "@/lib/notes/text";
 
@@ -77,6 +78,9 @@ export function NoteEditor({ note, onSaved, onReload, readOnly }: Props) {
     try {
       res = await saveNote({ id: note.id, version: versionRef.current, content: content as { type: "doc" } });
     } catch {
+      // Oftest er opplåsingen gått ut (appen sto lenge åpen). Teksten ligger i sikkerhetskopien på enheten,
+      // så vi kan trygt sende til kodeskjermen; notatet lagres når det åpnes igjen.
+      if (await redirectIfLocked()) return;
       res = { ok: false };
     }
     saving.current = false;
@@ -195,7 +199,7 @@ export function NoteEditor({ note, onSaved, onReload, readOnly }: Props) {
       {state === "stuck" && (
         <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-sun p-3 font-semibold">
           Får ikke lagret notatet. Endringene er tatt vare på på denne enheten.
-          <button className="rounded-xl bg-card px-3 py-2 font-bold" onClick={() => window.location.reload()}>
+          <button className="rounded-xl bg-card px-3 py-2 font-bold" onClick={() => void redirectIfLocked().then((sent) => sent || window.location.reload())}>
             Last inn på nytt
           </button>
         </div>

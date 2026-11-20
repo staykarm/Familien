@@ -71,6 +71,8 @@ export const homeCommandSchema = z.discriminatedUnion("action", [
     /** Koden som må til for å slå på (HOUSE_SWITCH_PIN). Ikke nødvendig for å slå av. */
     pin: z.string().regex(/^\d{4,8}$/, "Koden er 4–8 sifre").optional(),
   }),
+  /** Ferie (input_boolean.ferie i Home Assistant): lys som om noen er hjemme mens alarmen er på. */
+  z.object({ action: z.literal("vacation"), on: z.boolean() }),
   /** Vanning: åpne en ventil (eventuelt med vanningstid i minutter), eller stenge den. */
   z.object({
     action: z.literal("valve"),

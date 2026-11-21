@@ -78,7 +78,10 @@ export function NoteEditor({ note, onSaved, onReload, readOnly }: Props) {
     // slippe «lagrer» og prøve igjen – ellers står notatet fast på «Lagrer …» for alltid.
     let res: Awaited<ReturnType<typeof saveNote>>;
     try {
-      res = await saveNote({ id: note.id, version: versionRef.current, content: content as { type: "doc" } });
+      // Tiptap lager noen objekter (f.eks. attrs på sjekklistepunkter) som ikke er vanlige objekter. Dem pakker React
+      // som en midlertidig referanse («$T»), og serveren svarer med 500. En JSON-kopi gjør alt til vanlige data.
+      const plain = JSON.parse(JSON.stringify(content)) as { type: "doc" };
+      res = await saveNote({ id: note.id, version: versionRef.current, content: plain });
     } catch (e) {
       setLastError(e instanceof Error ? e.message.slice(0, 200) : "Ukjent feil");
       // Oftest er opplåsingen gått ut (appen sto lenge åpen). Teksten ligger i sikkerhetskopien på enheten,

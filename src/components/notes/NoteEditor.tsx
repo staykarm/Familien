@@ -63,6 +63,8 @@ export function NoteEditor({ note, onSaved, onReload, readOnly }: Props) {
   const saving = useRef(false);
   const pendingDoc = useRef<DocNode | null>(null);
   const failures = useRef(0);
+  // Siste feilmelding fra lagringen, vist i det gule feltet så feilen kan meldes videre.
+  const [lastError, setLastError] = useState<string | null>(null);
   // flush planlegger seg selv på nytt (mer tekst under lagring, eller ny prøve etter nettfeil), via en ref.
   const flushRef = useRef<() => Promise<void>>(async () => {});
 
@@ -76,8 +78,12 @@ export function NoteEditor({ note, onSaved, onReload, readOnly }: Props) {
     // slippe «lagrer» og prøve igjen – ellers står notatet fast på «Lagrer …» for alltid.
     let res: Awaited<ReturnType<typeof saveNote>>;
     try {
-      res = await saveNote({ id: note.id, version: versionRef.current, content: content as { type: "doc" } });
-    } catch {
+      // Tiptap lager noen objekter (f.eks. attrs på sjekklistepunkter) som ikke er vanlige objekter. Dem pakker React
+      // som en midlertidig referanse («$T»), og serveren svarer med 500. En JSON-kopi gjør alt til vanlige data.
+      const plain = JSON.parse(JSON.stringify(content)) as { type: "doc" };
+      res = await saveNote({ id: note.id, version: versionRef.current, content: plain });
+    } catch (e) {
+      setLastError(e instanceof Error ? e.message.slice(0, 200) : "Ukjent feil");
       // Oftest er opplåsingen gått ut (appen sto lenge åpen). Teksten ligger i sikkerhetskopien på enheten,
       // så vi kan trygt sende til kodeskjermen; notatet lagres når det åpnes igjen.
       if (await redirectIfLocked()) return;
@@ -86,6 +92,7 @@ export function NoteEditor({ note, onSaved, onReload, readOnly }: Props) {
     saving.current = false;
     if (res.ok && res.note) {
       failures.current = 0;
+      setLastError(null);
       versionRef.current = res.note.version;
       onSaved(res.note);
       // Skrev brukeren mer mens vi lagret? Lagre igjen.
@@ -97,6 +104,7 @@ export function NoteEditor({ note, onSaved, onReload, readOnly }: Props) {
     } else if (res.conflict) {
       setState("conflict");
     } else {
+      if (res.message) setLastError(res.message);
       // Nettfeil o.l.: behold teksten og prøv igjen om litt (sjeldnere etter hvert).
       if (!pendingDoc.current) pendingDoc.current = content;
       failures.current++;
@@ -199,6 +207,7 @@ export function NoteEditor({ note, onSaved, onReload, readOnly }: Props) {
       {state === "stuck" && (
         <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-sun p-3 font-semibold">
           Får ikke lagret notatet. Endringene er tatt vare på på denne enheten.
+          {lastError && <span className="block w-full text-xs font-normal wrap-break-word">Feil: {lastError}</span>}
           <button className="rounded-xl bg-card px-3 py-2 font-bold" onClick={() => void redirectIfLocked().then((sent) => sent || window.location.reload())}>
             Last inn på nytt
           </button>

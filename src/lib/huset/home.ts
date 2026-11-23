@@ -143,10 +143,13 @@ function toCover(s: StateLike, name: string): Cover {
  * «Stue Lyst» → «Lyst». Hue gir navnet på scenen i `name`; ellers fjernes gruppenavnet foran.
  * I rom med flere Hue-grupper (ute) står gruppen foran: «Snuplassen: høst».
  */
-function sceneName(s: StateLike, withGroup: boolean): string {
+function sceneName(s: StateLike, withGroup: boolean, prefix = ""): string {
   const friendly = typeof s.attributes.friendly_name === "string" ? s.attributes.friendly_name : s.entity_id;
   const group = typeof s.attributes.group_name === "string" ? s.attributes.group_name : "";
-  const strip = (t: string) => (group && t.toLowerCase().startsWith(group.toLowerCase() + " ") ? t.slice(group.length + 1) : t);
+  // Scener laget i Home Assistant (f.eks. julescenene i home-assistant-config) heter «Terrasse terrasse Jul glitter»
+  // og har ingen group_name: da tas ordene fra id-prefikset bort («terrasse_terrasse» → «Jul glitter»).
+  const lead = group ? group + " " : prefix ? prefix.replace(/_/g, " ") + " " : "";
+  const strip = (t: string) => (lead && t.toLowerCase().startsWith(lead.toLowerCase()) ? t.slice(lead.length) : t);
   // Hue kaller noen scener «Taket Kveld» i gruppen «Taket»; gruppenavnet tas bort.
   const own = strip(typeof s.attributes.name === "string" ? s.attributes.name : friendly);
   const name = own.charAt(0).toUpperCase() + own.slice(1);
@@ -158,7 +161,7 @@ function scenesFor(room: RoomConfig, states: StateLike[]): Scene[] {
   const seen = new Set<string>();
   return states
     .filter((s) => s.entity_id.startsWith("scene.") && prefixes.some((p) => s.entity_id.startsWith(`scene.${p}_`)))
-    .map((s) => ({ id: s.entity_id, name: sceneName(s, prefixes.length > 1) }))
+    .map((s) => ({ id: s.entity_id, name: sceneName(s, prefixes.length > 1, prefixes.find((p) => s.entity_id.startsWith(`scene.${p}_`))) }))
     .filter((s) => (seen.has(s.name.toLowerCase()) ? false : (seen.add(s.name.toLowerCase()), true)))
     .sort((a, b) => a.name.localeCompare(b.name, "nb"));
 }

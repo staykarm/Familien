@@ -59,6 +59,14 @@ describe("toHome", () => {
     expect(home.rooms[1].scenes.map((x) => x.name)).toEqual(["Skog Sør: Kveld", "Snuplassen: Kveld"]);
   });
 
+  it("gir scener laget i Home Assistant pene navn («Terrasse terrasse Jul glitter» → «Jul glitter»)", () => {
+    const own = toHome(
+      [s("scene.stue_stue_jul_glitter", "unknown", { friendly_name: "Stue stue Jul glitter" }), s("scene.stue_stue_lyst", "unknown", { name: "Lyst", group_name: "Stue" })],
+      rooms
+    );
+    expect(own.rooms[0].scenes.map((x) => x.name)).toEqual(["Jul glitter", "Lyst"]);
+  });
+
   it("legger ukjente lys i «Andre lys», men ikke Hue-grupper, lys i en gruppe i kartet eller lys som ikke svarer", () => {
     const andre = home.rooms.find((r) => r.id === "andre");
     expect(andre?.lights.map((x) => x.name)).toEqual(["Garasje"]);
